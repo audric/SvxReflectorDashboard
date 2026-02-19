@@ -1,0 +1,388 @@
+!!!
+%html{lang: "en", "data-bs-theme" => "dark"}
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title SVXReflector · Stats
+    %link{rel: "stylesheet", href: "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"}
+    %link{rel: "stylesheet", href: "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"}
+    :css
+      body { background: #0d1117; }
+
+      .stat-card          { border: 1px solid #30363d; }
+      .stat-card .card-body { padding: 1.1rem 1.25rem; }
+
+      .section-label {
+        font-size: .72rem; text-transform: uppercase;
+        letter-spacing: .07em; color: #6e7681; font-weight: 600;
+        margin-bottom: .75rem;
+      }
+
+      /* Period filter pills */
+      .period-pill {
+        font-size: .78rem; padding: .3rem .85rem;
+        border-radius: 2em; border: 1px solid #30363d;
+        color: #8b949e; background: transparent; cursor: pointer;
+        text-decoration: none; transition: background .15s, color .15s, border-color .15s;
+      }
+      .period-pill:hover { background: #21262d; color: #c9d1d9; border-color: #6e7681; }
+      .period-pill.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+
+      /* Ranking bars */
+      .rank-bar-wrap { height: 5px; background: #21262d; border-radius: 3px; }
+      .rank-bar-fill { height: 100%; border-radius: 3px; min-width: 2px; }
+
+      /* Signal bars */
+      .sig-bar-wrap { height: 5px; background: #21262d; border-radius: 3px; min-width: 60px; }
+      .sig-bar-fill { height: 100%; border-radius: 3px; min-width: 2px; }
+
+      .nodes-table th { font-size: .73rem; text-transform: uppercase; letter-spacing: .05em; color: #6e7681; border-color: #21262d; }
+      .nodes-table td { font-size: .82rem; border-color: #21262d; vertical-align: middle; }
+      .nodes-table tbody tr:hover { background: #161b22; }
+
+      .tg-badge {
+        font-size: .72rem; padding: .15em .55em;
+        background: #21262d; border: 1px solid #30363d;
+        border-radius: 2em; color: #8b949e; font-family: monospace;
+      }
+      .tg-badge.active { background: #1f3a5f; border-color: #1f6feb; color: #79c0ff; }
+
+      .cls-pill {
+        font-size: .7rem; padding: .15em .6em;
+        background: #161b22; border: 1px solid #30363d;
+        border-radius: .2em; color: #8b949e;
+        text-transform: capitalize; font-family: monospace;
+      }
+
+      .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+      .dot-talking { background: #3fb950; box-shadow: 0 0 6px rgba(63,185,80,.5); }
+      .dot-active  { background: #1f6feb; }
+      .dot-idle    { background: #6e7681; }
+
+      .tg-row { border-color: #21262d !important; }
+      .tg-row:hover { background: #161b22 !important; }
+
+      .cls-progress-wrap { height: 6px; background: #21262d; border-radius: 3px; overflow: hidden; }
+      .cls-progress-fill { height: 100%; border-radius: 3px; }
+
+      .event-row { font-size: .8rem; border-color: #21262d !important; }
+      .event-row:hover { background: #161b22 !important; }
+
+      .divider-label {
+        font-size: .7rem; text-transform: uppercase; letter-spacing: .08em;
+        color: #6e7681; font-weight: 600;
+        display: flex; align-items: center; gap: .75rem;
+      }
+      .divider-label::before, .divider-label::after {
+        content: ''; flex: 1; height: 1px; background: #21262d;
+      }
+
+      .event-type-badge {
+        font-size: .67rem; padding: .1em .55em;
+        border-radius: .25em; font-family: monospace; font-weight: 600;
+      }
+  %body
+
+    = render 'shared/navbar', active: 'stats'
+
+    .container-fluid.px-3.px-md-4
+
+      -# ── Fetch error ──────────────────────────────────────────────────────
+      - if @fetch_error
+        .alert.alert-warning.d-flex.align-items-center.mb-4{role: "alert"}
+          %i.bi.bi-exclamation-triangle-fill.me-2.flex-shrink-0
+          Could not load status from
+          %code.mx-1= @status_url
+          = ": #{@fetch_error}"
+
+      -# ════════════════════════════════════════════════════════════════════
+      -# LIVE STATUS
+      -# ════════════════════════════════════════════════════════════════════
+
+      .divider-label.mb-4
+        %i.bi.bi-circle-fill.text-success{style: "font-size:.45rem;vertical-align:middle"}
+        Live Status
+
+      -# Summary cards
+      - summary = []
+      - summary << {icon: 'bi-diagram-3',   color: 'text-light',    label: 'Total Nodes',    val: @total}
+      - summary << {icon: 'bi-wifi',        color: 'text-primary',   label: 'Active (in TG)', val: @active}
+      - summary << {icon: 'bi-mic-fill',    color: 'text-success',   label: 'Talking',        val: @talking}
+      - summary << {icon: 'bi-moon-stars',  color: 'text-secondary', label: 'Idle',           val: @idle}
+      - summary << {icon: 'bi-collection',  color: 'text-warning',   label: 'TGs Active',     val: @active_tgs.size}
+      .row.g-3.mb-4
+        - summary.each do |s|
+          .col-6.col-md-4.col-lg-2{style: "min-width:140px"}
+            .card.stat-card.h-100
+              .card-body.text-center.py-3
+                .display-6.fw-bold{class: s[:color]}= s[:val]
+                .text-secondary.small.mt-1
+                  %i.bi{class: s[:icon]}
+                  = s[:label]
+
+      .row.g-4.mb-5
+
+        -# Node class breakdown
+        .col-12.col-md-4
+          .card.border-secondary-subtle.h-100
+            .card-body
+              .section-label
+                %i.bi.bi-pie-chart.me-1
+                Node Types
+              - if @by_class.any?
+                - @by_class.each do |cls, count|
+                  - pct     = @total > 0 ? (count.to_f / @total * 100).round : 0
+                  - cls_col  = { 'repeater' => 'primary', 'bridge' => 'warning', 'simplex' => 'success' }.fetch(cls, 'secondary')
+                  - cls_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'simplex' => 'bi-broadcast' }.fetch(cls, 'bi-broadcast')
+                  .mb-3
+                    .d-flex.justify-content-between.align-items-center.mb-1
+                      %span.text-secondary.small.text-capitalize
+                        %i.bi.me-1{class: "#{cls_icon} text-#{cls_col}"}
+                        = cls
+                      %span.text-light.fw-semibold.small
+                        = count
+                        %span.text-secondary.fw-normal= "(#{pct}%)"
+                    .cls-progress-wrap
+                      .cls-progress-fill{class: "bg-#{cls_col}", style: "width:#{pct}%"}
+              - else
+                %p.text-secondary.small.mb-0 No nodes connected.
+
+        -# Active talkgroups
+        .col-12.col-md-4
+          .card.border-secondary-subtle.h-100
+            .card-body
+              .section-label
+                %i.bi.bi-collection.me-1
+                Active Talkgroups
+              - if @active_tgs.any?
+                .list-group.list-group-flush{style: "border-radius:.375rem;overflow:hidden"}
+                  - @active_tgs.each do |tg, callsigns|
+                    .list-group-item.tg-row.bg-transparent.px-2.py-2
+                      .d-flex.align-items-center.justify-content-between
+                        %span.fw-bold.font-monospace.text-warning= "TG #{tg}"
+                        .d-flex.flex-wrap.gap-1.justify-content-end
+                          - callsigns.each do |cs|
+                            - n = @sorted_nodes.find { |c, _| c == cs }&.last
+                            %span.tg-badge{class: (n&.dig('isTalker') ? 'active' : nil)}
+                              - if n&.dig('isTalker')
+                                %i.bi.bi-mic-fill.me-1.text-success{style: "font-size:.65rem"}
+                              = cs
+              - else
+                %p.text-secondary.small.mb-0 No talkgroups currently active.
+
+        -# Signal strength
+        .col-12.col-md-4
+          .card.border-secondary-subtle.h-100
+            .card-body
+              .section-label
+                %i.bi.bi-reception-4.me-1
+                Signal Levels
+              - if @sorted_nodes.any?
+                - node_sigs = @sorted_nodes.map { |cs, n| [cs, n, (n['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }.map { |_, r| r['siglev'] }.compact.max] }
+                - node_sigs = node_sigs.sort_by { |_, _, sig| -(sig || -999) }
+                %div{style: "max-height:320px;overflow-y:auto;scrollbar-width:thin"}
+                  - node_sigs.each do |cs, n, best_sig|
+                    - tg        = n['tg'].to_i
+                    - is_talker = n['isTalker']
+                    - dot_cls   = is_talker ? 'dot-talking' : (tg != 0 ? 'dot-active' : 'dot-idle')
+                    - pct       = best_sig.nil? ? nil : (best_sig < 0 ? [[((best_sig + 120) / 100.0 * 100).round, 0].max, 100].min : [[best_sig.to_i, 0].max, 100].min)
+                    - bar_col   = pct ? (pct > 66 ? 'success' : (pct > 33 ? 'warning' : 'danger')) : 'secondary'
+                    .d-flex.align-items-center.gap-2.mb-2
+                      %span.status-dot{class: dot_cls}
+                      %span.font-monospace.text-light{style: "min-width:90px;font-size:.82rem"}= cs
+                      - if pct
+                        .sig-bar-wrap.flex-grow-1
+                          .sig-bar-fill{class: "bg-#{bar_col}", style: "width:#{pct}%"}
+                        %span.font-monospace.text-secondary{style: "font-size:.75rem;min-width:60px;text-align:right"}
+                          = "%.1f" % best_sig
+                          dBm
+                      - else
+                        .flex-grow-1
+                        %span.text-secondary{style: "font-size:.75rem"} —
+              - else
+                %p.text-secondary.small.mb-0 No nodes connected.
+
+      -# ════════════════════════════════════════════════════════════════════
+      -# HISTORICAL USAGE
+      -# ════════════════════════════════════════════════════════════════════
+
+      -# Period filter
+      .d-flex.align-items-center.justify-content-between.mb-4.flex-wrap.gap-3
+        .divider-label.flex-grow-1{style: "max-width:160px"}
+          %i.bi.bi-clock-history.me-1
+          Usage History
+        .d-flex.align-items-center.gap-2
+          %span.text-secondary.small.me-1 Period:
+          - [['all', 'All time'], ['day', 'Today'], ['month', 'Month'], ['year', 'Year']].each do |val, label|
+            %a.period-pill{href: stats_path(period: val), class: (@period == val ? 'active' : nil)}
+              = label
+
+      -# Historical summary cards
+      - hist_cards = []
+      - hist_cards << {icon: 'bi-mic-fill',     color: 'text-success',   label: 'Transmissions',   val: @hist_talks}
+      - hist_cards << {icon: 'bi-collection',   color: 'text-warning',   label: 'TG Sessions',     val: @hist_tg_joins}
+      - hist_cards << {icon: 'bi-person-badge', color: 'text-primary',   label: 'Unique Nodes',    val: @hist_unique_nodes}
+      - hist_cards << {icon: 'bi-diagram-3',    color: 'text-info',      label: 'Unique TGs',      val: @hist_unique_tgs}
+      .row.g-3.mb-4
+        - hist_cards.each do |s|
+          .col-6.col-md-3
+            .card.stat-card.h-100
+              .card-body.text-center.py-3
+                .display-6.fw-bold{class: s[:color]}= s[:val]
+                .text-secondary.small.mt-1
+                  %i.bi{class: s[:icon]}
+                  = s[:label]
+
+      .row.g-4.mb-4
+
+        -# Top talkers
+        .col-12.col-md-6
+          .card.border-secondary-subtle.h-100
+            .card-body
+              .section-label
+                %i.bi.bi-trophy.me-1
+                Top Talkers
+              - if @top_talkers.any?
+                - max_talks = @top_talkers.values.first.to_f
+                - @top_talkers.each_with_index do |(cs, count), i|
+                  .d-flex.align-items-center.gap-2.mb-2
+                    %span.text-secondary{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
+                    %span.font-monospace.text-light.flex-shrink-0{style: "min-width:90px;font-size:.82rem"}= cs
+                    .rank-bar-wrap.flex-grow-1
+                      .rank-bar-fill.bg-success{style: "width:#{(count / max_talks * 100).round}%"}
+                    %span.text-secondary.fw-semibold{style: "font-size:.78rem;min-width:28px;text-align:right"}= count
+              - else
+                .text-center.text-secondary.py-4.small
+                  %i.bi.bi-mic-mute.d-block.fs-4.mb-2
+                  = "No transmissions recorded#{@period != 'all' ? ' for this period' : ''}."
+
+        -# Top talkgroups
+        .col-12.col-md-6
+          .card.border-secondary-subtle.h-100
+            .card-body
+              .section-label
+                %i.bi.bi-bar-chart.me-1
+                Top Talkgroups
+              - if @top_tgs.any?
+                - max_tg = @top_tgs.values.first.to_f
+                - @top_tgs.each_with_index do |(tg, count), i|
+                  .d-flex.align-items-center.gap-2.mb-2
+                    %span.text-secondary{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
+                    %span.font-monospace.text-warning.fw-semibold.flex-shrink-0{style: "min-width:52px;font-size:.82rem"}
+                      = "TG #{tg}"
+                    .rank-bar-wrap.flex-grow-1
+                      .rank-bar-fill.bg-warning{style: "width:#{(count / max_tg * 100).round}%"}
+                    %span.text-secondary.fw-semibold{style: "font-size:.78rem;min-width:28px;text-align:right"}= count
+              - else
+                .text-center.text-secondary.py-4.small
+                  %i.bi.bi-collection.d-block.fs-4.mb-2
+                  = "No talkgroup activity recorded#{@period != 'all' ? ' for this period' : ''}."
+
+      -# Recent events
+      .card.border-secondary-subtle.mb-4
+        .card-body.p-0
+          .px-3.pt-3.pb-2.section-label
+            %i.bi.bi-activity.me-1
+            Recent Events
+            %span.ms-2.badge.bg-secondary.fw-normal= @recent_events.size
+          - if @recent_events.any?
+            %div{style: "max-height:280px;overflow-y:auto;scrollbar-width:thin"}
+              - @recent_events.each do |ev|
+                - type_style = {'talking_start' => ['text-bg-success', 'bi-mic-fill'], 'talking_stop' => ['text-bg-secondary', 'bi-mic-mute'], 'tg_join' => ['text-bg-primary', 'bi-collection'], 'tg_leave' => ['text-bg-secondary', 'bi-collection'], 'connected' => ['text-bg-info', 'bi-plug-fill'], 'disconnected' => ['text-bg-danger', 'bi-plug']}.fetch(ev.event_type, ['text-bg-secondary', 'bi-dot'])
+                .list-group-item.event-row.bg-transparent.px-3.py-2.d-flex.align-items-center.gap-3
+                  %span.text-secondary.font-monospace{style: "font-size:.72rem;min-width:75px"}
+                    = ev.created_at.strftime('%m-%d %H:%M')
+                  %span.event-type-badge{class: type_style[0]}
+                    %i.bi{class: "#{type_style[1]} me-1"}
+                    = ev.event_type.tr('_', ' ')
+                  %strong.font-monospace.text-light{style: "font-size:.82rem"}= ev.callsign
+                  - if ev.tg.to_i != 0
+                    %span.text-secondary.small
+                      TG
+                      %span.text-warning.fw-semibold= ev.tg
+                  - if ev.node_location.present?
+                    %span.text-secondary.small.ms-auto
+                      %i.bi.bi-geo-alt.me-1
+                      = ev.node_location
+          - else
+            .text-center.text-secondary.py-4.small
+              %i.bi.bi-hourglass-split.d-block.fs-4.mb-2
+              No events recorded yet.
+
+      -# ════════════════════════════════════════════════════════════════════
+      -# FULL NODES TABLE
+      -# ════════════════════════════════════════════════════════════════════
+
+      .divider-label.mb-4
+        %i.bi.bi-hdd-network.me-1
+        All Nodes
+        %span.badge.bg-secondary.fw-normal.ms-1= @sorted_nodes.size
+
+      .card.border-secondary-subtle.mb-5
+        .card-body.p-0
+          - if @sorted_nodes.any?
+            .table-responsive
+              %table.table.table-hover.mb-0.nodes-table
+                %thead
+                  %tr
+                    %th.ps-3 Callsign
+                    %th Status
+                    %th Type
+                    %th Location
+                    %th Talkgroup
+                    %th Monitored TGs
+                    %th Best Signal
+                    %th Software
+                %tbody
+                  - @sorted_nodes.each do |cs, n|
+                    - tg        = n['tg'].to_i
+                    - is_talker = n['isTalker']
+                    - st_col    = is_talker ? 'success' : (tg != 0 ? 'primary' : 'secondary')
+                    - st_txt    = is_talker ? "Talking \u00B7 TG #{tg}" : (tg != 0 ? "TG #{tg}" : 'Idle')
+                    - node_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'simplex' => 'bi-broadcast' }.fetch(n['nodeClass'].to_s, 'bi-broadcast')
+                    - rx_ports  = (n['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }
+                    - best_sig  = rx_ports.map { |_, r| r['siglev'] }.compact.max
+                    - qth       = n.dig('qth', 0) || {}
+                    - locator   = qth.dig('pos', 'loc')
+                    - location  = [n['nodeLocation'], locator ? "(#{locator})" : nil].compact.join(' ')
+                    %tr
+                      %td.ps-3
+                        - if is_talker
+                          %i.bi.bi-mic-fill.text-success.me-1{style: "font-size:.75rem"}
+                        %strong.font-monospace.text-light= cs
+                      %td
+                        %span.badge{class: "text-bg-#{st_col}"}= st_txt
+                      %td
+                        %span.cls-pill
+                          %i.bi.me-1{class: node_icon}
+                          = n['nodeClass'] || '—'
+                      %td.text-secondary= location.presence || '—'
+                      %td
+                        - if tg != 0
+                          %span.font-monospace.text-warning.fw-semibold= tg
+                        - else
+                          %span.text-secondary —
+                      %td
+                        .d-flex.flex-wrap.gap-1
+                          - (n['monitoredTGs'] || []).each do |tg_num|
+                            %span.tg-badge{class: (tg_num == tg && tg != 0 ? 'active' : nil)}= tg_num
+                      %td
+                        - if best_sig
+                          - pct2 = best_sig < 0 ? [[((best_sig + 120) / 100.0 * 100).round, 0].max, 100].min : [[best_sig.to_i, 0].max, 100].min
+                          - bar2 = pct2 > 66 ? 'success' : (pct2 > 33 ? 'warning' : 'danger')
+                          .d-flex.align-items-center.gap-2
+                            .sig-bar-wrap{style: "width:64px"}
+                              .sig-bar-fill{class: "bg-#{bar2}", style: "width:#{pct2}%"}
+                            %span.font-monospace.text-secondary{style: "font-size:.75rem"}
+                              = "%.1f" % best_sig
+                              dBm
+                        - else
+                          %span.text-secondary —
+                      %td.text-secondary{style: "font-size:.75rem"}
+                        = [n['sw'], n['swVer']].compact.join(' ').presence || '—'
+          - else
+            .text-center.text-secondary.py-5
+              %i.bi.bi-hdd-network.display-4.d-block.mb-2
+              No nodes currently connected.
+
+    %script{src: "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"}

@@ -1,0 +1,34 @@
+%nav.navbar.navbar-expand-md.bg-dark.border-bottom.border-secondary-subtle.sticky-top.mb-4.py-2
+  .container-fluid
+    %span.navbar-brand.fw-bold.text-light.mb-0
+      %i.bi.bi-broadcast-pin.me-2.text-success
+      SVXReflector
+
+    %button.navbar-toggler.border-secondary{type: "button", data: {bs_toggle: "collapse", bs_target: "#mainNav"}, aria: {controls: "mainNav", expanded: "false", label: "Toggle navigation"}}
+      %span.navbar-toggler-icon
+
+    #mainNav.collapse.navbar-collapse
+      %ul.nav.me-auto.mt-2.mt-md-0.gap-1
+        %li.nav-item
+          %a.btn.btn-sm.py-1.px-2{class: (active == 'dashboard' ? 'btn-outline-light' : 'btn-outline-secondary'), href: root_path}
+            %i.bi.bi-grid.me-1
+            Dashboard
+        %li.nav-item
+          %a.btn.btn-sm.py-1.px-2{class: (active == 'stats' ? 'btn-outline-light' : 'btn-outline-secondary'), href: stats_path}
+            %i.bi.bi-bar-chart-line.me-1
+            Stats
+        %li.nav-item
+          %a.btn.btn-sm.py-1.px-2{class: (active == 'map' ? 'btn-outline-light' : 'btn-outline-secondary'), href: map_path}
+            %i.bi.bi-map.me-1
+            Map
+        %li.nav-item
+          %a.btn.btn-sm.py-1.px-2{class: (active == 'tg' ? 'btn-outline-light' : 'btn-outline-secondary'), href: tg_path}
+            %i.bi.bi-collection.me-1
+            TG
+
+      .d-flex.align-items-center.gap-3.mt-2.mt-md-0
+        %span.text-secondary.small.font-monospace= @reflector_host
+        - if local_assigns.fetch(:ws_indicator, false)
+          %span.d-flex.align-items-center.gap-1
+            %span#ws-dot.ws-dot.ws-connecting
+            %span#ws-label.text-secondary.small Connecting…

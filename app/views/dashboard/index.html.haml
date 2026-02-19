@@ -1,0 +1,669 @@
+!!!
+%html{lang: "en", "data-bs-theme" => "dark"}
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title SVXReflector Dashboard
+    %link{rel: "stylesheet", href: "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"}
+    %link{rel: "stylesheet", href: "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"}
+    :css
+      body { background: #0d1117; }
+
+      .node-card {
+        border: 1px solid #30363d;
+        border-left-width: 4px;
+        transition: border-color .3s, box-shadow .3s;
+      }
+      .node-idle    { border-left-color: #6e7681; }
+      .node-active  { border-left-color: #1f6feb; }
+      .node-talking {
+        border-left-color: #3fb950;
+        box-shadow: 0 0 0 1px rgba(63,185,80,.3), 0 0 16px rgba(63,185,80,.15);
+        animation: glow-pulse 1.4s ease-in-out infinite;
+      }
+      @keyframes glow-pulse {
+        0%,100% { box-shadow: 0 0 0 1px rgba(63,185,80,.3), 0 0 12px rgba(63,185,80,.1); }
+        50%     { box-shadow: 0 0 0 2px rgba(63,185,80,.5), 0 0 24px rgba(63,185,80,.3); }
+      }
+
+      .node-card .card-header { background: #161b22; border-bottom: 1px solid #21262d; }
+      .node-card .card-footer { background: #0d1117; border-top: 1px solid #21262d; font-size: .72rem; }
+
+      /* LIVE banner */
+      .live-banner {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        background: linear-gradient(90deg, rgba(63,185,80,.18), transparent);
+        border-bottom: 1px solid rgba(63,185,80,.25);
+        color: #3fb950;
+        font-size: .78rem;
+        font-weight: 600;
+        padding: .3rem .75rem;
+        letter-spacing: .04em;
+      }
+      .mic-active {
+        animation: mic-pulse 1s ease-in-out infinite;
+      }
+      @keyframes mic-pulse {
+        0%,100% { opacity: 1; transform: scale(1); }
+        50%      { opacity: .55; transform: scale(1.25); }
+      }
+
+      /* Signal strength */
+      .siglev-bar {
+        height: 4px;
+        background: #21262d;
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: 3px;
+      }
+      .siglev-fill {
+        height: 100%;
+        border-radius: 2px;
+        min-width: 2px;
+        transition: width .5s ease, background-color .3s;
+      }
+
+      #activity-log { max-height: 540px; overflow-y: auto; scrollbar-width: thin; }
+      .activity-item { font-size: .82rem; border-color: #21262d !important; }
+      .activity-item:hover { background: #161b22 !important; }
+
+      .ws-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; vertical-align: middle; }
+      .ws-connected    { background: #3fb950; }
+      .ws-disconnected { background: #f85149; }
+      .ws-connecting   { background: #d29922; animation: blink 1s step-start infinite; }
+      @keyframes blink { 50% { opacity: .2; } }
+
+      .tg-pill {
+        font-size: .72rem; padding: .1em .5em;
+        background: #21262d; border: 1px solid #30363d;
+        border-radius: 2em; color: #8b949e;
+      }
+      .tg-pill.active { background: #1f3a5f; border-color: #1f6feb; color: #79c0ff; }
+
+      .freq-label { font-size: .78rem; font-family: monospace; }
+
+      .tone-table { font-size: .73rem; font-family: monospace; }
+      .tone-row {
+        display: flex;
+        justify-content: space-between;
+        padding: .12rem .4rem;
+        border-radius: .2rem;
+        color: #6e7681;
+        border-left: 2px solid transparent;
+        transition: background .3s, border-color .3s, color .3s;
+      }
+      .tone-row.active {
+        background: rgba(31,111,235,.12);
+        border-left-color: #1f6feb;
+        color: #79c0ff;
+      }
+      .tone-row .t-freq { color: #8b949e; }
+      .tone-row.active .t-freq { color: #58a6ff; }
+      .tone-row .t-tg { font-weight: 600; }
+
+      @keyframes flash-update {
+        0%   { background-color: rgba(210,153,34,.22); }
+        100% { background-color: transparent; }
+      }
+      .flash { animation: flash-update .8s ease-out; }
+  %body
+    = render 'shared/navbar', active: 'dashboard', ws_indicator: true
+
+    .container-fluid.px-3.px-md-4
+
+      -# ── Fetch error ─────────────────────────────────────────────────────
+      - if @fetch_error
+        .alert.alert-warning.d-flex.align-items-center.mb-4{role: "alert"}
+          %i.bi.bi-exclamation-triangle-fill.me-2.flex-shrink-0
+          Could not load status from
+          %code.mx-1= @status_url
+          = ": #{@fetch_error}"
+
+      -# ── Stats row ────────────────────────────────────────────────────────
+      - stats = []
+      - stats << {id: 'stat-total',   icon: 'bi-diagram-3',   color: 'text-light',   label: 'Nodes',        val: @nodes.size}
+      - stats << {id: 'stat-active',  icon: 'bi-wifi',         color: 'text-primary', label: 'Active',       val: @nodes.count { |_, n| n['tg'].to_i != 0 }}
+      - stats << {id: 'stat-talking', icon: 'bi-mic-fill',     color: 'text-success', label: 'Talking',      val: @nodes.count { |_, n| n['isTalker'] }}
+      - stats << {id: 'stat-updates', icon: 'bi-arrow-repeat', color: 'text-warning', label: 'Live Updates', val: 0}
+      .row.g-3.mb-4
+        - stats.each do |s|
+          .col-6.col-md-3
+            .card.border-secondary-subtle.h-100
+              .card-body.text-center.py-3
+                .display-6.fw-bold{class: s[:color], id: s[:id]}= s[:val]
+                .text-secondary.small.mt-1
+                  %i.bi{class: s[:icon]}
+                  = s[:label]
+
+      -# ── Main: node grid + activity log ───────────────────────────────────
+      .row.g-4
+
+        -# Node grid
+        .col-12.col-xl-8
+          .d-flex.align-items-center.mb-3.gap-2
+            %span.text-secondary.text-uppercase.fw-semibold.small
+              %i.bi.bi-hdd-network.me-1
+              Connected Nodes
+            %span.badge.bg-secondary#nodes-count
+              = @nodes.reject { |_, n| n['hidden'] }.size
+
+          .row.g-3#nodes-grid
+            - visible = @nodes.reject { |_, n| n['hidden'] }
+            - sorted = visible.sort_by { |cs, n| [n['isTalker'] ? 0 : (n['tg'].to_i != 0 ? 1 : 2), cs] }
+            - sorted.each do |callsign, node|
+              - tg        = node['tg'].to_i
+              - is_talker = node['isTalker']
+              - st_cls    = is_talker ? 'node-talking' : (tg != 0 ? 'node-active' : 'node-idle')
+              - st_txt    = is_talker ? "TALKING \u00B7 TG #{tg}" : (tg != 0 ? "TG #{tg}" : 'IDLE')
+              - st_col    = is_talker ? 'success' : (tg != 0 ? 'primary' : 'secondary')
+              - qth       = node.dig('qth', 0) || {}
+              - rx_freq   = qth['rx']&.values&.first&.dig('freq')
+              - tx_freq   = qth['tx']&.values&.first&.dig('freq')
+              - locator   = qth.dig('pos', 'loc')
+              - node_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'simplex' => 'bi-broadcast' }.fetch(node['nodeClass'].to_s, 'bi-broadcast')
+              - rx_ports  = (node['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }
+
+              .col-12.col-sm-6.col-xxl-4{id: "node-col-#{callsign}"}
+                .card.node-card.h-100{class: st_cls, id: "node-#{callsign}", "data-callsign" => callsign}
+
+                  -# ── Card header: callsign + mic + status badge ──
+                  .card-header.d-flex.align-items-center.justify-content-between.py-2.px-3
+                    %span.fw-bold.font-monospace.fs-6.text-light
+                      %i.bi.bi-mic-fill.me-1{class: (is_talker ? 'text-success mic-active' : 'text-secondary opacity-25'), id: "node-#{callsign}-mic"}
+                      = callsign
+                    %span.badge.small{class: "text-bg-#{st_col}", id: "node-#{callsign}-status"}
+                      = st_txt
+
+                  -# ── LIVE banner (visible only when transmitting) ──
+                  .live-banner{class: (is_talker ? nil : 'd-none'), id: "node-#{callsign}-live-banner"}
+                    %i.bi.bi-broadcast-pin
+                    %span= is_talker ? "TRANSMITTING \u00B7 TG #{tg}" : 'TRANSMITTING'
+
+                  .card-body.py-2.px-3.small.text-secondary
+
+                    -# Class + Location + Locator
+                    .mb-2.d-flex.flex-wrap.align-items-center.gap-2
+                      %span.text-capitalize
+                        %i.bi{class: node_icon}
+                        = node['nodeClass']
+                      - if node['nodeLocation'].present?
+                        %span.text-truncate{title: node['nodeLocation']}
+                          %i.bi.bi-geo-alt.me-1
+                          = node['nodeLocation']
+                      - if locator.present?
+                        %span.badge.bg-dark.border.border-secondary.text-secondary{title: "Maidenhead locator"}
+                          = locator
+
+                    -# Frequencies
+                    - if rx_freq.to_f > 0 || tx_freq.to_f > 0
+                      .mb-2.d-flex.gap-3
+                        - if rx_freq.to_f > 0
+                          %span.freq-label
+                            %span.text-secondary RX
+                            %span.text-light.ms-1= "%.4f" % rx_freq
+                            MHz
+                        - if tx_freq.to_f > 0
+                          %span.freq-label
+                            %span.text-secondary TX
+                            %span.text-light.ms-1= "%.4f" % tx_freq
+                            MHz
+
+                    -# Signal strength (one bar per RX port)
+                    - if rx_ports.any?
+                      .mb-2{id: "node-#{callsign}-rx-section"}
+                        - rx_ports.each do |port, rx|
+                          - siglev   = rx['siglev']
+                          - sql_open = rx['sql_open']
+                          - pct      = siglev.nil? ? 0 : (siglev < 0 ? [[((siglev + 120) / 100.0 * 100).round, 0].max, 100].min : [[siglev.to_i, 0].max, 100].min)
+                          - bar_col  = pct > 66 ? 'success' : (pct > 33 ? 'warning' : 'danger')
+                          %div{id: "node-#{callsign}-rx-#{port}"}
+                            .d-flex.justify-content-between.align-items-center
+                              %span
+                                %i.bi.bi-reception-4.me-1
+                                = "RX-#{port}"
+                                - if rx['name'].present?
+                                  %span.text-light.ms-1= rx['name']
+                                - unless sql_open.nil?
+                                  %span.badge.ms-1{class: (sql_open ? 'text-bg-success' : 'text-bg-secondary'), id: "node-#{callsign}-squelch-#{port}"}
+                                    = sql_open ? 'OPEN' : 'SQ'
+                              %span.font-monospace{id: "node-#{callsign}-siglev-#{port}"}
+                                = siglev ? "#{"%.1f" % siglev} dBm" : '—'
+                            .siglev-bar.mb-1
+                              .siglev-fill{class: "bg-#{bar_col}", id: "node-#{callsign}-sigbar-#{port}", style: "width: #{pct}%"}
+
+                    -# Monitored TGs
+                    - if node['monitoredTGs']&.any?
+                      .mb-2.d-flex.flex-wrap.gap-1.align-items-center
+                        %span.me-1 TGs:
+                        - node['monitoredTGs'].each do |tg_num|
+                          %span.tg-pill{class: (tg_num == tg && tg != 0 ? 'active' : nil), id: "node-#{callsign}-tgpill-#{tg_num}"}
+                            = tg_num
+
+                    -# Tone → Talkgroup
+                    - if node['toneToTalkgroup']&.any?
+                      .mb-2.tone-table
+                        .text-secondary.mb-1{style: "font-size:.68rem;text-transform:uppercase;letter-spacing:.06em"}
+                          %i.bi.bi-soundwave.me-1
+                          CTCSS → TG
+                        - node['toneToTalkgroup'].sort_by { |tone, _| tone.to_f }.each do |tone, tg_num|
+                          .tone-row{class: (tg_num == tg && tg != 0 ? 'active' : nil), id: "node-#{callsign}-tone-#{tone}"}
+                            %span.t-freq= "#{tone} Hz"
+                            %span.t-tg= tg_num == 0 ? '— local' : tg_num
+
+                    -# Sysop
+                    - if node['sysop'].present?
+                      %div
+                        %i.bi.bi-person.me-1
+                        = node['sysop']
+
+                  .card-footer.d-flex.justify-content-between.px-3.py-1
+                    %span.text-secondary= [node['sw'], node['swVer']].compact.join(' ')
+                    %span.text-secondary{id: "node-#{callsign}-updated"}
+
+            - if visible.empty?
+              .col-12.text-center.text-secondary.py-5
+                %i.bi.bi-hdd-network.display-4.d-block.mb-2
+                No nodes currently connected.
+
+        -# Activity log
+        .col-12.col-xl-4
+          .d-flex.align-items-center.mb-3.gap-2
+            %span.text-secondary.text-uppercase.fw-semibold.small
+              %i.bi.bi-activity.me-1
+              Activity Log
+            %span.badge.bg-secondary#log-count 0
+          #activity-log.border.border-secondary-subtle.rounded
+            #log-placeholder.text-center.text-secondary.py-5.small
+              %i.bi.bi-hourglass-split.d-block.mb-2.fs-4
+              Waiting for live updates…
+
+    %script{src: "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"}
+    - nodes_json = @nodes.to_json.html_safe
+    :javascript
+      (function () {
+        'use strict';
+
+        // Initial state cloned from server render
+        var nodes = #{nodes_json};
+        var updateCount = 0;
+        var logCount    = 0;
+        var MAX_LOG     = 60;
+
+        // ── Utilities ──────────────────────────────────────────────────────────────
+        function setText(id, val) {
+          var el = document.getElementById(id);
+          if (el) el.textContent = val;
+        }
+
+        function esc(s) {
+          return String(s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // ── Signal level helpers ────────────────────────────────────────────────────
+        function siglevPct(val) {
+          if (val === null || val === undefined) return 0;
+          if (val < 0) return Math.max(0, Math.min(100, (val + 120) / 100 * 100));
+          return Math.max(0, Math.min(100, val));
+        }
+
+        function siglevColor(pct) {
+          return pct > 66 ? 'success' : (pct > 33 ? 'warning' : 'danger');
+        }
+
+        // ── Stats ──────────────────────────────────────────────────────────────────
+        function refreshStats() {
+          var vals = Object.values(nodes);
+          setText('stat-total',   vals.length);
+          setText('stat-active',  vals.filter(function(n){ return n.tg && n.tg !== 0; }).length);
+          setText('stat-talking', vals.filter(function(n){ return n.isTalker; }).length);
+          setText('nodes-count',  vals.filter(function(n){ return !n.hidden; }).length);
+        }
+
+        // ── Node card update ───────────────────────────────────────────────────────
+        function updateCard(callsign, patch) {
+          var card = document.getElementById('node-' + callsign);
+          if (!card) return;
+
+          if (!nodes[callsign]) nodes[callsign] = {};
+          Object.assign(nodes[callsign], patch);
+          var n = nodes[callsign];
+
+          var tg       = (n.tg !== undefined) ? n.tg : 0;
+          var isTalker = !!n.isTalker;
+
+          // Card state classes
+          card.classList.remove('node-idle', 'node-active', 'node-talking');
+          card.classList.add(isTalker ? 'node-talking' : (tg !== 0 ? 'node-active' : 'node-idle'));
+
+          // Status badge
+          var badge = document.getElementById('node-' + callsign + '-status');
+          if (badge) {
+            badge.className   = 'badge small text-bg-' + (isTalker ? 'success' : (tg !== 0 ? 'primary' : 'secondary'));
+            badge.textContent = isTalker
+              ? ('TALKING \u00B7 TG ' + tg)
+              : (tg !== 0 ? 'TG ' + tg : 'IDLE');
+          }
+
+          // Mic icon
+          var mic = document.getElementById('node-' + callsign + '-mic');
+          if (mic) {
+            mic.className = 'bi bi-mic-fill me-1 ' + (isTalker ? 'text-success mic-active' : 'text-secondary opacity-25');
+          }
+
+          // LIVE banner
+          var liveBanner = document.getElementById('node-' + callsign + '-live-banner');
+          if (liveBanner) {
+            var span = liveBanner.querySelector('span');
+            if (isTalker) {
+              liveBanner.classList.remove('d-none');
+              if (span) span.textContent = 'TRANSMITTING \u00B7 TG ' + tg;
+            } else {
+              liveBanner.classList.add('d-none');
+            }
+          }
+
+          // TG pills
+          if (n.monitoredTGs) {
+            n.monitoredTGs.forEach(function (tgNum) {
+              var pill = document.getElementById('node-' + callsign + '-tgpill-' + tgNum);
+              if (pill) pill.className = 'tg-pill' + (tgNum === tg && tg !== 0 ? ' active' : '');
+            });
+          }
+
+          // Tone → TG active highlight
+          if (n.toneToTalkgroup) {
+            Object.keys(n.toneToTalkgroup).forEach(function (tone) {
+              var tgNum = n.toneToTalkgroup[tone];
+              var row = document.getElementById('node-' + callsign + '-tone-' + tone);
+              if (row) row.className = 'tone-row' + (tgNum === tg && tg !== 0 ? ' active' : '');
+            });
+          }
+
+          // Signal levels
+          if (n.qth && n.qth[0] && n.qth[0].rx) {
+            var rx = n.qth[0].rx;
+            Object.keys(rx).forEach(function (port) {
+              var rxData  = rx[port];
+              var siglev  = rxData.siglev;
+              var sqlOpen = rxData.sql_open;
+
+              var pct = siglevPct(siglev);
+              var col = siglevColor(pct);
+
+              var sigBar = document.getElementById('node-' + callsign + '-sigbar-' + port);
+              if (sigBar) {
+                sigBar.style.width = pct + '%';
+                sigBar.className   = 'siglev-fill bg-' + col;
+              }
+
+              var sigVal = document.getElementById('node-' + callsign + '-siglev-' + port);
+              if (sigVal && siglev !== null && siglev !== undefined) {
+                sigVal.textContent = siglev.toFixed(1) + ' dBm';
+              }
+
+              var squelch = document.getElementById('node-' + callsign + '-squelch-' + port);
+              if (squelch && sqlOpen !== null && sqlOpen !== undefined) {
+                squelch.className   = 'badge ms-1 ' + (sqlOpen ? 'text-bg-success' : 'text-bg-secondary');
+                squelch.textContent = sqlOpen ? 'OPEN' : 'SQ';
+              }
+            });
+          }
+
+          var updEl = document.getElementById('node-' + callsign + '-updated');
+          if (updEl) updEl.textContent = new Date().toLocaleTimeString();
+
+          // Brief flash
+          card.classList.remove('flash');
+          void card.offsetWidth;
+          card.classList.add('flash');
+        }
+
+        // ── Node card removal ──────────────────────────────────────────────────────
+        function removeCard(callsign) {
+          var col = document.getElementById('node-col-' + callsign);
+          if (col) col.remove();
+        }
+
+        // ── Node card creation ─────────────────────────────────────────────────────
+        function createCard(callsign, n) {
+          nodes[callsign] = n;
+
+          var tg       = (n.tg !== undefined) ? n.tg : 0;
+          var isTalker = !!n.isTalker;
+          var stCls    = isTalker ? 'node-talking' : (tg !== 0 ? 'node-active' : 'node-idle');
+          var stTxt    = isTalker ? ('TALKING \u00B7 TG ' + tg) : (tg !== 0 ? 'TG ' + tg : 'IDLE');
+          var stCol    = isTalker ? 'success' : (tg !== 0 ? 'primary' : 'secondary');
+          var cs       = esc(callsign);
+
+          var iconMap = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', simplex: 'bi-broadcast' };
+          var iconCls = iconMap[n.nodeClass] || 'bi-broadcast';
+          var qth     = (n.qth && n.qth[0]) || {};
+          var rxFreq  = qth.rx && Object.values(qth.rx)[0] && Object.values(qth.rx)[0].freq;
+          var txFreq  = qth.tx && Object.values(qth.tx)[0] && Object.values(qth.tx)[0].freq;
+          var locator = qth.pos && qth.pos.loc;
+
+          var h = '';
+
+          // Card header
+          h += '<div class="card-header d-flex align-items-center justify-content-between py-2 px-3">' +
+               '<span class="fw-bold font-monospace fs-6 text-light">' +
+               '<i class="bi bi-mic-fill me-1 ' + (isTalker ? 'text-success mic-active' : 'text-secondary opacity-25') + '" id="node-' + cs + '-mic"></i>' +
+               cs + '</span>' +
+               '<span class="badge small text-bg-' + stCol + '" id="node-' + cs + '-status">' + stTxt + '</span>' +
+               '</div>';
+
+          // LIVE banner
+          h += '<div class="live-banner ' + (isTalker ? '' : 'd-none') + '" id="node-' + cs + '-live-banner">' +
+               '<i class="bi bi-broadcast-pin"></i>' +
+               '<span>' + (isTalker ? 'TRANSMITTING \u00B7 TG ' + tg : 'TRANSMITTING') + '</span>' +
+               '</div>';
+
+          // Card body
+          h += '<div class="card-body py-2 px-3 small text-secondary">';
+
+          // Class / location / locator
+          h += '<div class="mb-2 d-flex flex-wrap align-items-center gap-2">';
+          if (n.nodeClass)    h += '<span class="text-capitalize"><i class="bi ' + iconCls + '"></i> ' + esc(n.nodeClass) + '</span>';
+          if (n.nodeLocation) h += '<span class="text-truncate" title="' + esc(n.nodeLocation) + '"><i class="bi bi-geo-alt me-1"></i>' + esc(n.nodeLocation) + '</span>';
+          if (locator)        h += '<span class="badge bg-dark border border-secondary text-secondary" title="Maidenhead locator">' + esc(locator) + '</span>';
+          h += '</div>';
+
+          // Frequencies
+          if ((rxFreq && rxFreq > 0) || (txFreq && txFreq > 0)) {
+            h += '<div class="mb-2 d-flex gap-3">';
+            if (rxFreq && rxFreq > 0) h += '<span class="freq-label"><span class="text-secondary">RX</span> <span class="text-light ms-1">' + rxFreq.toFixed(4) + '</span> MHz</span>';
+            if (txFreq && txFreq > 0) h += '<span class="freq-label"><span class="text-secondary">TX</span> <span class="text-light ms-1">' + txFreq.toFixed(4) + '</span> MHz</span>';
+            h += '</div>';
+          }
+
+          // Signal strength
+          var rxPorts = [];
+          if (n.qth) n.qth.forEach(function (q) { if (q.rx) Object.keys(q.rx).forEach(function (p) { rxPorts.push([p, q.rx[p]]); }); });
+          if (rxPorts.length > 0) {
+            h += '<div class="mb-2" id="node-' + cs + '-rx-section">';
+            rxPorts.forEach(function (pr) {
+              var port = pr[0]; var rx = pr[1];
+              var pct = siglevPct(rx.siglev); var col = siglevColor(pct);
+              h += '<div id="node-' + cs + '-rx-' + esc(port) + '">' +
+                   '<div class="d-flex justify-content-between align-items-center"><span>' +
+                   '<i class="bi bi-reception-4 me-1"></i>RX-' + esc(port) +
+                   (rx.name ? '<span class="text-light ms-1">' + esc(rx.name) + '</span>' : '') +
+                   (rx.sql_open !== null && rx.sql_open !== undefined
+                     ? '<span class="badge ms-1 ' + (rx.sql_open ? 'text-bg-success' : 'text-bg-secondary') + '" id="node-' + cs + '-squelch-' + esc(port) + '">' + (rx.sql_open ? 'OPEN' : 'SQ') + '</span>'
+                     : '') +
+                   '</span>' +
+                   '<span class="font-monospace" id="node-' + cs + '-siglev-' + esc(port) + '">' +
+                   (rx.siglev !== null && rx.siglev !== undefined ? rx.siglev.toFixed(1) + ' dBm' : '\u2014') + '</span></div>' +
+                   '<div class="siglev-bar mb-1"><div class="siglev-fill bg-' + col + '" id="node-' + cs + '-sigbar-' + esc(port) + '" style="width:' + pct + '%"></div></div>' +
+                   '</div>';
+            });
+            h += '</div>';
+          }
+
+          // Monitored TGs
+          if (n.monitoredTGs && n.monitoredTGs.length > 0) {
+            h += '<div class="mb-2 d-flex flex-wrap gap-1 align-items-center"><span class="me-1">TGs:</span>';
+            n.monitoredTGs.forEach(function (tgNum) {
+              h += '<span class="tg-pill' + (tgNum === tg && tg !== 0 ? ' active' : '') + '" id="node-' + cs + '-tgpill-' + tgNum + '">' + tgNum + '</span>';
+            });
+            h += '</div>';
+          }
+
+          // Tone → TG
+          var ttg = n.toneToTalkgroup;
+          if (ttg && Object.keys(ttg).length > 0) {
+            h += '<div class="mb-2 tone-table"><div class="text-secondary mb-1" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em"><i class="bi bi-soundwave me-1"></i>CTCSS \u2192 TG</div>';
+            Object.keys(ttg).sort(function (a, b) { return parseFloat(a) - parseFloat(b); }).forEach(function (tone) {
+              var tgNum = ttg[tone];
+              h += '<div class="tone-row' + (tgNum === tg && tg !== 0 ? ' active' : '') + '" id="node-' + cs + '-tone-' + tone + '">' +
+                   '<span class="t-freq">' + tone + ' Hz</span>' +
+                   '<span class="t-tg">' + (tgNum === 0 ? '\u2014 local' : tgNum) + '</span>' +
+                   '</div>';
+            });
+            h += '</div>';
+          }
+
+          // Sysop
+          if (n.sysop) h += '<div><i class="bi bi-person me-1"></i>' + esc(n.sysop) + '</div>';
+
+          h += '</div>'; // end card-body
+
+          // Footer
+          h += '<div class="card-footer d-flex justify-content-between px-3 py-1">' +
+               '<span class="text-secondary">' + esc([n.sw, n.swVer].filter(Boolean).join(' ')) + '</span>' +
+               '<span class="text-secondary" id="node-' + cs + '-updated"></span>' +
+               '</div>';
+
+          var card = document.createElement('div');
+          card.className = 'card node-card h-100 ' + stCls;
+          card.id = 'node-' + callsign;
+          card.setAttribute('data-callsign', callsign);
+          card.innerHTML = h;
+
+          var colEl = document.createElement('div');
+          colEl.className = 'col-12 col-sm-6 col-xxl-4';
+          colEl.id = 'node-col-' + callsign;
+          colEl.appendChild(card);
+
+          var grid = document.getElementById('nodes-grid');
+          if (grid) {
+            // Remove the "no nodes connected" placeholder if present
+            var empty = grid.querySelector('.col-12 > .text-center.py-5');
+            if (empty) empty.closest('.col-12').remove();
+            grid.appendChild(colEl);
+          }
+        }
+
+        // ── Activity log ───────────────────────────────────────────────────────────
+        function addLog(msg) {
+          var placeholder = document.getElementById('log-placeholder');
+          if (placeholder) placeholder.remove();
+
+          logCount++;
+          setText('log-count', logCount);
+
+          var log  = document.getElementById('activity-log');
+          var item = document.createElement('div');
+          item.className = 'activity-item list-group-item list-group-item-action px-3 py-2';
+
+          var callsign = msg.callsign ? esc(msg.callsign) : '';
+          item.innerHTML =
+            '<span class="text-secondary me-2">' + new Date().toLocaleTimeString() + '</span>' +
+            (callsign ? '<strong class="font-monospace me-1 text-light">' + callsign + '</strong>' : '') +
+            fmtMsg(msg);
+
+          log.insertBefore(item, log.firstChild);
+          while (log.children.length > MAX_LOG) log.removeChild(log.lastChild);
+        }
+
+        function fmtMsg(msg) {
+          if (msg.raw)
+            return '<span class="text-warning font-monospace">' + esc(msg.raw.substring(0, 80)) + '</span>';
+          if (msg.isTalker !== undefined)
+            return msg.isTalker
+              ? '<span class="text-success"><i class="bi bi-mic-fill me-1"></i>Talking on TG <strong>' + (msg.tg || '?') + '</strong></span>'
+              : '<span class="text-secondary"><i class="bi bi-mic-mute me-1"></i>Stopped talking</span>';
+          if (msg.tg !== undefined && msg.callsign)
+            return msg.tg === 0
+              ? '<span class="text-secondary">Left talkgroup</span>'
+              : 'Joined TG <strong class="text-primary">' + msg.tg + '</strong>';
+          if (msg.msg_type)
+            return '<span class="text-info">' + esc(msg.msg_type) + '</span>' +
+                   (msg.tg ? ' TG <strong>' + msg.tg + '</strong>' : '');
+          return '<span class="text-secondary font-monospace">' +
+                 esc(JSON.stringify(msg).substring(0, 100)) + '</span>';
+        }
+
+        // ── WebSocket indicator ────────────────────────────────────────────────────
+        function setWs(state) {
+          var dot   = document.getElementById('ws-dot');
+          var label = document.getElementById('ws-label');
+          if (dot)   dot.className   = 'ws-dot ws-' + state;
+          if (label) label.textContent =
+            state === 'connected'    ? 'Live'         :
+            state === 'disconnected' ? 'Disconnected' : 'Connecting\u2026';
+        }
+
+        // ── ActionCable subscription ───────────────────────────────────────────────
+        function connect() {
+          setWs('connecting');
+          var proto = location.protocol === 'https:' ? 'wss' : 'ws';
+          var ws    = new WebSocket(proto + '://' + location.host + '/cable');
+
+          ws.onopen = function () {
+            ws.send(JSON.stringify({
+              command:    'subscribe',
+              identifier: JSON.stringify({ channel: 'UpdatesChannel' })
+            }));
+          };
+
+          ws.onmessage = function (ev) {
+            var envelope;
+            try { envelope = JSON.parse(ev.data); } catch (e) { return; }
+            if (envelope.type === 'welcome')              { setWs('connected'); return; }
+            if (envelope.type === 'ping')                 { return; }
+            if (envelope.type === 'confirm_subscription') { return; }
+
+            var msg = envelope.message;
+            if (!msg) return;
+
+            updateCount++;
+            setText('stat-updates', updateCount);
+
+            // Full snapshot
+            if (msg.nodes && typeof msg.nodes === 'object') {
+              // Remove cards for nodes absent from the new snapshot
+              Object.keys(nodes).forEach(function (cs) {
+                if (!Object.prototype.hasOwnProperty.call(msg.nodes, cs)) {
+                  removeCard(cs);
+                  delete nodes[cs];
+                }
+              });
+              Object.keys(msg.nodes).forEach(function (cs) {
+                if (document.getElementById('node-' + cs)) {
+                  updateCard(cs, msg.nodes[cs]);
+                } else {
+                  createCard(cs, msg.nodes[cs]);
+                }
+              });
+              refreshStats();
+              addLog({ msg_type: 'Snapshot (' + Object.keys(msg.nodes).length + ' nodes)' });
+              return;
+            }
+
+            // Single-node update
+            if (msg.callsign) updateCard(msg.callsign, msg);
+            refreshStats();
+            addLog(msg);
+          };
+
+          ws.onclose = function () { setWs('disconnected'); setTimeout(connect, 5000); };
+          ws.onerror = function () { setWs('disconnected'); };
+        }
+
+        connect();
+      })();

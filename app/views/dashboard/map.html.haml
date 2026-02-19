@@ -1,0 +1,385 @@
+!!!
+%html{lang: "en", "data-bs-theme" => "dark"}
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title SVXReflector · Map
+    %link{rel: "stylesheet", href: "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"}
+    %link{rel: "stylesheet", href: "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"}
+    %link{rel: "stylesheet", href: "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"}
+    :css
+      body { background: #0d1117; margin: 0; }
+      #map { height: calc(100vh - 72px); width: 100%; }
+
+      /* ── Dark Leaflet popup ─────────────────────────────────────────────────── */
+      .leaflet-popup-content-wrapper {
+        background: #161b22;
+        border: 1px solid #30363d;
+        color: #c9d1d9;
+        border-radius: .4rem;
+      }
+      .leaflet-popup-tip { background: #161b22; }
+      .leaflet-popup-content { margin: .6rem .8rem; font-size: .82rem; }
+      .popup-callsign { font-family: monospace; font-weight: 700; font-size: 1rem; color: #e6edf3; }
+      .popup-row { margin-top: .25rem; color: #8b949e; }
+      .popup-row span { color: #c9d1d9; }
+      .tone-table { width: 100%; border-collapse: collapse; margin-top: .4rem; font-size: .75rem; }
+      .tone-table th { color: #6e7681; font-weight: 600; text-transform: uppercase; font-size: .65rem; letter-spacing: .04em; padding: .1rem .3rem; border-bottom: 1px solid #30363d; text-align: left; }
+      .tone-table td { padding: .15rem .3rem; color: #c9d1d9; font-family: monospace; border-bottom: 1px solid #21262d; }
+      .tone-table tr:last-child td { border-bottom: none; }
+      .tone-tg-idle { color: #6e7681 !important; }
+      .badge-talking { background: #1a4a25; color: #3fb950; border: 1px solid #3fb950; border-radius: .25em; padding: .1em .45em; font-size: .72rem; font-weight: 600; }
+      .badge-active  { background: #1f3a5f; color: #79c0ff; border: 1px solid #1f6feb; border-radius: .25em; padding: .1em .45em; font-size: .72rem; font-weight: 600; }
+      .badge-idle    { background: #21262d; color: #8b949e; border: 1px solid #30363d; border-radius: .25em; padding: .1em .45em; font-size: .72rem; }
+
+      /* ── Node callsign labels ───────────────────────────────────────────────── */
+      .node-label {
+        background: rgba(13, 17, 23, 0.82) !important;
+        border: 1px solid #30363d !important;
+        color: #c9d1d9 !important;
+        font-family: monospace !important;
+        font-size: .7rem !important;
+        font-weight: 600 !important;
+        padding: .1em .4em !important;
+        border-radius: .2em !important;
+        box-shadow: none !important;
+        white-space: nowrap !important;
+      }
+      .node-label::before { display: none !important; } /* hide tooltip arrow */
+
+      /* ── Layer control dark skin ────────────────────────────────────────────── */
+      .leaflet-control-layers {
+        background: #161b22 !important;
+        border: 1px solid #30363d !important;
+        border-radius: .4rem !important;
+        color: #c9d1d9 !important;
+      }
+      .leaflet-control-layers-toggle {
+        background-color: #161b22 !important;
+      }
+      .leaflet-control-layers label { color: #c9d1d9 !important; font-size: .82rem; }
+      .leaflet-control-layers-separator { border-top-color: #30363d !important; }
+
+      /* ── Zoom control dark skin ─────────────────────────────────────────────── */
+      .leaflet-bar a {
+        background-color: #161b22 !important;
+        border-color: #30363d !important;
+        color: #c9d1d9 !important;
+      }
+      .leaflet-bar a:hover { background-color: #21262d !important; }
+
+      /* ── Legend ─────────────────────────────────────────────────────────────── */
+      .map-legend {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: .4rem;
+        padding: .5rem .75rem;
+        font-size: .78rem;
+        color: #8b949e;
+        line-height: 1.6;
+        min-width: 120px;
+      }
+      .map-legend .legend-title {
+        font-size: .68rem;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        font-weight: 600;
+        color: #6e7681;
+        margin-bottom: .35rem;
+      }
+      .map-legend .legend-row { display: flex; align-items: center; gap: .5rem; color: #c9d1d9; }
+      .legend-dot {
+        width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+        border: 2px solid rgba(255,255,255,.25);
+      }
+
+      /* ── Unmappable panel ───────────────────────────────────────────────────── */
+      #unmappable-panel {
+        position: absolute;
+        bottom: 1.5rem;
+        right: 1rem;
+        z-index: 1000;
+        max-width: 280px;
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: .4rem;
+        font-size: .8rem;
+        color: #8b949e;
+      }
+      #unmappable-panel .panel-header {
+        padding: .35rem .75rem;
+        border-bottom: 1px solid #21262d;
+        font-size: .68rem;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        font-weight: 600;
+      }
+      #unmappable-panel .panel-body { padding: .35rem .75rem; max-height: 120px; overflow-y: auto; }
+      #unmappable-panel .node-item { padding: .12rem 0; border-bottom: 1px solid #21262d; color: #c9d1d9; font-family: monospace; }
+      #unmappable-panel .node-item:last-child { border-bottom: none; }
+      #unmappable-panel .node-loc { color: #6e7681; font-family: sans-serif; font-size: .72rem; }
+  %body
+
+    = render 'shared/navbar', active: 'map'
+
+    - if @fetch_error
+      .alert.alert-warning.m-3{role: "alert"}
+        %i.bi.bi-exclamation-triangle-fill.me-2
+        Could not load status from
+        %code.mx-1= @status_url
+        = ": #{@fetch_error}"
+
+    %div{style: "position:relative"}
+      #map
+      #unmappable-panel{style: "display:none"}
+        .panel-header.text-secondary
+          %i.bi.bi-geo.me-1
+          No coordinates
+        .panel-body#unmappable-list
+
+    %script{src: "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"}
+    %script{src: "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"}
+    - nodes_json = @nodes.to_json.html_safe
+    :javascript
+      (function () {
+        'use strict';
+
+        var nodes = #{nodes_json};
+
+        // ── Tile layers ────────────────────────────────────────────────────────────
+        var tileLayers = {
+          'Dark': L.tileLayer(
+            'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+            { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>', subdomains: 'abcd', maxZoom: 19 }
+          ),
+          'Street': L.tileLayer(
+            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', maxZoom: 19 }
+          ),
+          'Satellite': L.tileLayer(
+            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            { attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community', maxZoom: 19 }
+          ),
+          'Topo': L.tileLayer(
+            'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+            { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a>', maxZoom: 17 }
+          )
+        };
+
+        // ── Leaflet map ────────────────────────────────────────────────────────────
+        var map = L.map('map', { zoomControl: true, layers: [tileLayers['Dark']] });
+
+        L.control.layers(tileLayers, {}, { position: 'topright', collapsed: true }).addTo(map);
+
+        // ── Legend ─────────────────────────────────────────────────────────────────
+        var legend = L.control({ position: 'bottomleft' });
+        legend.onAdd = function () {
+          var div = L.DomUtil.create('div', 'map-legend');
+          div.innerHTML =
+            '<div class="legend-title">Node status</div>' +
+            '<div class="legend-row"><span class="legend-dot" style="background:#3fb950"></span>Talking</div>' +
+            '<div class="legend-row"><span class="legend-dot" style="background:#1f6feb"></span>Active (on TG)</div>' +
+            '<div class="legend-row"><span class="legend-dot" style="background:#6e7681"></span>Idle</div>';
+          return div;
+        };
+        legend.addTo(map);
+
+        // ── Colour helpers ─────────────────────────────────────────────────────────
+        function markerColor(node) {
+          if (node.isTalker)             return '#3fb950';
+          if (node.tg && node.tg !== 0) return '#1f6feb';
+          return '#6e7681';
+        }
+
+        function statusBadge(node) {
+          var tg = node.tg || 0;
+          if (node.isTalker) return '<span class="badge-talking">TALKING &middot; TG ' + tg + '</span>';
+          if (tg !== 0)      return '<span class="badge-active">TG ' + tg + '</span>';
+          return '<span class="badge-idle">IDLE</span>';
+        }
+
+        function esc(s) {
+          return String(s || '')
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        // ── Place markers ──────────────────────────────────────────────────────────
+        var bounds = [];
+        var unmappable = [];
+        var markersByCs = {};
+
+        Object.keys(nodes).forEach(function (cs) {
+          var node = nodes[cs];
+          if (node.hidden) return;
+
+          var pos = node.qth && node.qth[0] && node.qth[0].pos;
+          var lat = pos && pos.lat;
+          var lng = pos && pos.long;
+
+          if (!lat || !lng) {
+            unmappable.push({ cs: cs, node: node });
+            return;
+          }
+
+          var color  = markerColor(node);
+          var marker = L.circleMarker([lat, lng], {
+            radius: 8,
+            color: color,
+            fillColor: color,
+            fillOpacity: 0.85,
+            weight: 2,
+            opacity: 1
+          }).addTo(map);
+
+          // Permanent callsign label
+          marker.bindTooltip(esc(cs), {
+            permanent: true,
+            direction: 'bottom',
+            className: 'node-label',
+            offset: [0, 6]
+          });
+
+          // Popup
+          var qth     = node.qth[0];
+          var locator = pos.loc || '';
+          var rxFreq  = qth.rx && Object.values(qth.rx)[0] && Object.values(qth.rx)[0].freq;
+          var txFreq  = qth.tx && Object.values(qth.tx)[0] && Object.values(qth.tx)[0].freq;
+          var nodeIcon = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', simplex: 'bi-broadcast' };
+          var iconCls  = nodeIcon[node.nodeClass] || 'bi-broadcast';
+
+          var html = '<div class="popup-callsign">' + esc(cs) + '</div>' +
+                     '<div class="popup-row" style="margin-top:.35rem">' + statusBadge(node) + '</div>';
+          if (node.nodeClass)    html += '<div class="popup-row"><i class="bi ' + iconCls + ' me-1"></i><span>' + esc(node.nodeClass) + '</span></div>';
+          if (node.nodeLocation) html += '<div class="popup-row"><i class="bi bi-geo-alt me-1"></i><span>' + esc(node.nodeLocation) + '</span></div>';
+          if (locator)           html += '<div class="popup-row"><i class="bi bi-grid-3x3-gap me-1"></i><span class="font-monospace">' + esc(locator) + '</span></div>';
+          if (rxFreq && rxFreq > 0) html += '<div class="popup-row">RX <span class="font-monospace">' + rxFreq.toFixed(4) + ' MHz</span></div>';
+          if (txFreq && txFreq > 0) html += '<div class="popup-row">TX <span class="font-monospace">' + txFreq.toFixed(4) + ' MHz</span></div>';
+          if (node.sysop)        html += '<div class="popup-row"><i class="bi bi-person me-1"></i><span>' + esc(node.sysop) + '</span></div>';
+
+          // Tone → TG mapping table
+          var ttg = node.toneToTalkgroup;
+          if (ttg && Object.keys(ttg).length > 0) {
+            var rows = Object.keys(ttg).sort(function (a, b) { return parseFloat(a) - parseFloat(b); }).map(function (tone) {
+              var tgNum = ttg[tone];
+              var tgCell = tgNum === 0
+                ? '<td class="tone-tg-idle">local</td>'
+                : '<td>' + tgNum + '</td>';
+              return '<tr><td>' + parseFloat(tone).toFixed(1) + ' Hz</td>' + tgCell + '</tr>';
+            }).join('');
+            html += '<div class="popup-row" style="margin-top:.5rem"><i class="bi bi-music-note-list me-1"></i><span>Tone / TG</span></div>' +
+                    '<table class="tone-table"><thead><tr><th>CTCSS</th><th>TG</th></tr></thead><tbody>' + rows + '</tbody></table>';
+          }
+
+          marker.bindPopup(html, { maxWidth: 260 });
+          markersByCs[cs] = marker;
+          bounds.push([lat, lng]);
+        });
+
+        // Fit map to markers or default to Europe
+        if (bounds.length > 0) {
+          map.fitBounds(bounds, { padding: [40, 40] });
+        } else {
+          map.setView([48, 10], 5);
+        }
+
+        // Open popup for any node already talking at page load
+        Object.keys(markersByCs).forEach(function (cs) {
+          if (nodes[cs] && nodes[cs].isTalker) markersByCs[cs].openPopup();
+        });
+
+        // ── Unmappable panel ───────────────────────────────────────────────────────
+        if (unmappable.length > 0) {
+          var panel = document.getElementById('unmappable-panel');
+          var list  = document.getElementById('unmappable-list');
+          unmappable.forEach(function (item) {
+            var div = document.createElement('div');
+            div.className = 'node-item';
+            div.innerHTML = esc(item.cs) +
+              (item.node.nodeLocation ? ' <span class="node-loc">' + esc(item.node.nodeLocation) + '</span>' : '');
+            list.appendChild(div);
+          });
+          panel.style.display = '';
+        }
+
+        // ── Popup HTML builder ─────────────────────────────────────────────────────
+        function buildPopupHtml(cs, node) {
+          var pos     = node.qth && node.qth[0] && node.qth[0].pos;
+          var qth     = (node.qth && node.qth[0]) || {};
+          var locator = (pos && pos.loc) || '';
+          var rxFreq  = qth.rx && Object.values(qth.rx)[0] && Object.values(qth.rx)[0].freq;
+          var txFreq  = qth.tx && Object.values(qth.tx)[0] && Object.values(qth.tx)[0].freq;
+          var nodeIcon = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', simplex: 'bi-broadcast' };
+          var iconCls  = nodeIcon[node.nodeClass] || 'bi-broadcast';
+          var html = '<div class="popup-callsign">' + esc(cs) + '</div>' +
+                     '<div class="popup-row" style="margin-top:.35rem">' + statusBadge(node) + '</div>';
+          if (node.nodeClass)    html += '<div class="popup-row"><i class="bi ' + iconCls + ' me-1"></i><span>' + esc(node.nodeClass) + '</span></div>';
+          if (node.nodeLocation) html += '<div class="popup-row"><i class="bi bi-geo-alt me-1"></i><span>' + esc(node.nodeLocation) + '</span></div>';
+          if (locator)           html += '<div class="popup-row"><i class="bi bi-grid-3x3-gap me-1"></i><span class="font-monospace">' + esc(locator) + '</span></div>';
+          if (rxFreq && rxFreq > 0) html += '<div class="popup-row">RX <span class="font-monospace">' + rxFreq.toFixed(4) + ' MHz</span></div>';
+          if (txFreq && txFreq > 0) html += '<div class="popup-row">TX <span class="font-monospace">' + txFreq.toFixed(4) + ' MHz</span></div>';
+          if (node.sysop)        html += '<div class="popup-row"><i class="bi bi-person me-1"></i><span>' + esc(node.sysop) + '</span></div>';
+          var ttg = node.toneToTalkgroup;
+          if (ttg && Object.keys(ttg).length > 0) {
+            var rows = Object.keys(ttg).sort(function (a, b) { return parseFloat(a) - parseFloat(b); }).map(function (tone) {
+              var tgNum = ttg[tone];
+              return '<tr><td>' + parseFloat(tone).toFixed(1) + ' Hz</td>' +
+                     (tgNum === 0 ? '<td class="tone-tg-idle">local</td>' : '<td>' + tgNum + '</td>') + '</tr>';
+            }).join('');
+            html += '<div class="popup-row" style="margin-top:.5rem"><i class="bi bi-music-note-list me-1"></i><span>Tone / TG</span></div>' +
+                    '<table class="tone-table"><thead><tr><th>CTCSS</th><th>TG</th></tr></thead><tbody>' + rows + '</tbody></table>';
+          }
+          return html;
+        }
+
+        // ── Live marker management ──────────────────────────────────────────────────
+        function addOrUpdateMarker(cs, node) {
+          var pos = node.qth && node.qth[0] && node.qth[0].pos;
+          var lat = pos && pos.lat;
+          var lng = pos && pos.long;
+          if (node.hidden || !lat || !lng) {
+            if (markersByCs[cs]) { markersByCs[cs].remove(); delete markersByCs[cs]; }
+            return;
+          }
+          var color = markerColor(node);
+          if (markersByCs[cs]) {
+            markersByCs[cs].setStyle({ color: color, fillColor: color });
+            markersByCs[cs].setPopupContent(buildPopupHtml(cs, node));
+          } else {
+            var marker = L.circleMarker([lat, lng], {
+              radius: 8, color: color, fillColor: color, fillOpacity: 0.85, weight: 2, opacity: 1
+            }).addTo(map);
+            marker.bindTooltip(esc(cs), { permanent: true, direction: 'bottom', className: 'node-label', offset: [0, 6] });
+            marker.bindPopup(buildPopupHtml(cs, node), { maxWidth: 260 });
+            markersByCs[cs] = marker;
+          }
+          if (node.isTalker) {
+            markersByCs[cs].openPopup();
+          } else {
+            markersByCs[cs].closePopup();
+          }
+        }
+
+        // ── WebSocket for live updates ─────────────────────────────────────────────
+        function connectMapWs() {
+          var proto = location.protocol === 'https:' ? 'wss' : 'ws';
+          var ws = new WebSocket(proto + '://' + location.host + '/cable');
+          ws.onopen = function () {
+            ws.send(JSON.stringify({ command: 'subscribe', identifier: JSON.stringify({ channel: 'UpdatesChannel' }) }));
+          };
+          ws.onmessage = function (ev) {
+            var envelope;
+            try { envelope = JSON.parse(ev.data); } catch (e) { return; }
+            var msg = envelope.message;
+            if (!msg || !msg.nodes) return;
+            (msg.removed || []).forEach(function (cs) {
+              if (markersByCs[cs]) { markersByCs[cs].remove(); delete markersByCs[cs]; }
+            });
+            (msg.changed || []).forEach(function (cs) {
+              if (msg.nodes[cs]) addOrUpdateMarker(cs, msg.nodes[cs]);
+            });
+          };
+          ws.onclose = function () { setTimeout(connectMapWs, 5000); };
+          ws.onerror = function () {};
+        }
+        connectMapWs();
+      })();

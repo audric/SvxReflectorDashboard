@@ -1,0 +1,263 @@
+!!!
+%html{lang: "en", "data-bs-theme" => "dark"}
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title SVXReflector · TG Matrix
+    %link{rel: "stylesheet", href: "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"}
+    %link{rel: "stylesheet", href: "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"}
+    :css
+      body { background: #0d1117; }
+
+      /* ── Page header divider ─────────────────────────────────────────────── */
+      .page-header {
+        display: flex; align-items: center; gap: .75rem;
+        padding: 1rem 0 .75rem;
+        font-size: .7rem; text-transform: uppercase; letter-spacing: .08em;
+        color: #6e7681; font-weight: 600;
+      }
+      .page-header::after { content: ''; flex: 1; height: 1px; background: #21262d; }
+
+      /* ── Matrix wrapper ──────────────────────────────────────────────────── */
+      .matrix-wrap {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: calc(100vh - 160px);
+        border: 1px solid #30363d;
+        border-radius: .4rem;
+      }
+
+      /* ── Table base ──────────────────────────────────────────────────────── */
+      .matrix-table {
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: .8rem;
+        white-space: nowrap;
+        width: 100%;
+      }
+
+      /* ── Sticky first column ─────────────────────────────────────────────── */
+      .matrix-table .col-node {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        background: #0d1117;
+        border-right: 2px solid #30363d;
+        min-width: 180px;
+      }
+
+      /* ── Sticky header row ───────────────────────────────────────────────── */
+      .matrix-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        background: #161b22;
+        border-bottom: 2px solid #30363d;
+        padding: .5rem .65rem;
+        font-size: .68rem;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        color: #6e7681;
+        font-weight: 600;
+        text-align: center;
+      }
+
+      /* ── Top-left corner cell above both sticky axes ─────────────────────── */
+      .matrix-table thead th.col-node {
+        z-index: 4;
+        background: #161b22;
+        text-align: left;
+      }
+
+      /* ── TG column heading ───────────────────────────────────────────────── */
+      .tg-col-head {
+        font-family: monospace;
+        color: #c9d1d9;
+        font-size: .78rem;
+        font-weight: 700;
+        text-transform: none;
+        letter-spacing: 0;
+        display: block;
+      }
+      .tg-col-head.local { color: #8b949e; font-style: italic; }
+
+      /* ── Body cells ──────────────────────────────────────────────────────── */
+      .matrix-table td {
+        padding: .35rem .65rem;
+        border-bottom: 1px solid #21262d;
+        text-align: center;
+        vertical-align: middle;
+      }
+      .matrix-table tbody tr:last-child td { border-bottom: none; }
+      .matrix-table tbody tr:hover td { background: #161b22; }
+      .matrix-table tbody tr:hover td.col-node { background: #1c2128; }
+
+      /* ── Node cell content ───────────────────────────────────────────────── */
+      .node-cs  { font-family: monospace; font-weight: 700; color: #e6edf3; font-size: .85rem; }
+      .node-loc { font-size: .7rem; color: #6e7681; margin-top: .05rem; }
+
+      /* ── Tone cell ───────────────────────────────────────────────────────── */
+      .tone-pill {
+        display: inline-block;
+        background: #1a3a52;
+        border: 1px solid #1f6feb;
+        border-radius: .25em;
+        padding: .1em .5em;
+        font-family: monospace;
+        font-weight: 700;
+        font-size: .78rem;
+        color: #79c0ff;
+      }
+      .tone-pill .tone-unit { color: #4a7fa5; font-size: .65rem; font-weight: 400; }
+      .tone-pill.local { background: #21262d; border-color: #30363d; color: #8b949e; }
+      .tone-pill.local .tone-unit { color: #6e7681; }
+
+      /* ── Empty cell ──────────────────────────────────────────────────────── */
+      .empty-cell { color: #30363d; font-size: .9rem; }
+  %body
+
+    = render 'shared/navbar', active: 'tg'
+    
+    %script{src: "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"}
+
+    .container-fluid.px-3.px-md-4
+
+      - if @fetch_error
+        .alert.alert-warning.d-flex.align-items-center.mb-3{role: "alert"}
+          %i.bi.bi-exclamation-triangle-fill.me-2.flex-shrink-0
+          Could not load status from
+          %code.mx-1= @status_url
+          = ": #{@fetch_error}"
+
+      .page-header
+        %i.bi.bi-collection.me-1
+        TG · Tone Matrix
+        %span.ms-1.fw-normal
+          = "#{@all_tgs.size} talkgroup#{'s' unless @all_tgs.size == 1} · #{@node_rows.size} node#{'s' unless @node_rows.size == 1}"
+
+      .matrix-wrap
+        %table.matrix-table
+          %thead
+            %tr
+              %th.col-node Node
+              - @all_tgs.each do |tg|
+                %th
+                  %span{class: "tg-col-head#{' local' if tg == 0}"}= tg == 0 ? 'Local' : tg
+          %tbody
+            - if @node_rows.empty?
+              %tr
+                %td.text-secondary.small.py-4.text-center{colspan: @all_tgs.size + 1}
+                  %i.bi.bi-info-circle.me-1
+                  No tone-to-TG mapping data found.
+            - else
+              - @node_rows.each do |cs, node, tg_tone|
+                %tr
+                  %td.col-node
+                    .node-cs= cs
+                    - if node['nodeLocation']
+                      .node-loc= node['nodeLocation']
+                  - @all_tgs.each do |tg|
+                    - tone = tg_tone[tg]
+                    %td
+                      - if tone
+                        %span{class: "tone-pill#{' local' if tg == 0}"}
+                          = "%.1f" % tone
+                          %span.tone-unit  Hz
+                      - else
+                        %span.empty-cell ·
+      :javascript
+        (function () {
+          'use strict';
+
+          function esc(s) {
+            return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+          }
+
+          function rebuildMatrix(allNodes) {
+            var thead = document.querySelector('.matrix-table thead tr');
+            var tbody = document.querySelector('.matrix-table tbody');
+            if (!thead || !tbody) return;
+
+            var allTgSet = {};
+            var rows = [];
+            Object.keys(allNodes).sort().forEach(function (cs) {
+              var node = allNodes[cs];
+              if (node.hidden) return;
+              var ttg = node.toneToTalkgroup || {};
+              var tgTone = {};
+              Object.keys(ttg).forEach(function (toneStr) {
+                var tgNum = ttg[toneStr];
+                allTgSet[tgNum] = true;
+                tgTone[tgNum] = parseFloat(toneStr);
+              });
+              if (Object.keys(tgTone).length > 0) rows.push({ cs: cs, node: node, tgTone: tgTone });
+            });
+
+            var allTgs = Object.keys(allTgSet).map(Number).sort(function (a, b) { return a - b; });
+
+            // Rebuild thead: keep Node column, replace TG columns
+            while (thead.children.length > 1) thead.removeChild(thead.lastChild);
+            allTgs.forEach(function (tg) {
+              var th = document.createElement('th');
+              var span = document.createElement('span');
+              span.className = 'tg-col-head' + (tg === 0 ? ' local' : '');
+              span.textContent = tg === 0 ? 'Local' : tg;
+              th.appendChild(span);
+              thead.appendChild(th);
+            });
+
+            // Rebuild tbody
+            tbody.innerHTML = '';
+            if (rows.length === 0) {
+              var tr = document.createElement('tr');
+              var td = document.createElement('td');
+              td.colSpan = allTgs.length + 1;
+              td.className = 'text-secondary small py-4 text-center';
+              td.innerHTML = '<i class="bi bi-info-circle me-1"></i>No tone-to-TG mapping data found.';
+              tr.appendChild(td);
+              tbody.appendChild(tr);
+              return;
+            }
+
+            rows.forEach(function (row) {
+              var tr = document.createElement('tr');
+              var nodeTd = document.createElement('td');
+              nodeTd.className = 'col-node';
+              nodeTd.innerHTML = '<div class="node-cs">' + esc(row.cs) + '</div>' +
+                (row.node.nodeLocation ? '<div class="node-loc">' + esc(row.node.nodeLocation) + '</div>' : '');
+              tr.appendChild(nodeTd);
+              allTgs.forEach(function (tg) {
+                var td = document.createElement('td');
+                var tone = row.tgTone[tg];
+                if (tone !== undefined) {
+                  var pill = document.createElement('span');
+                  pill.className = 'tone-pill' + (tg === 0 ? ' local' : '');
+                  pill.innerHTML = tone.toFixed(1) + '<span class="tone-unit"> Hz</span>';
+                  td.appendChild(pill);
+                } else {
+                  td.innerHTML = '<span class="empty-cell">\u00B7</span>';
+                }
+                tr.appendChild(td);
+              });
+              tbody.appendChild(tr);
+            });
+          }
+
+          function connectTgWs() {
+            var proto = location.protocol === 'https:' ? 'wss' : 'ws';
+            var ws = new WebSocket(proto + '://' + location.host + '/cable');
+            ws.onopen = function () {
+              ws.send(JSON.stringify({ command: 'subscribe', identifier: JSON.stringify({ channel: 'UpdatesChannel' }) }));
+            };
+            ws.onmessage = function (ev) {
+              var envelope;
+              try { envelope = JSON.parse(ev.data); } catch (e) { return; }
+              var msg = envelope.message;
+              if (!msg || !msg.nodes) return;
+              rebuildMatrix(msg.nodes);
+            };
+            ws.onclose = function () { setTimeout(connectTgWs, 5000); };
+            ws.onerror = function () {};
+          }
+          connectTgWs();
+        })();

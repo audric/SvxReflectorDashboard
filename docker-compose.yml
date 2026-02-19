@@ -1,0 +1,34 @@
+version: '3.8'
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      BRAND_NAME: ${BRAND_NAME}
+      REFLECTOR_STATUS_URL: ${REFLECTOR_STATUS_URL}
+      REDIS_URL: redis://redis:6379/1
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+    volumes:
+      - db_data:/rails/storage
+    depends_on:
+      - redis
+
+  updater:
+    build: .
+    command: bash -lc "bundle exec rails runner 'require Rails.root.join(\"lib\",\"reflector_listener\").to_s; ReflectorListener.start; sleep'"
+    environment:
+      REFLECTOR_STATUS_URL: ${REFLECTOR_STATUS_URL}
+      REDIS_URL: redis://redis:6379/1
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+    volumes:
+      - db_data:/rails/storage
+    depends_on:
+      - web
+      - redis
+
+  redis:
+    image: redis:7-alpine
+
+volumes:
+  db_data:
