@@ -31,7 +31,7 @@ db_data  → Named Docker volume persisting the SQLite database (storage/)
 ### 1. Clone the repository
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/audric/SvxReflectorDashboard
 cd rails
 ```
 
