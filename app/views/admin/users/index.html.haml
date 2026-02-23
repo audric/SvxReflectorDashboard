@@ -33,19 +33,29 @@
           %thead
             %tr
               %th Callsign
+              %th Name
+              %th Email
+              %th Mobile
+              %th Telegram
               %th Role
-              %th Created
               %th.text-end Actions
           %tbody
             - @users.each do |user|
               %tr
                 %td.font-monospace.fw-bold= user.callsign
+                %td= user.name
+                %td
+                  - if user.email.present?
+                    %a.text-info{href: "mailto:#{user.email}"}= user.email
+                %td= user.mobile
+                %td
+                  - if user.telegram.present?
+                    %span.text-info= user.telegram
                 %td
                   - if user.admin?
                     %span.badge.bg-warning.text-dark admin
                   - else
                     %span.badge.bg-secondary user
-                %td.text-secondary= user.created_at.strftime("%Y-%m-%d %H:%M")
                 %td.text-end
                   = link_to edit_admin_user_path(user), class: "btn btn-sm btn-outline-secondary me-1" do
                     %i.bi.bi-pencil
