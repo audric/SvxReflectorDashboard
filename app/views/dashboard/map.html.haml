@@ -11,6 +11,12 @@
       body { background: #0d1117; margin: 0; }
       #map { height: calc(100vh - 72px); width: 100%; }
 
+      .ws-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; vertical-align: middle; }
+      .ws-connected    { background: #3fb950; }
+      .ws-disconnected { background: #f85149; }
+      .ws-connecting   { background: #d29922; animation: blink 1s step-start infinite; }
+      @keyframes blink { 50% { opacity: .2; } }
+
       /* ── Dark Leaflet popup ─────────────────────────────────────────────────── */
       .leaflet-popup-content-wrapper {
         background: #161b22;
@@ -28,6 +34,8 @@
       .tone-table td { padding: .15rem .3rem; color: #c9d1d9; font-family: monospace; border-bottom: 1px solid #21262d; }
       .tone-table tr:last-child td { border-bottom: none; }
       .tone-tg-idle { color: #6e7681 !important; }
+      .tone-table tr.tone-active { background: rgba(63,185,80,.15); }
+      .tone-table tr.tone-active td { color: #3fb950; font-weight: 700; }
       .badge-talking { background: #1a4a25; color: #3fb950; border: 1px solid #3fb950; border-radius: .25em; padding: .1em .45em; font-size: .72rem; font-weight: 600; }
       .badge-active  { background: #1f3a5f; color: #79c0ff; border: 1px solid #1f6feb; border-radius: .25em; padding: .1em .45em; font-size: .72rem; font-weight: 600; }
       .badge-idle    { background: #21262d; color: #8b949e; border: 1px solid #30363d; border-radius: .25em; padding: .1em .45em; font-size: .72rem; }
@@ -120,7 +128,7 @@
       #unmappable-panel .node-loc { color: #6e7681; font-family: sans-serif; font-size: .72rem; }
   %body
 
-    = render 'shared/navbar', active: 'map'
+    = render 'shared/navbar', active: 'map', ws_indicator: true
 
     - if @fetch_error
       .alert.alert-warning.m-3{role: "alert"}
@@ -146,26 +154,27 @@
 
         // ── Tile layers ────────────────────────────────────────────────────────────
         var tileLayers = {
-          'Dark': L.tileLayer(
+          '<i class="bi bi-moon-stars me-1"></i>Dark': L.tileLayer(
             'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
             { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>', subdomains: 'abcd', maxZoom: 19 }
           ),
-          'Street': L.tileLayer(
+          '<i class="bi bi-signpost-2 me-1"></i>Street': L.tileLayer(
             'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', maxZoom: 19 }
           ),
-          'Satellite': L.tileLayer(
+          '<i class="bi bi-globe-americas me-1"></i>Satellite': L.tileLayer(
             'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
             { attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community', maxZoom: 19 }
           ),
-          'Topo': L.tileLayer(
+          '<i class="bi bi-mountains me-1"></i>Topo': L.tileLayer(
             'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
             { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a>', maxZoom: 17 }
           )
         };
 
         // ── Leaflet map ────────────────────────────────────────────────────────────
-        var map = L.map('map', { zoomControl: true, layers: [tileLayers['Dark']] });
+        var defaultLayer = tileLayers[Object.keys(tileLayers)[0]];
+        var map = L.map('map', { zoomControl: true, layers: [defaultLayer] });
 
         L.control.layers(tileLayers, {}, { position: 'topright', collapsed: true }).addTo(map);
 
@@ -256,13 +265,15 @@
 
           // Tone → TG mapping table
           var ttg = node.toneToTalkgroup;
+          var activeTg = (node.isTalker && node.tg) ? node.tg : null;
           if (ttg && Object.keys(ttg).length > 0) {
             var rows = Object.keys(ttg).sort(function (a, b) { return parseFloat(a) - parseFloat(b); }).map(function (tone) {
               var tgNum = ttg[tone];
+              var isActive = activeTg !== null && tgNum === activeTg;
               var tgCell = tgNum === 0
                 ? '<td class="tone-tg-idle">local</td>'
                 : '<td>' + tgNum + '</td>';
-              return '<tr><td>' + parseFloat(tone).toFixed(1) + ' Hz</td>' + tgCell + '</tr>';
+              return '<tr' + (isActive ? ' class="tone-active"' : '') + '><td>' + parseFloat(tone).toFixed(1) + ' Hz</td>' + tgCell + '</tr>';
             }).join('');
             html += '<div class="popup-row" style="margin-top:.5rem"><i class="bi bi-music-note-list me-1"></i><span>Tone / TG</span></div>' +
                     '<table class="tone-table"><thead><tr><th>CTCSS</th><th>TG</th></tr></thead><tbody>' + rows + '</tbody></table>';
@@ -317,10 +328,12 @@
           if (txFreq && txFreq > 0) html += '<div class="popup-row">TX <span class="font-monospace">' + txFreq.toFixed(4) + ' MHz</span></div>';
           if (node.sysop)        html += '<div class="popup-row"><i class="bi bi-person me-1"></i><span>' + esc(node.sysop) + '</span></div>';
           var ttg = node.toneToTalkgroup;
+          var activeTg = (node.isTalker && node.tg) ? node.tg : null;
           if (ttg && Object.keys(ttg).length > 0) {
             var rows = Object.keys(ttg).sort(function (a, b) { return parseFloat(a) - parseFloat(b); }).map(function (tone) {
               var tgNum = ttg[tone];
-              return '<tr><td>' + parseFloat(tone).toFixed(1) + ' Hz</td>' +
+              var isActive = activeTg !== null && tgNum === activeTg;
+              return '<tr' + (isActive ? ' class="tone-active"' : '') + '><td>' + parseFloat(tone).toFixed(1) + ' Hz</td>' +
                      (tgNum === 0 ? '<td class="tone-tg-idle">local</td>' : '<td>' + tgNum + '</td>') + '</tr>';
             }).join('');
             html += '<div class="popup-row" style="margin-top:.5rem"><i class="bi bi-music-note-list me-1"></i><span>Tone / TG</span></div>' +
@@ -357,8 +370,19 @@
           }
         }
 
+        // ── WebSocket indicator ────────────────────────────────────────────────────
+        function setWs(state) {
+          var dot   = document.getElementById('ws-dot');
+          var label = document.getElementById('ws-label');
+          if (dot)   dot.className   = 'ws-dot ws-' + state;
+          if (label) label.textContent =
+            state === 'connected'    ? 'Live'         :
+            state === 'disconnected' ? 'Disconnected' : 'Connecting\u2026';
+        }
+
         // ── WebSocket for live updates ─────────────────────────────────────────────
         function connectMapWs() {
+          setWs('connecting');
           var proto = location.protocol === 'https:' ? 'wss' : 'ws';
           var ws = new WebSocket(proto + '://' + location.host + '/cable');
           ws.onopen = function () {
@@ -367,6 +391,9 @@
           ws.onmessage = function (ev) {
             var envelope;
             try { envelope = JSON.parse(ev.data); } catch (e) { return; }
+            if (envelope.type === 'welcome')              { setWs('connected'); return; }
+            if (envelope.type === 'ping')                 { return; }
+            if (envelope.type === 'confirm_subscription') { return; }
             var msg = envelope.message;
             if (!msg || !msg.nodes) return;
             (msg.removed || []).forEach(function (cs) {
@@ -376,8 +403,8 @@
               if (msg.nodes[cs]) addOrUpdateMarker(cs, msg.nodes[cs]);
             });
           };
-          ws.onclose = function () { setTimeout(connectMapWs, 5000); };
-          ws.onerror = function () {};
+          ws.onclose = function () { setWs('disconnected'); setTimeout(connectMapWs, 5000); };
+          ws.onerror = function () { setWs('disconnected'); };
         }
         connectMapWs();
       })();
