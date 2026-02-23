@@ -2,12 +2,12 @@ services:
 
   web:
     user: root
-    command: ./bin/rails server -b 0.0.0.0
+    command: bash -c "bin/rails assets:precompile && bin/rails server -b 0.0.0.0"
     volumes:
       - .:/rails
       - db_data:/rails/storage
     environment:
-      RAILS_ENV: development
+      RAILS_ENV: production
 
   updater:
     user: root
@@ -15,4 +15,4 @@ services:
       - .:/rails
       - db_data:/rails/storage
     environment:
-      RAILS_ENV: development
+      RAILS_ENV: production
