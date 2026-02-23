@@ -136,11 +136,15 @@
           %i.bi.bi-exclamation-triangle-fill.me-2.flex-shrink-0
           = @fetch_error
 
-      .page-header
-        %i.bi.bi-collection.me-1
-        TG · Tone Matrix
-        %span.ms-1.fw-normal
-          = "#{@all_tgs.size} talkgroup#{'s' unless @all_tgs.size == 1} · #{@node_rows.size} node#{'s' unless @node_rows.size == 1}"
+      .d-flex.align-items-center.justify-content-between.flex-wrap.gap-2
+        .page-header.flex-grow-1.mb-0
+          %i.bi.bi-collection.me-1
+          TG · Tone Matrix
+          %span.ms-1.fw-normal
+            = "#{@all_tgs.size} talkgroup#{'s' unless @all_tgs.size == 1} · #{@node_rows.size} node#{'s' unless @node_rows.size == 1}"
+        %button#chirp-export.btn.btn-sm.btn-outline-secondary{type: "button", onclick: "exportChirp()"}
+          %i.bi.bi-download.me-1
+          CHIRP CSV
 
       .matrix-wrap
         %table.matrix-table
@@ -183,7 +187,83 @@
                           %span.tone-unit  Hz
                       - else
                         %span.empty-cell ·
+      - nodes_json = @nodes.to_json.html_safe
       :javascript
+        var _tgNodes = #{nodes_json};
+
+        function exportChirp() {
+          var header = 'Location,Name,Frequency,Duplex,Offset,Tone,rToneFreq,cToneFreq,DtcsCode,DtcsPolarity,Mode,TStep,Skip,Comment,URCALL,RPT1CALL,RPT2CALL';
+          var rows = [header];
+          var loc = 1;
+
+          Object.keys(_tgNodes).sort().forEach(function (cs) {
+            var node = _tgNodes[cs];
+            if (node.hidden) return;
+            var ttg = node.toneToTalkgroup;
+            if (!ttg || Object.keys(ttg).length === 0) return;
+
+            var qth    = node.qth && node.qth[0];
+            var txObj  = qth && qth.tx && Object.values(qth.tx)[0];
+            var rxObj  = qth && qth.rx && Object.values(qth.rx)[0];
+            var repTx  = txObj && txObj.freq;  // repeater TX = radio RX
+            var repRx  = rxObj && rxObj.freq;  // repeater RX = radio TX
+
+            if (!repTx || repTx <= 0) return;
+
+            var duplex = '';
+            var offset = 0.600000;
+            if (repRx && repRx > 0) {
+              var diff = repRx - repTx;
+              if (Math.abs(diff) < 0.0001) {
+                duplex = '';
+                offset = 0;
+              } else if (diff > 0) {
+                duplex = '+';
+                offset = Math.abs(diff);
+              } else {
+                duplex = '-';
+                offset = Math.abs(diff);
+              }
+            }
+
+            Object.keys(ttg).sort(function (a, b) { return parseFloat(a) - parseFloat(b); }).forEach(function (toneStr) {
+              var tgNum = ttg[toneStr];
+              var tone  = parseFloat(toneStr);
+              var name  = cs.substring(0, 7) + (tgNum !== 0 ? ' ' + tgNum : '');
+              if (name.length > 16) name = name.substring(0, 16);
+              var comment = (node.nodeLocation || '') + (tgNum !== 0 ? ' TG' + tgNum : ' Local');
+              comment = '"' + comment.replace(/"/g, '""') + '"';
+
+              rows.push([
+                loc++,
+                name,
+                repTx.toFixed(6),
+                duplex,
+                offset.toFixed(6),
+                'Tone',
+                tone.toFixed(1),
+                '88.5',
+                '023',
+                'NN',
+                'FM',
+                '5.00',
+                '',
+                comment,
+                '', '', ''
+              ].join(','));
+            });
+          });
+
+          if (rows.length <= 1) { alert('No exportable data (nodes need TX frequency and tone mappings).'); return; }
+
+          var blob = new Blob([rows.join('\r\n') + '\r\n'], { type: 'text/csv' });
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'svxreflector_chirp.csv';
+          a.click();
+          URL.revokeObjectURL(a.href);
+        }
+
         (function () {
           'use strict';
 
@@ -295,6 +375,7 @@
               if (envelope.type === 'confirm_subscription') { return; }
               var msg = envelope.message;
               if (!msg || !msg.nodes) return;
+              _tgNodes = msg.nodes;
               rebuildMatrix(msg.nodes);
             };
             ws.onclose = function () { setWs('disconnected'); setTimeout(connectTgWs, 5000); };
