@@ -5,6 +5,7 @@
 #   git config --global core.excludesfile '~/.gitignore_global'
 
 /.claude/
+/.CLAUDE.md
 
 # Ignore bundler config.
 /.bundle
