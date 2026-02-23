@@ -32,3 +32,16 @@
           %span.d-flex.align-items-center.gap-1
             %span#ws-dot.ws-dot.ws-connecting
             %span#ws-label.text-secondary.small Connecting…
+        - if logged_in?
+          %span.badge.bg-secondary.font-monospace= current_user.callsign
+          - if current_user.admin?
+            = link_to admin_users_path, class: "btn btn-sm btn-outline-warning" do
+              %i.bi.bi-gear.me-1
+              Admin
+          = button_to logout_path, method: :delete, class: "btn btn-sm btn-outline-secondary" do
+            %i.bi.bi-box-arrow-right.me-1
+            Logout
+        - else
+          = link_to login_path, class: "btn btn-sm btn-outline-secondary" do
+            %i.bi.bi-box-arrow-in-right.me-1
+            Login
