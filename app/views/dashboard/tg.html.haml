@@ -101,6 +101,9 @@
       /* ── Node cell content ───────────────────────────────────────────────── */
       .node-cs  { font-family: monospace; font-weight: 700; color: #e6edf3; font-size: .85rem; }
       .node-loc { font-size: .7rem; color: #6e7681; margin-top: .05rem; }
+      .node-freq { font-size: .68rem; color: #8b949e; font-family: monospace; margin-top: .1rem; }
+      .node-freq .freq-val { color: #c9d1d9; }
+      .node-freq .freq-offset { color: #6e7681; }
 
       /* ── Tone cell ───────────────────────────────────────────────────────── */
       .tone-pill {
@@ -155,11 +158,22 @@
                   No tone-to-TG mapping data found.
             - else
               - @node_rows.each do |cs, node, tg_tone|
+                - qth     = node.dig('qth', 0) || {}
+                - tx_freq = qth['tx']&.values&.first&.dig('freq')
+                - rx_freq = qth['rx']&.values&.first&.dig('freq')
+                - offset  = (tx_freq && rx_freq && tx_freq.to_f > 0 && rx_freq.to_f > 0) ? ((tx_freq.to_f - rx_freq.to_f) * 1000).round : nil
                 %tr
                   %td.col-node
                     .node-cs= cs
                     - if node['nodeLocation']
                       .node-loc= node['nodeLocation']
+                    - if tx_freq.to_f > 0
+                      .node-freq
+                        TX
+                        %span.freq-val= "%.4f" % tx_freq
+                        MHz
+                        - if offset && offset != 0
+                          %span.freq-offset= "(#{offset > 0 ? '+' : ''}#{offset} kHz)"
                   - @all_tgs.each do |tg|
                     - tone = tg_tone[tg]
                     %td
@@ -227,8 +241,18 @@
               var tr = document.createElement('tr');
               var nodeTd = document.createElement('td');
               nodeTd.className = 'col-node';
-              nodeTd.innerHTML = '<div class="node-cs">' + esc(row.cs) + '</div>' +
+              var nodeHtml = '<div class="node-cs">' + esc(row.cs) + '</div>' +
                 (row.node.nodeLocation ? '<div class="node-loc">' + esc(row.node.nodeLocation) + '</div>' : '');
+              var qth = row.node.qth && row.node.qth[0];
+              var txFreq = qth && qth.tx && Object.values(qth.tx)[0] && Object.values(qth.tx)[0].freq;
+              var rxFreq = qth && qth.rx && Object.values(qth.rx)[0] && Object.values(qth.rx)[0].freq;
+              if (txFreq && txFreq > 0) {
+                var offset = (rxFreq && rxFreq > 0) ? Math.round((txFreq - rxFreq) * 1000) : null;
+                nodeHtml += '<div class="node-freq">TX <span class="freq-val">' + txFreq.toFixed(4) + '</span> MHz';
+                if (offset && offset !== 0) nodeHtml += ' <span class="freq-offset">(' + (offset > 0 ? '+' : '') + offset + ' kHz)</span>';
+                nodeHtml += '</div>';
+              }
+              nodeTd.innerHTML = nodeHtml;
               tr.appendChild(nodeTd);
               allTgs.forEach(function (tg) {
                 var td = document.createElement('td');
