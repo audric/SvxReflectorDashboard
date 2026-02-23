@@ -35,7 +35,11 @@
 
   .mb-3
     = f.label :role, "Role", class: "form-label text-secondary small"
-    = f.select :role, [["User", "user"], ["Admin", "admin"]], {}, class: "form-select bg-dark text-light border-secondary"
+    - if user.persisted? && user == current_user
+      = f.select :role, [["Admin", "admin"]], {}, class: "form-select bg-dark text-light border-secondary", disabled: true
+      %small.text-secondary You cannot change your own role.
+    - else
+      = f.select :role, [["User", "user"], ["Admin", "admin"]], {}, class: "form-select bg-dark text-light border-secondary"
 
   = f.submit (user.persisted? ? "Update User" : "Create User"), class: "btn btn-primary"
   = link_to "Cancel", admin_users_path, class: "btn btn-outline-secondary ms-2"
