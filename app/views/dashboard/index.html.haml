@@ -227,7 +227,7 @@
                                   %span.badge.ms-1{class: (sql_open ? 'text-bg-success' : 'text-bg-secondary'), id: "node-#{callsign}-squelch-#{port}"}
                                     = sql_open ? 'OPEN' : 'SQ'
                               %span.font-monospace{id: "node-#{callsign}-siglev-#{port}"}
-                                = siglev ? "#{"%.1f" % siglev} dBm" : '—'
+                                = siglev ? "#{"%.1f" % siglev}#{' dBm' if siglev < 0}" : '—'
                             .siglev-bar.mb-1
                               .siglev-fill{class: "bg-#{bar_col}", id: "node-#{callsign}-sigbar-#{port}", style: "width: #{pct}%"}
 
@@ -400,7 +400,7 @@
 
               var sigVal = document.getElementById('node-' + callsign + '-siglev-' + port);
               if (sigVal && siglev !== null && siglev !== undefined) {
-                sigVal.textContent = siglev.toFixed(1) + ' dBm';
+                sigVal.textContent = siglev.toFixed(1) + (siglev < 0 ? ' dBm' : '');
               }
 
               var squelch = document.getElementById('node-' + callsign + '-squelch-' + port);
@@ -495,7 +495,7 @@
                      : '') +
                    '</span>' +
                    '<span class="font-monospace" id="node-' + cs + '-siglev-' + esc(port) + '">' +
-                   (rx.siglev !== null && rx.siglev !== undefined ? rx.siglev.toFixed(1) + ' dBm' : '\u2014') + '</span></div>' +
+                   (rx.siglev !== null && rx.siglev !== undefined ? rx.siglev.toFixed(1) + (rx.siglev < 0 ? ' dBm' : '') : '\u2014') + '</span></div>' +
                    '<div class="siglev-bar mb-1"><div class="siglev-fill bg-' + col + '" id="node-' + cs + '-sigbar-' + esc(port) + '" style="width:' + pct + '%"></div></div>' +
                    '</div>';
             });
