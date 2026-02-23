@@ -2,12 +2,13 @@ services:
 
   web:
     user: root
-    command: bash -c "bin/rails assets:precompile && bin/rails server -b 0.0.0.0"
+    command: ./bin/rails server -b 0.0.0.0
     volumes:
       - .:/rails
       - db_data:/rails/storage
     environment:
-      RAILS_ENV: production
+      RAILS_ENV: development
+      DATABASE_URL: "sqlite3:/rails/storage/production.sqlite3"
 
   updater:
     user: root
@@ -15,4 +16,5 @@ services:
       - .:/rails
       - db_data:/rails/storage
     environment:
-      RAILS_ENV: production
+      RAILS_ENV: development
+      DATABASE_URL: "sqlite3:/rails/storage/production.sqlite3"

@@ -18,13 +18,13 @@
             %i.bi.bi-bar-chart-line.me-1
             Stats
         %li.nav-item
-          %a.btn.btn-sm.py-1.px-2{class: (active == 'map' ? 'btn-outline-light' : 'btn-outline-secondary'), href: map_path}
-            %i.bi.bi-map.me-1
-            Map
-        %li.nav-item
           %a.btn.btn-sm.py-1.px-2{class: (active == 'tg' ? 'btn-outline-light' : 'btn-outline-secondary'), href: tg_path}
             %i.bi.bi-collection.me-1
             TG
+        %li.nav-item
+          %a.btn.btn-sm.py-1.px-2{class: (active == 'map' ? 'btn-outline-light' : 'btn-outline-secondary'), href: map_path}
+            %i.bi.bi-map.me-1
+            Map
 
       .d-flex.align-items-center.gap-3.mt-2.mt-md-0
         %span.text-secondary.small.font-monospace= @reflector_host
