@@ -26,6 +26,7 @@ module Admin
     def update
       attrs = user_params
       attrs = attrs.except(:password, :password_confirmation) if attrs[:password].blank?
+      attrs = attrs.except(:role) if @user == current_user
       if @user.update(attrs)
         redirect_to admin_users_path, notice: "User #{@user.callsign} updated"
       else
