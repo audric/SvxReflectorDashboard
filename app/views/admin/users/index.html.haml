@@ -57,10 +57,11 @@
                   - else
                     %span.badge.bg-secondary user
                 %td.text-end
-                  = link_to edit_admin_user_path(user), class: "btn btn-sm btn-outline-secondary me-1" do
-                    %i.bi.bi-pencil
-                  - unless user == current_user
-                    = button_to admin_user_path(user), method: :delete, class: "btn btn-sm btn-outline-danger", form: { data: { turbo_confirm: "Delete #{user.callsign}?" } } do
-                      %i.bi.bi-trash
+                  .d-inline-flex.gap-1.justify-content-end
+                    = link_to edit_admin_user_path(user), class: "btn btn-sm btn-outline-secondary" do
+                      %i.bi.bi-pencil
+                    - unless user == current_user
+                      = button_to admin_user_path(user), method: :delete, class: "btn btn-sm btn-outline-danger", form_class: "d-inline", form: { data: { turbo_confirm: "Delete #{user.callsign}?" } } do
+                        %i.bi.bi-trash
 
     %script{src: "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"}
