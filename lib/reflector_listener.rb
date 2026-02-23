@@ -40,6 +40,9 @@ class ReflectorListener
           # ── Persist events ──────────────────────────────────────────────────
           log_events(changed, removed, prev)
 
+          # Cache latest snapshot in Redis so web requests never block on HTTP
+          cache_snapshot(curr)
+
           prev = curr
         rescue => e
           STDERR.puts "[Poller] Error: #{e.message}"
@@ -47,6 +50,13 @@ class ReflectorListener
         sleep POLL_INTERVAL
       end
     end
+  end
+
+  def self.cache_snapshot(nodes)
+    redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
+    redis.set('reflector:snapshot', nodes.to_json)
+  rescue => e
+    STDERR.puts "[Poller] Redis cache error: #{e.message}"
   end
 
   def self.log_events(changed, removed, prev)

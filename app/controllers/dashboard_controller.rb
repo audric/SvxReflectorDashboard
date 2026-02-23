@@ -1,7 +1,3 @@
-require 'net/http'
-require 'uri'
-require 'json'
-
 class DashboardController < ApplicationController
   def index
     fetch_nodes
@@ -84,12 +80,11 @@ class DashboardController < ApplicationController
   private
 
   def fetch_nodes
-    @status_url     = ENV.fetch('REFLECTOR_STATUS_URL', 'http://213.254.10.33:8181/status')
     @reflector_host = ENV.fetch('BRAND_NAME', '213.254.10.33')
     begin
-      res    = Net::HTTP.get_response(URI.parse(@status_url))
-      parsed = JSON.parse(res.body)
-      @nodes = parsed.fetch('nodes', {})
+      redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
+      data  = redis.get('reflector:snapshot')
+      @nodes = data ? JSON.parse(data) : {}
     rescue => e
       @nodes       = {}
       @fetch_error = e.message
