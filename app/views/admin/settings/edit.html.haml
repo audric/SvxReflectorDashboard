@@ -35,6 +35,11 @@
                   %input.form-control.bg-dark.text-light.border-secondary{type: "text", name: "settings[brand_name]", value: @settings["brand_name"], placeholder: "My Reflector"}
                   %small.text-secondary Display name shown in the navbar.
 
+                .mb-3
+                  %label.form-label.text-secondary.small Poll Interval (seconds)
+                  %input.form-control.bg-dark.text-light.border-secondary{type: "number", name: "settings[poll_interval]", value: @settings["poll_interval"], min: 1, max: 10, step: 1}
+                  %small.text-secondary How often the updater polls the reflector (1–10 seconds).
+
                 = f.submit "Save Settings", class: "btn btn-primary"
                 = link_to "Back", admin_users_path, class: "btn btn-outline-secondary ms-2"
 

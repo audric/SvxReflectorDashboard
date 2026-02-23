@@ -47,7 +47,8 @@ class ReflectorListener
         rescue => e
           STDERR.puts "[Poller] Error: #{e.message}"
         end
-        sleep POLL_INTERVAL
+        interval = (Setting.get('poll_interval') || POLL_INTERVAL).to_i.clamp(1, 10)
+        sleep interval
       end
     end
   end
