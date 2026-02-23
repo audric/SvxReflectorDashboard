@@ -2,7 +2,7 @@ module Admin
   class SettingsController < ApplicationController
     before_action :require_admin
 
-    KEYS = %w[reflector_status_url brand_name].freeze
+    KEYS = %w[reflector_status_url brand_name poll_interval].freeze
 
     def edit
       @settings = KEYS.index_with { |key| Setting.get(key, defaults[key]) }
@@ -20,7 +20,8 @@ module Admin
     def defaults
       {
         "reflector_status_url" => ENV.fetch("REFLECTOR_STATUS_URL", ""),
-        "brand_name" => ENV.fetch("BRAND_NAME", "")
+        "brand_name" => ENV.fetch("BRAND_NAME", ""),
+        "poll_interval" => "4"
       }
     end
   end
