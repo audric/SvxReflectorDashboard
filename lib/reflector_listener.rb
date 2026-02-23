@@ -8,13 +8,13 @@ class ReflectorListener
   POLL_INTERVAL = 4 # seconds
 
   def self.start(_host = nil, _port = nil)
-    status_url = ENV.fetch('REFLECTOR_STATUS_URL', 'http://213.254.10.33:8181/status')
-    STDERR.puts "[Poller] Starting HTTP poll → #{status_url} every #{POLL_INTERVAL}s"
+    STDERR.puts "[Poller] Starting HTTP poll every #{POLL_INTERVAL}s"
 
     Thread.new do
       prev = {}
       loop do
         begin
+          status_url = Setting.get('reflector_status_url', ENV.fetch('REFLECTOR_STATUS_URL', 'http://213.254.10.33:8181/status'))
           res  = Net::HTTP.get_response(URI.parse(status_url))
           curr = JSON.parse(res.body).fetch('nodes', {})
 

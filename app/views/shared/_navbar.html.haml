@@ -36,8 +36,11 @@
           %span.badge.bg-secondary.font-monospace= current_user.callsign
           - if current_user.admin?
             = link_to admin_users_path, class: "btn btn-sm btn-outline-warning" do
+              %i.bi.bi-people.me-1
+              Users
+            = link_to edit_admin_settings_path, class: "btn btn-sm btn-outline-warning" do
               %i.bi.bi-gear.me-1
-              Admin
+              Settings
           = button_to logout_path, method: :delete, class: "btn btn-sm btn-outline-secondary" do
             %i.bi.bi-box-arrow-right.me-1
             Logout
