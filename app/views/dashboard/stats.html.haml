@@ -192,9 +192,7 @@
                         .sig-bar-wrap.flex-grow-1
                           .sig-bar-fill{class: "bg-#{bar_col}", style: "width:#{pct}%"}
                         %span.font-monospace.text-secondary{style: "font-size:.75rem;min-width:60px;text-align:right"}
-                          = "%.1f" % best_sig
-                          - if best_sig < 0
-                            dBm
+                          = "#{best_sig.round}#{best_sig < 0 ? ' dBm' : '%'}"
                       - else
                         .flex-grow-1
                         %span.text-secondary{style: "font-size:.75rem"} —
@@ -373,9 +371,7 @@
                             .sig-bar-wrap{style: "width:64px"}
                               .sig-bar-fill{class: "bg-#{bar2}", style: "width:#{pct2}%"}
                             %span.font-monospace.text-secondary{style: "font-size:.75rem"}
-                              = "%.1f" % best_sig
-                              - if best_sig < 0
-                                dBm
+                              = "#{best_sig.round}#{best_sig < 0 ? ' dBm' : '%'}"
                         - else
                           %span.text-secondary —
                       %td.text-secondary{style: "font-size:.75rem"}
