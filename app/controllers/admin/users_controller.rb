@@ -49,7 +49,7 @@ module Admin
     end
 
     def user_params
-      params.require(:user).permit(:callsign, :password, :password_confirmation, :role)
+      params.require(:user).permit(:callsign, :password, :password_confirmation, :role, :name, :email, :mobile, :telegram)
     end
   end
 end

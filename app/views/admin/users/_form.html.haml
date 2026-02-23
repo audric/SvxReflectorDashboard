@@ -10,6 +10,22 @@
     = f.text_field :callsign, class: "form-control bg-dark text-light border-secondary", autocapitalize: "characters"
 
   .mb-3
+    = f.label :name, "Name", class: "form-label text-secondary small"
+    = f.text_field :name, class: "form-control bg-dark text-light border-secondary"
+
+  .mb-3
+    = f.label :email, "Email", class: "form-label text-secondary small"
+    = f.email_field :email, class: "form-control bg-dark text-light border-secondary"
+
+  .mb-3
+    = f.label :mobile, "Mobile", class: "form-label text-secondary small"
+    = f.telephone_field :mobile, class: "form-control bg-dark text-light border-secondary"
+
+  .mb-3
+    = f.label :telegram, "Telegram", class: "form-label text-secondary small"
+    = f.text_field :telegram, class: "form-control bg-dark text-light border-secondary", placeholder: "@handle"
+
+  .mb-3
     = f.label :password, "Password#{' (leave blank to keep current)' if user.persisted?}", class: "form-label text-secondary small"
     = f.password_field :password, class: "form-control bg-dark text-light border-secondary"
 
