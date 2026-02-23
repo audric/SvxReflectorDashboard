@@ -1,0 +1,15 @@
+services:
+
+  web:
+    volumes:
+      - .:/rails
+      - db_data:/rails/storage
+    environment:
+      RAILS_ENV: development
+
+  updater:
+    volumes:
+      - .:/rails
+      - db_data:/rails/storage
+    environment:
+      RAILS_ENV: development
