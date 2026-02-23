@@ -125,9 +125,7 @@
     - if @fetch_error
       .alert.alert-warning.m-3{role: "alert"}
         %i.bi.bi-exclamation-triangle-fill.me-2
-        Could not load status from
-        %code.mx-1= @status_url
-        = ": #{@fetch_error}"
+        = @fetch_error
 
     %div{style: "position:relative"}
       #map

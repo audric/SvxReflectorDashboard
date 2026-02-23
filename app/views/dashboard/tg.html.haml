@@ -125,9 +125,7 @@
       - if @fetch_error
         .alert.alert-warning.d-flex.align-items-center.mb-3{role: "alert"}
           %i.bi.bi-exclamation-triangle-fill.me-2.flex-shrink-0
-          Could not load status from
-          %code.mx-1= @status_url
-          = ": #{@fetch_error}"
+          = @fetch_error
 
       .page-header
         %i.bi.bi-collection.me-1
