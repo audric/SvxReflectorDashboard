@@ -1,6 +1,8 @@
-version: '3.8'
+
 services:
+
   web:
+    image: audric/svxreflectordashboard_web
     build: .
     ports:
       - "3000:3000"
@@ -15,6 +17,7 @@ services:
       - redis
 
   updater:
+    image: audric/svxreflectordashboard_updater
     build: .
     command: bash -lc "bundle exec rails runner 'require Rails.root.join(\"lib\",\"reflector_listener\").to_s; ReflectorListener.start; sleep'"
     environment:
