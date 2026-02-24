@@ -1,5 +1,11 @@
 #!/bin/bash -e
 
+# Fix ownership of the storage volume (may be root-owned on first run)
+if [ "$(id -u)" = "0" ]; then
+  chown -R rails:rails /rails/storage
+  exec gosu rails "$0" "$@"
+fi
+
 # If running the rails server then create or migrate existing database
 if [ "${1}" == "./bin/rails" ] && [ "${2}" == "server" ]; then
   ./bin/rails db:prepare
