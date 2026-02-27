@@ -1,10 +1,26 @@
 !!!
-%html{lang: "en", "data-bs-theme" => "dark"}
+%html{lang: "en"}
   %head
     %meta{charset: "UTF-8"}
     %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
     %title SVXReflector · Stats
-    %link{rel: "stylesheet", href: "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"}
+    %script{src: "https://cdn.tailwindcss.com"}
+    :javascript
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ghbg: '#0d1117',
+              ghcard: '#161b22',
+              ghborder: '#30363d',
+              ghborder2: '#21262d',
+              ghtext: '#c9d1d9',
+              ghmuted: '#8b949e',
+              ghdim: '#6e7681',
+            }
+          }
+        }
+      }
     %link{rel: "stylesheet", href: "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"}
     :css
       body { background: #0d1117; }
@@ -16,7 +32,6 @@
       @keyframes blink { 50% { opacity: .2; } }
 
       .stat-card          { border: 1px solid #30363d; }
-      .stat-card .card-body { padding: 1.1rem 1.25rem; }
 
       .section-label {
         font-size: .72rem; text-transform: uppercase;
@@ -87,220 +102,213 @@
         font-size: .67rem; padding: .1em .55em;
         border-radius: .25em; font-family: monospace; font-weight: 600;
       }
-  %body
+  %body.text-ghtext
 
     = render 'shared/navbar', active: 'stats', ws_indicator: true
 
-    .container-fluid.px-3.px-md-4
+    .px-3.md:px-4
 
       -# ── Fetch error ──────────────────────────────────────────────────────
       - if @fetch_error
-        .alert.alert-warning.d-flex.align-items-center.mb-4{role: "alert"}
-          %i.bi.bi-exclamation-triangle-fill.me-2.flex-shrink-0
+        .flex.items-center.p-3.rounded-lg.mb-4{class: "bg-yellow-900/30 border border-yellow-700 text-yellow-400", role: "alert"}
+          %i.bi.bi-exclamation-triangle-fill.mr-2.shrink-0
           = @fetch_error
 
       -# ── Stats row (same as dashboard) ──────────────────────────────────
       - stats = []
-      - stats << {icon: 'bi-diagram-3',   color: 'text-light',   label: 'Nodes',   val: @total}
-      - stats << {icon: 'bi-wifi',        color: 'text-primary',  label: 'Active',  val: @active}
-      - stats << {icon: 'bi-mic-fill',    color: 'text-success',  label: 'Talking', val: @talking}
-      - stats << {icon: 'bi-collection',  color: 'text-warning',  label: 'TGs',     val: @active_tgs.size}
-      .row.g-3.mb-4
+      - stats << {icon: 'bi-diagram-3',   color: 'text-gray-100',  label: 'Nodes',   val: @total}
+      - stats << {icon: 'bi-wifi',        color: 'text-blue-500',  label: 'Active',  val: @active}
+      - stats << {icon: 'bi-mic-fill',    color: 'text-green-500', label: 'Talking', val: @talking}
+      - stats << {icon: 'bi-collection',  color: 'text-yellow-500', label: 'TGs',    val: @active_tgs.size}
+      .grid.grid-cols-2.md:grid-cols-4.gap-3.mb-4
         - stats.each do |s|
-          .col-6.col-md-3
-            .card.border-secondary-subtle.h-100
-              .card-body.text-center.py-3
-                .display-6.fw-bold{class: s[:color]}= s[:val]
-                .text-secondary.small.mt-1
-                  %i.bi{class: s[:icon]}
-                  = s[:label]
+          .rounded-lg.border.border-ghborder.h-full
+            .text-center.py-3
+              .text-4xl.font-bold{class: s[:color]}= s[:val]
+              .text-gray-500.text-sm.mt-1
+                %i.bi{class: s[:icon]}
+                = s[:label]
 
-      .row.g-4.mb-5
+      .grid.grid-cols-1.md:grid-cols-3.gap-4.mb-5
 
         -# Node class breakdown
-        .col-12.col-md-4
-          .card.border-secondary-subtle.h-100
-            .card-body
-              .section-label
-                %i.bi.bi-pie-chart.me-1
-                Node Types
-              - if @by_class.any?
-                - @by_class.each do |cls, count|
-                  - pct     = @total > 0 ? (count.to_f / @total * 100).round : 0
-                  - cls_col  = { 'repeater' => 'primary', 'bridge' => 'warning', 'simplex' => 'success' }.fetch(cls, 'secondary')
-                  - cls_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'simplex' => 'bi-broadcast' }.fetch(cls, 'bi-broadcast')
-                  .mb-3
-                    .d-flex.justify-content-between.align-items-center.mb-1
-                      %span.text-secondary.small.text-capitalize
-                        %i.bi.me-1{class: "#{cls_icon} text-#{cls_col}"}
-                        = cls
-                      %span.text-light.fw-semibold.small
-                        = count
-                        %span.text-secondary.fw-normal= "(#{pct}%)"
-                    .cls-progress-wrap
-                      .cls-progress-fill{class: "bg-#{cls_col}", style: "width:#{pct}%"}
-              - else
-                %p.text-secondary.small.mb-0 No nodes connected.
+        .rounded-lg.border.border-ghborder.h-full
+          .p-4
+            .section-label
+              %i.bi.bi-pie-chart.mr-1
+              Node Types
+            - if @by_class.any?
+              - @by_class.each do |cls, count|
+                - pct     = @total > 0 ? (count.to_f / @total * 100).round : 0
+                - cls_col  = { 'repeater' => 'blue', 'bridge' => 'yellow', 'simplex' => 'green' }.fetch(cls, 'gray')
+                - cls_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'simplex' => 'bi-broadcast' }.fetch(cls, 'bi-broadcast')
+                .mb-3
+                  .flex.justify-between.items-center.mb-1
+                    %span.text-gray-500.text-sm.capitalize
+                      %i.bi.mr-1{class: "#{cls_icon} text-#{cls_col}-500"}
+                      = cls
+                    %span.text-gray-100.font-semibold.text-sm
+                      = count
+                      %span.text-gray-500.font-normal= "(#{pct}%)"
+                  .cls-progress-wrap
+                    .cls-progress-fill{class: "bg-#{cls_col}-500", style: "width:#{pct}%"}
+            - else
+              %p.text-gray-500.text-sm.mb-0 No nodes connected.
 
         -# Active talkgroups
-        .col-12.col-md-4
-          .card.border-secondary-subtle.h-100
-            .card-body
-              .section-label
-                %i.bi.bi-collection.me-1
-                Active Talkgroups
-              - if @active_tgs.any?
-                .list-group.list-group-flush{style: "border-radius:.375rem;overflow:hidden"}
-                  - @active_tgs.each do |tg, callsigns|
-                    .list-group-item.tg-row.bg-transparent.px-2.py-2
-                      .d-flex.align-items-center.justify-content-between
-                        %span.fw-bold.font-monospace.text-warning= "TG #{tg}"
-                        .d-flex.flex-wrap.gap-1.justify-content-end
-                          - callsigns.each do |cs|
-                            - n = @sorted_nodes.find { |c, _| c == cs }&.last
-                            %span.tg-badge{class: (n&.dig('isTalker') ? 'active' : nil)}
-                              - if n&.dig('isTalker')
-                                %i.bi.bi-mic-fill.me-1.text-success{style: "font-size:.65rem"}
-                              = cs
-              - else
-                %p.text-secondary.small.mb-0 No talkgroups currently active.
+        .rounded-lg.border.border-ghborder.h-full
+          .p-4
+            .section-label
+              %i.bi.bi-collection.mr-1
+              Active Talkgroups
+            - if @active_tgs.any?
+              .rounded.overflow-hidden
+                - @active_tgs.each do |tg, callsigns|
+                  .tg-row.px-2.py-2.border-b
+                    .flex.items-center.justify-between
+                      %span.font-bold.font-mono.text-yellow-500= "TG #{tg}"
+                      .flex.flex-wrap.gap-1.justify-end
+                        - callsigns.each do |cs|
+                          - n = @sorted_nodes.find { |c, _| c == cs }&.last
+                          %span.tg-badge{class: (n&.dig('isTalker') ? 'active' : nil)}
+                            - if n&.dig('isTalker')
+                              %i.bi.bi-mic-fill.mr-1.text-green-500{style: "font-size:.65rem"}
+                            = cs
+            - else
+              %p.text-gray-500.text-sm.mb-0 No talkgroups currently active.
 
         -# Signal strength
-        .col-12.col-md-4
-          .card.border-secondary-subtle.h-100
-            .card-body
-              .section-label
-                %i.bi.bi-reception-4.me-1
-                Signal Levels
-              - if @sorted_nodes.any?
-                - node_sigs = @sorted_nodes.map { |cs, n| [cs, n, (n['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }.map { |_, r| r['siglev'] }.compact.max] }
-                - node_sigs = node_sigs.sort_by { |_, _, sig| -(sig || -999) }
-                %div{style: "max-height:320px;overflow-y:auto;scrollbar-width:thin"}
-                  - node_sigs.each do |cs, n, best_sig|
-                    - tg        = n['tg'].to_i
-                    - is_talker = n['isTalker']
-                    - dot_cls   = is_talker ? 'dot-talking' : (tg != 0 ? 'dot-active' : 'dot-idle')
-                    - pct       = best_sig.nil? ? nil : (best_sig < 0 ? [[((best_sig + 120) / 100.0 * 100).round, 0].max, 100].min : [[best_sig.to_i, 0].max, 100].min)
-                    - bar_col   = pct ? (pct > 66 ? 'success' : (pct > 33 ? 'warning' : 'danger')) : 'secondary'
-                    .d-flex.align-items-center.gap-2.mb-2
-                      %span.status-dot{class: dot_cls}
-                      %span.font-monospace.text-light{style: "min-width:90px;font-size:.82rem"}= cs
-                      - if pct
-                        .sig-bar-wrap.flex-grow-1
-                          .sig-bar-fill{class: "bg-#{bar_col}", style: "width:#{pct}%"}
-                        %span.font-monospace.text-secondary{style: "font-size:.75rem;min-width:60px;text-align:right"}
-                          = "#{best_sig.round}#{best_sig < 0 ? ' dBm' : '%'}"
-                      - else
-                        .flex-grow-1
-                        %span.text-secondary{style: "font-size:.75rem"} —
-              - else
-                %p.text-secondary.small.mb-0 No nodes connected.
+        .rounded-lg.border.border-ghborder.h-full
+          .p-4
+            .section-label
+              %i.bi.bi-reception-4.mr-1
+              Signal Levels
+            - if @sorted_nodes.any?
+              - node_sigs = @sorted_nodes.map { |cs, n| [cs, n, (n['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }.map { |_, r| r['siglev'] }.compact.max] }
+              - node_sigs = node_sigs.sort_by { |_, _, sig| -(sig || -999) }
+              %div{style: "max-height:320px;overflow-y:auto;scrollbar-width:thin"}
+                - node_sigs.each do |cs, n, best_sig|
+                  - tg        = n['tg'].to_i
+                  - is_talker = n['isTalker']
+                  - dot_cls   = is_talker ? 'dot-talking' : (tg != 0 ? 'dot-active' : 'dot-idle')
+                  - pct       = best_sig.nil? ? nil : (best_sig < 0 ? [[((best_sig + 120) / 100.0 * 100).round, 0].max, 100].min : [[best_sig.to_i, 0].max, 100].min)
+                  - bar_col   = pct ? (pct > 66 ? 'green' : (pct > 33 ? 'yellow' : 'red')) : 'gray'
+                  .flex.items-center.gap-2.mb-2
+                    %span.status-dot{class: dot_cls}
+                    %span.font-mono.text-gray-100{style: "min-width:90px;font-size:.82rem"}= cs
+                    - if pct
+                      .sig-bar-wrap.grow
+                        .sig-bar-fill{class: "bg-#{bar_col}-500", style: "width:#{pct}%"}
+                      %span.font-mono.text-gray-500{style: "font-size:.75rem;min-width:60px;text-align:right"}
+                        = "#{best_sig.round}#{best_sig < 0 ? ' dBm' : '%'}"
+                    - else
+                      .grow
+                      %span.text-gray-500{style: "font-size:.75rem"} —
+            - else
+              %p.text-gray-500.text-sm.mb-0 No nodes connected.
 
       -# ════════════════════════════════════════════════════════════════════
       -# HISTORICAL USAGE
       -# ════════════════════════════════════════════════════════════════════
 
       -# Period filter
-      .d-flex.align-items-center.justify-content-between.mb-4.flex-wrap.gap-3
-        .divider-label.flex-grow-1{style: "max-width:160px"}
-          %i.bi.bi-clock-history.me-1
+      .flex.items-center.justify-between.mb-4.flex-wrap.gap-3
+        .divider-label.grow{style: "max-width:160px"}
+          %i.bi.bi-clock-history.mr-1
           Usage History
-        .d-flex.align-items-center.gap-2
-          %span.text-secondary.small.me-1 Period:
+        .flex.items-center.gap-2
+          %span.text-gray-500.text-sm.mr-1 Period:
           - [['all', 'All time'], ['day', 'Today'], ['month', 'Month'], ['year', 'Year']].each do |val, label|
             %a.period-pill{href: stats_path(period: val), class: (@period == val ? 'active' : nil)}
               = label
 
       -# Historical summary cards
       - hist_cards = []
-      - hist_cards << {icon: 'bi-mic-fill',     color: 'text-success',   label: 'Transmissions',   val: @hist_talks}
-      - hist_cards << {icon: 'bi-collection',   color: 'text-warning',   label: 'TG Sessions',     val: @hist_tg_joins}
-      - hist_cards << {icon: 'bi-person-badge', color: 'text-primary',   label: 'Unique Nodes',    val: @hist_unique_nodes}
-      - hist_cards << {icon: 'bi-diagram-3',    color: 'text-info',      label: 'Unique TGs',      val: @hist_unique_tgs}
-      .row.g-3.mb-4
+      - hist_cards << {icon: 'bi-mic-fill',     color: 'text-green-500',  label: 'Transmissions',   val: @hist_talks}
+      - hist_cards << {icon: 'bi-collection',   color: 'text-yellow-500', label: 'TG Sessions',     val: @hist_tg_joins}
+      - hist_cards << {icon: 'bi-person-badge', color: 'text-blue-500',   label: 'Unique Nodes',    val: @hist_unique_nodes}
+      - hist_cards << {icon: 'bi-diagram-3',    color: 'text-cyan-500',   label: 'Unique TGs',      val: @hist_unique_tgs}
+      .grid.grid-cols-2.md:grid-cols-4.gap-3.mb-4
         - hist_cards.each do |s|
-          .col-6.col-md-3
-            .card.stat-card.h-100
-              .card-body.text-center.py-3
-                .display-6.fw-bold{class: s[:color]}= s[:val]
-                .text-secondary.small.mt-1
-                  %i.bi{class: s[:icon]}
-                  = s[:label]
+          .stat-card.rounded-lg.h-full
+            .text-center.py-3
+              .text-4xl.font-bold{class: s[:color]}= s[:val]
+              .text-gray-500.text-sm.mt-1
+                %i.bi{class: s[:icon]}
+                = s[:label]
 
-      .row.g-4.mb-4
+      .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
 
         -# Top talkers
-        .col-12.col-md-6
-          .card.border-secondary-subtle.h-100
-            .card-body
-              .section-label
-                %i.bi.bi-trophy.me-1
-                Top Talkers
-              - if @top_talkers.any?
-                - max_talks = @top_talkers.values.first.to_f
-                - @top_talkers.each_with_index do |(cs, count), i|
-                  .d-flex.align-items-center.gap-2.mb-2
-                    %span.text-secondary{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
-                    %span.font-monospace.text-light.flex-shrink-0{style: "min-width:90px;font-size:.82rem"}= cs
-                    .rank-bar-wrap.flex-grow-1
-                      .rank-bar-fill.bg-success{style: "width:#{(count / max_talks * 100).round}%"}
-                    %span.text-secondary.fw-semibold{style: "font-size:.78rem;min-width:28px;text-align:right"}= count
-              - else
-                .text-center.text-secondary.py-4.small
-                  %i.bi.bi-mic-mute.d-block.fs-4.mb-2
-                  = "No transmissions recorded#{@period != 'all' ? ' for this period' : ''}."
+        .rounded-lg.border.border-ghborder.h-full
+          .p-4
+            .section-label
+              %i.bi.bi-trophy.mr-1
+              Top Talkers
+            - if @top_talkers.any?
+              - max_talks = @top_talkers.values.first.to_f
+              - @top_talkers.each_with_index do |(cs, count), i|
+                .flex.items-center.gap-2.mb-2
+                  %span.text-gray-500{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
+                  %span.font-mono.text-gray-100.shrink-0{style: "min-width:90px;font-size:.82rem"}= cs
+                  .rank-bar-wrap.grow
+                    .rank-bar-fill.bg-green-500{style: "width:#{(count / max_talks * 100).round}%"}
+                  %span.text-gray-500.font-semibold{style: "font-size:.78rem;min-width:28px;text-align:right"}= count
+            - else
+              .text-center.text-gray-500.py-4.text-sm
+                %i.bi.bi-mic-mute.block.text-xl.mb-2
+                = "No transmissions recorded#{@period != 'all' ? ' for this period' : ''}."
 
         -# Top talkgroups
-        .col-12.col-md-6
-          .card.border-secondary-subtle.h-100
-            .card-body
-              .section-label
-                %i.bi.bi-bar-chart.me-1
-                Top Talkgroups
-              - if @top_tgs.any?
-                - max_tg = @top_tgs.values.first.to_f
-                - @top_tgs.each_with_index do |(tg, count), i|
-                  .d-flex.align-items-center.gap-2.mb-2
-                    %span.text-secondary{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
-                    %span.font-monospace.text-warning.fw-semibold.flex-shrink-0{style: "min-width:52px;font-size:.82rem"}
-                      = "TG #{tg}"
-                    .rank-bar-wrap.flex-grow-1
-                      .rank-bar-fill.bg-warning{style: "width:#{(count / max_tg * 100).round}%"}
-                    %span.text-secondary.fw-semibold{style: "font-size:.78rem;min-width:28px;text-align:right"}= count
-              - else
-                .text-center.text-secondary.py-4.small
-                  %i.bi.bi-collection.d-block.fs-4.mb-2
-                  = "No talkgroup activity recorded#{@period != 'all' ? ' for this period' : ''}."
+        .rounded-lg.border.border-ghborder.h-full
+          .p-4
+            .section-label
+              %i.bi.bi-bar-chart.mr-1
+              Top Talkgroups
+            - if @top_tgs.any?
+              - max_tg = @top_tgs.values.first.to_f
+              - @top_tgs.each_with_index do |(tg, count), i|
+                .flex.items-center.gap-2.mb-2
+                  %span.text-gray-500{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
+                  %span.font-mono.text-yellow-500.font-semibold.shrink-0{style: "min-width:52px;font-size:.82rem"}
+                    = "TG #{tg}"
+                  .rank-bar-wrap.grow
+                    .rank-bar-fill.bg-yellow-500{style: "width:#{(count / max_tg * 100).round}%"}
+                  %span.text-gray-500.font-semibold{style: "font-size:.78rem;min-width:28px;text-align:right"}= count
+            - else
+              .text-center.text-gray-500.py-4.text-sm
+                %i.bi.bi-collection.block.text-xl.mb-2
+                = "No talkgroup activity recorded#{@period != 'all' ? ' for this period' : ''}."
 
       -# Recent events
-      .card.border-secondary-subtle.mb-4
-        .card-body.p-0
+      .rounded-lg.border.border-ghborder.mb-4
+        .p-0
           .px-3.pt-3.pb-2.section-label
-            %i.bi.bi-activity.me-1
+            %i.bi.bi-activity.mr-1
             Recent Events
-            %span.ms-2.badge.bg-secondary.fw-normal= @recent_events.size
+            %span.ml-2.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-gray-600.text-gray-200.font-normal= @recent_events.size
           - if @recent_events.any?
             %div{style: "max-height:280px;overflow-y:auto;scrollbar-width:thin"}
               - @recent_events.each do |ev|
-                - type_style = {'talking_start' => ['text-bg-success', 'bi-mic-fill'], 'talking_stop' => ['text-bg-secondary', 'bi-mic-mute'], 'tg_join' => ['text-bg-primary', 'bi-collection'], 'tg_leave' => ['text-bg-secondary', 'bi-collection'], 'connected' => ['text-bg-info', 'bi-plug-fill'], 'disconnected' => ['text-bg-danger', 'bi-plug']}.fetch(ev.event_type, ['text-bg-secondary', 'bi-dot'])
-                .list-group-item.event-row.bg-transparent.px-3.py-2.d-flex.align-items-center.gap-3
-                  %span.text-secondary.font-monospace{style: "font-size:.72rem;min-width:75px"}
+                - type_style = {'talking_start' => ['bg-green-600 text-white', 'bi-mic-fill'], 'talking_stop' => ['bg-gray-600 text-white', 'bi-mic-mute'], 'tg_join' => ['bg-blue-600 text-white', 'bi-collection'], 'tg_leave' => ['bg-gray-600 text-white', 'bi-collection'], 'connected' => ['bg-cyan-600 text-white', 'bi-plug-fill'], 'disconnected' => ['bg-red-600 text-white', 'bi-plug']}.fetch(ev.event_type, ['bg-gray-600 text-white', 'bi-dot'])
+                .event-row.px-3.py-2.flex.items-center.gap-3.border-b
+                  %span.text-gray-500.font-mono{style: "font-size:.72rem;min-width:75px"}
                     = ev.created_at.strftime('%m-%d %H:%M')
                   %span.event-type-badge{class: type_style[0]}
-                    %i.bi{class: "#{type_style[1]} me-1"}
+                    %i.bi{class: "#{type_style[1]} mr-1"}
                     = ev.event_type.tr('_', ' ')
-                  %strong.font-monospace.text-light{style: "font-size:.82rem"}= ev.callsign
+                  %strong.font-mono.text-gray-100{style: "font-size:.82rem"}= ev.callsign
                   - if ev.tg.to_i != 0
-                    %span.text-secondary.small
+                    %span.text-gray-500.text-sm
                       TG
-                      %span.text-warning.fw-semibold= ev.tg
+                      %span.text-yellow-500.font-semibold= ev.tg
                   - if ev.node_location.present?
-                    %span.text-secondary.small.ms-auto
-                      %i.bi.bi-geo-alt.me-1
+                    %span.text-gray-500.text-sm.ml-auto
+                      %i.bi.bi-geo-alt.mr-1
                       = ev.node_location
           - else
-            .text-center.text-secondary.py-4.small
-              %i.bi.bi-hourglass-split.d-block.fs-4.mb-2
+            .text-center.text-gray-500.py-4.text-sm
+              %i.bi.bi-hourglass-split.block.text-xl.mb-2
               No events recorded yet.
 
       -# ════════════════════════════════════════════════════════════════════
@@ -308,30 +316,30 @@
       -# ════════════════════════════════════════════════════════════════════
 
       .divider-label.mb-4
-        %i.bi.bi-hdd-network.me-1
+        %i.bi.bi-hdd-network.mr-1
         All Nodes
-        %span.badge.bg-secondary.fw-normal.ms-1= @sorted_nodes.size
+        %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-gray-600.text-gray-200.font-normal.ml-1= @sorted_nodes.size
 
-      .card.border-secondary-subtle.mb-5
-        .card-body.p-0
+      .rounded-lg.border.border-ghborder.mb-5
+        .p-0
           - if @sorted_nodes.any?
-            .table-responsive
-              %table.table.table-hover.mb-0.nodes-table
+            .overflow-x-auto
+              %table.w-full.text-left.nodes-table
                 %thead
-                  %tr
-                    %th.ps-3 Callsign
-                    %th Status
-                    %th Type
-                    %th Location
-                    %th Talkgroup
-                    %th Monitored TGs
-                    %th Best Signal
-                    %th Software
+                  %tr.border-b.border-ghborder2
+                    %th.py-2.pl-3 Callsign
+                    %th.py-2 Status
+                    %th.py-2 Type
+                    %th.py-2 Location
+                    %th.py-2 Talkgroup
+                    %th.py-2 Monitored TGs
+                    %th.py-2 Best Signal
+                    %th.py-2 Software
                 %tbody
                   - @sorted_nodes.each do |cs, n|
                     - tg        = n['tg'].to_i
                     - is_talker = n['isTalker']
-                    - st_col    = is_talker ? 'success' : (tg != 0 ? 'primary' : 'secondary')
+                    - st_col    = is_talker ? 'green' : (tg != 0 ? 'blue' : 'gray')
                     - st_txt    = is_talker ? "Talking \u00B7 TG #{tg}" : (tg != 0 ? "TG #{tg}" : 'Idle')
                     - node_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'simplex' => 'bi-broadcast' }.fetch(n['nodeClass'].to_s, 'bi-broadcast')
                     - rx_ports  = (n['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }
@@ -339,46 +347,45 @@
                     - qth       = n.dig('qth', 0) || {}
                     - locator   = qth.dig('pos', 'loc')
                     - location  = [n['nodeLocation'], locator ? "(#{locator})" : nil].compact.join(' ')
-                    %tr
-                      %td.ps-3
+                    %tr.border-b.border-ghborder2.hover:bg-ghcard
+                      %td.py-2.pl-3
                         - if is_talker
-                          %i.bi.bi-mic-fill.text-success.me-1{style: "font-size:.75rem"}
-                        %strong.font-monospace.text-light= cs
-                      %td
-                        %span.badge{class: "text-bg-#{st_col}"}= st_txt
-                      %td
+                          %i.bi.bi-mic-fill.text-green-500.mr-1{style: "font-size:.75rem"}
+                        %strong.font-mono.text-gray-100= cs
+                      %td.py-2
+                        %span.inline-block.px-2.py-0.5.text-xs.rounded.font-semibold{class: "bg-#{st_col}-600 text-white"}= st_txt
+                      %td.py-2
                         %span.cls-pill
-                          %i.bi.me-1{class: node_icon}
+                          %i.bi.mr-1{class: node_icon}
                           = n['nodeClass'] || '—'
-                      %td.text-secondary= location.presence || '—'
-                      %td
+                      %td.py-2.text-gray-500= location.presence || '—'
+                      %td.py-2
                         - if tg != 0
-                          %span.font-monospace.text-warning.fw-semibold= tg
+                          %span.font-mono.text-yellow-500.font-semibold= tg
                         - else
-                          %span.text-secondary —
-                      %td
-                        .d-flex.flex-wrap.gap-1
+                          %span.text-gray-500 —
+                      %td.py-2
+                        .flex.flex-wrap.gap-1
                           - (n['monitoredTGs'] || []).each do |tg_num|
                             %span.tg-badge{class: (tg_num == tg && tg != 0 ? 'active' : nil)}= tg_num
-                      %td
+                      %td.py-2
                         - if best_sig
                           - pct2 = best_sig < 0 ? [[((best_sig + 120) / 100.0 * 100).round, 0].max, 100].min : [[best_sig.to_i, 0].max, 100].min
-                          - bar2 = pct2 > 66 ? 'success' : (pct2 > 33 ? 'warning' : 'danger')
-                          .d-flex.align-items-center.gap-2
+                          - bar2 = pct2 > 66 ? 'green' : (pct2 > 33 ? 'yellow' : 'red')
+                          .flex.items-center.gap-2
                             .sig-bar-wrap{style: "width:64px"}
-                              .sig-bar-fill{class: "bg-#{bar2}", style: "width:#{pct2}%"}
-                            %span.font-monospace.text-secondary{style: "font-size:.75rem"}
+                              .sig-bar-fill{class: "bg-#{bar2}-500", style: "width:#{pct2}%"}
+                            %span.font-mono.text-gray-500{style: "font-size:.75rem"}
                               = "#{best_sig.round}#{best_sig < 0 ? ' dBm' : '%'}"
                         - else
-                          %span.text-secondary —
-                      %td.text-secondary{style: "font-size:.75rem"}
+                          %span.text-gray-500 —
+                      %td.py-2.text-gray-500{style: "font-size:.75rem"}
                         = [n['sw'], n['swVer']].compact.join(' ').presence || '—'
           - else
-            .text-center.text-secondary.py-5
-              %i.bi.bi-hdd-network.display-4.d-block.mb-2
+            .text-center.text-gray-500.py-5
+              %i.bi.bi-hdd-network.text-6xl.block.mb-2
               No nodes currently connected.
 
-    %script{src: "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"}
     :javascript
       (function () {
         'use strict';

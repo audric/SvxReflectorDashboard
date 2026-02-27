@@ -1,5 +1,6 @@
 module Admin
   class SettingsController < ApplicationController
+    layout false
     before_action :require_admin
 
     KEYS = %w[reflector_status_url brand_name poll_interval].freeze
