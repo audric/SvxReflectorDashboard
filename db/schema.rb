@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_27_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_27_130000) do
   create_table "ctcss_tones", force: :cascade do |t|
     t.string "code", null: false
     t.datetime "created_at", null: false
@@ -43,6 +43,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_27_120000) do
   end
 
   create_table "users", force: :cascade do |t|
+    t.boolean "approved", default: false, null: false
     t.string "callsign", null: false
     t.datetime "created_at", null: false
     t.string "email"

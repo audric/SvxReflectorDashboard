@@ -8,8 +8,13 @@ class SessionsController < ApplicationController
     user = User.find_by("UPPER(callsign) = ?", params[:callsign].to_s.upcase.strip)
 
     if user&.authenticate(params[:password])
-      session[:user_id] = user.id
-      redirect_to root_path, notice: "Logged in as #{user.callsign}"
+      if user.approved?
+        session[:user_id] = user.id
+        redirect_to root_path, notice: "Logged in as #{user.callsign}"
+      else
+        flash.now[:alert] = "Your account is pending admin approval"
+        render :new, status: :unprocessable_entity
+      end
     else
       flash.now[:alert] = "Invalid callsign or password"
       render :new, status: :unprocessable_entity

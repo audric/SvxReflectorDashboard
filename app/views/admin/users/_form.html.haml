@@ -1,6 +1,6 @@
 = form_with model: [:admin, user], local: true do |f|
   - if user.errors.any?
-    .p-2.rounded.bg-red-900\/30.border.border-red-700.text-red-400.text-sm.mb-4
+    %div.p-2.rounded.border.border-red-700.text-red-400.text-sm.mb-4{class: "bg-red-900/30"}
       %ul.mb-0.list-disc.pl-4
         - user.errors.full_messages.each do |msg|
           %li= msg

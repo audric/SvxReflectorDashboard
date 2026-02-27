@@ -2,7 +2,7 @@ module Admin
   class UsersController < ApplicationController
     layout false
     before_action :require_admin
-    before_action :set_user, only: %i[edit update destroy]
+    before_action :set_user, only: %i[edit update destroy approve]
 
     def index
       @users = User.order(:callsign)
@@ -13,7 +13,7 @@ module Admin
     end
 
     def create
-      @user = User.new(user_params)
+      @user = User.new(user_params.merge(approved: true))
       if @user.save
         redirect_to admin_users_path, notice: "User #{@user.callsign} created"
       else
@@ -33,6 +33,11 @@ module Admin
       else
         render :edit, status: :unprocessable_entity
       end
+    end
+
+    def approve
+      @user.update!(approved: true)
+      redirect_to admin_users_path, notice: "#{@user.callsign} approved"
     end
 
     def destroy

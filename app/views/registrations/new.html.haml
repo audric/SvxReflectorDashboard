@@ -1,0 +1,69 @@
+!!!
+%html{lang: "en"}
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title SVXReflector · Register
+    %script{src: "https://cdn.tailwindcss.com"}
+    :javascript
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ghbg: '#0d1117',
+              ghcard: '#161b22',
+              ghborder: '#30363d',
+              ghborder2: '#21262d',
+              ghtext: '#c9d1d9',
+              ghmuted: '#8b949e',
+              ghdim: '#6e7681',
+            }
+          }
+        }
+      }
+    %link{rel: "stylesheet", href: "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"}
+    :css
+      body { background: #0d1117; }
+
+  %body.text-ghtext
+    = render 'shared/navbar', active: 'register'
+
+    .max-w-sm.mx-auto.mt-8.px-4
+      .rounded-lg.border.border-gray-600.bg-ghcard
+        .px-4.py-3.border-b.border-gray-600.text-center
+          %h5.text-lg.font-semibold.text-gray-100
+            %i.bi.bi-person-plus.mr-2
+            Register
+        .p-4
+          - if @user.errors.any?
+            %div.p-2.rounded.border.border-red-700.text-red-400.text-sm.mb-4{class: "bg-red-900/30"}
+              %ul.mb-0.list-disc.pl-4
+                - @user.errors.full_messages.each do |msg|
+                  %li= msg
+
+          = form_with model: @user, url: register_path, method: :post, local: true do |f|
+            .mb-4
+              = f.label :callsign, "Callsign", class: "block text-sm text-gray-500 mb-1"
+              = f.text_field :callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", autofocus: true, autocapitalize: "characters"
+            .mb-4
+              = f.label :name, "Name", class: "block text-sm text-gray-500 mb-1"
+              = f.text_field :name, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+            .mb-4
+              = f.label :email, "Email", class: "block text-sm text-gray-500 mb-1"
+              = f.email_field :email, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+            .mb-4
+              = f.label :mobile, "Mobile", class: "block text-sm text-gray-500 mb-1"
+              = f.telephone_field :mobile, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+            .mb-4
+              = f.label :telegram, "Telegram", class: "block text-sm text-gray-500 mb-1"
+              = f.text_field :telegram, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", placeholder: "@handle"
+            .mb-4
+              = f.label :password, "Password", class: "block text-sm text-gray-500 mb-1"
+              = f.password_field :password, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+            .mb-4
+              = f.label :password_confirmation, "Confirm password", class: "block text-sm text-gray-500 mb-1"
+              = f.password_field :password_confirmation, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+            = f.submit "Register", class: "w-full px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
+
+          .text-center.mt-4
+            %a.text-sm.text-gray-500.hover:text-gray-300{href: login_path} Already have an account? Login
