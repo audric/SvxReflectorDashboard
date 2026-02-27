@@ -151,10 +151,10 @@
                 = s[:label]
 
       -# ── Main: node grid + activity log ───────────────────────────────────
-      .grid.grid-cols-1.xl:grid-cols-3.gap-4
+      .grid.grid-cols-1.gap-4{class: (logged_in? && current_user.admin? ? 'xl:grid-cols-3' : nil)}
 
         -# Node grid
-        .xl:col-span-2
+        %div{class: (logged_in? && current_user.admin? ? 'xl:col-span-2' : nil)}
           .flex.items-center.mb-3.gap-2
             %span.text-gray-500.uppercase.font-semibold.text-sm
               %i.bi.bi-hdd-network.mr-1
@@ -280,17 +280,18 @@
                 %i.bi.bi-hdd-network.text-6xl.block.mb-2
                 No nodes currently connected.
 
-        -# Activity log
-        %div
-          .flex.items-center.mb-3.gap-2
-            %span.text-gray-500.uppercase.font-semibold.text-sm
-              %i.bi.bi-activity.mr-1
-              Activity Log
-            %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-gray-600.text-gray-200#log-count 0
-          #activity-log.border.border-ghborder.rounded-lg
-            #log-placeholder.text-center.text-gray-500.py-5.text-sm
-              %i.bi.bi-hourglass-split.block.mb-2.text-xl
-              Waiting for live updates…
+        -# Activity log (admin only)
+        - if logged_in? && current_user.admin?
+          %div
+            .flex.items-center.mb-3.gap-2
+              %span.text-gray-500.uppercase.font-semibold.text-sm
+                %i.bi.bi-activity.mr-1
+                Activity Log
+              %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-gray-600.text-gray-200#log-count 0
+            #activity-log.border.border-ghborder.rounded-lg
+              #log-placeholder.text-center.text-gray-500.py-5.text-sm
+                %i.bi.bi-hourglass-split.block.mb-2.text-xl
+                Waiting for live updates…
 
     - nodes_json = @nodes.to_json.html_safe
     :javascript

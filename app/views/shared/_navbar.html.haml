@@ -13,17 +13,17 @@
       %i.bi.bi-list.text-xl
 
     #mainNav.hidden.w-full.md:flex.md:w-auto.md:items-center.md:gap-3.mt-2.md:mt-0
-      .flex.flex-wrap.gap-1.mb-2.md:mb-0
-        %a.inline-block.text-sm.px-2.py-1.rounded{class: (active == 'dashboard' ? 'border border-gray-300 text-gray-100' : 'border border-gray-600 text-gray-500 hover:text-gray-300'), href: root_path}
+      .flex.flex-col.gap-2.mb-2.md:flex-row.md:gap-4.md:mb-0
+        %a.text-base.md:text-sm{class: (active == 'dashboard' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: root_path}
           %i.bi.bi-grid.mr-1
           Dashboard
-        %a.inline-block.text-sm.px-2.py-1.rounded{class: (active == 'stats' ? 'border border-gray-300 text-gray-100' : 'border border-gray-600 text-gray-500 hover:text-gray-300'), href: stats_path}
+        %a.text-base.md:text-sm{class: (active == 'stats' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: stats_path}
           %i.bi.bi-bar-chart-line.mr-1
           Stats
-        %a.inline-block.text-sm.px-2.py-1.rounded{class: (active == 'tg' ? 'border border-gray-300 text-gray-100' : 'border border-gray-600 text-gray-500 hover:text-gray-300'), href: tg_path}
+        %a.text-base.md:text-sm{class: (active == 'tg' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: tg_path}
           %i.bi.bi-collection.mr-1
           TG
-        %a.inline-block.text-sm.px-2.py-1.rounded{class: (active == 'map' ? 'border border-gray-300 text-gray-100' : 'border border-gray-600 text-gray-500 hover:text-gray-300'), href: map_path}
+        %a.text-base.md:text-sm{class: (active == 'map' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: map_path}
           %i.bi.bi-map.mr-1
           Map
 
@@ -48,7 +48,7 @@
                 %i.bi.bi-box-arrow-right
                 Logout
         - else
-          = link_to login_path, class: "inline-block text-sm px-2 py-1 rounded border border-gray-600 text-gray-500 hover:text-gray-300" do
+          = link_to login_path, class: "text-sm text-gray-500 hover:text-gray-300" do
             %i.bi.bi-box-arrow-in-right.mr-1
             Login
 :javascript
