@@ -30,7 +30,7 @@
 
     .max-w-xl.mx-auto.px-4
       - if flash[:notice]
-        .p-2.rounded.bg-green-900\/30.border.border-green-700.text-green-400.text-sm.mb-4= flash[:notice]
+        %div.p-2.rounded.border.border-green-700.text-green-400.text-sm.mb-4{class: "bg-green-900/30"}= flash[:notice]
 
       .rounded-lg.border.border-gray-600.bg-ghcard
         .px-4.py-3.border-b.border-gray-600
