@@ -1,50 +1,58 @@
-%nav.navbar.navbar-expand-md.bg-dark.border-bottom.border-secondary-subtle.sticky-top.mb-4.py-2
-  .container-fluid
-    %span.navbar-brand.fw-bold.text-light.mb-0
-      %i.bi.bi-broadcast-pin.me-2.text-success
+%nav.sticky.top-0.z-50.bg-ghcard.border-b.border-ghborder.mb-4.py-2
+  .flex.items-center.justify-between.flex-wrap.px-4
+    %span.font-bold.text-gray-100.flex.items-center.gap-2
+      %i.bi.bi-broadcast-pin.text-green-500
       SVXReflector
+      - if local_assigns.fetch(:ws_indicator, false)
+        %span.flex.items-center.gap-1
+          %span#ws-dot.ws-dot.ws-connecting
+          %span#ws-label.text-gray-500.text-sm Connecting…
+      %span.text-gray-100.text-sm.font-mono= @reflector_host
 
-    %button.navbar-toggler.border-secondary{type: "button", data: {bs_toggle: "collapse", bs_target: "#mainNav"}, aria: {controls: "mainNav", expanded: "false", label: "Toggle navigation"}}
-      %span.navbar-toggler-icon
+    %button.text-gray-400.md:hidden{type: "button", onclick: "document.getElementById('mainNav').classList.toggle('hidden')"}
+      %i.bi.bi-list.text-xl
 
-    #mainNav.collapse.navbar-collapse
-      %ul.nav.me-auto.mt-2.mt-md-0.gap-1
-        %li.nav-item
-          %a.btn.btn-sm.py-1.px-2{class: (active == 'dashboard' ? 'btn-outline-light' : 'btn-outline-secondary'), href: root_path}
-            %i.bi.bi-grid.me-1
-            Dashboard
-        %li.nav-item
-          %a.btn.btn-sm.py-1.px-2{class: (active == 'stats' ? 'btn-outline-light' : 'btn-outline-secondary'), href: stats_path}
-            %i.bi.bi-bar-chart-line.me-1
-            Stats
-        %li.nav-item
-          %a.btn.btn-sm.py-1.px-2{class: (active == 'tg' ? 'btn-outline-light' : 'btn-outline-secondary'), href: tg_path}
-            %i.bi.bi-collection.me-1
-            TG
-        %li.nav-item
-          %a.btn.btn-sm.py-1.px-2{class: (active == 'map' ? 'btn-outline-light' : 'btn-outline-secondary'), href: map_path}
-            %i.bi.bi-map.me-1
-            Map
+    #mainNav.hidden.w-full.md:flex.md:w-auto.md:items-center.md:gap-3.mt-2.md:mt-0
+      .flex.flex-wrap.gap-1.mb-2.md:mb-0
+        %a.inline-block.text-sm.px-2.py-1.rounded{class: (active == 'dashboard' ? 'border border-gray-300 text-gray-100' : 'border border-gray-600 text-gray-500 hover:text-gray-300'), href: root_path}
+          %i.bi.bi-grid.mr-1
+          Dashboard
+        %a.inline-block.text-sm.px-2.py-1.rounded{class: (active == 'stats' ? 'border border-gray-300 text-gray-100' : 'border border-gray-600 text-gray-500 hover:text-gray-300'), href: stats_path}
+          %i.bi.bi-bar-chart-line.mr-1
+          Stats
+        %a.inline-block.text-sm.px-2.py-1.rounded{class: (active == 'tg' ? 'border border-gray-300 text-gray-100' : 'border border-gray-600 text-gray-500 hover:text-gray-300'), href: tg_path}
+          %i.bi.bi-collection.mr-1
+          TG
+        %a.inline-block.text-sm.px-2.py-1.rounded{class: (active == 'map' ? 'border border-gray-300 text-gray-100' : 'border border-gray-600 text-gray-500 hover:text-gray-300'), href: map_path}
+          %i.bi.bi-map.mr-1
+          Map
 
-      .d-flex.align-items-center.gap-3.mt-2.mt-md-0
-        %span.text-secondary.small.font-monospace= @reflector_host
-        - if local_assigns.fetch(:ws_indicator, false)
-          %span.d-flex.align-items-center.gap-1
-            %span#ws-dot.ws-dot.ws-connecting
-            %span#ws-label.text-secondary.small Connecting…
+      .flex.items-center.gap-3
         - if logged_in?
-          %span.badge.bg-secondary.font-monospace= current_user.callsign
-          - if current_user.admin?
-            = link_to admin_users_path, class: "btn btn-sm btn-outline-warning" do
-              %i.bi.bi-people.me-1
-              Users
-            = link_to edit_admin_settings_path, class: "btn btn-sm btn-outline-warning" do
-              %i.bi.bi-gear.me-1
-              Settings
-          = button_to logout_path, method: :delete, class: "btn btn-sm btn-outline-secondary" do
-            %i.bi.bi-box-arrow-right.me-1
-            Logout
+          .relative
+            %button.flex.items-center.gap-2.px-2.py-1.rounded.cursor-pointer.hover:bg-ghborder2{type: "button", onclick: "document.getElementById('userMenu').classList.toggle('hidden')"}
+              .w-7.h-7.rounded-full.bg-ghborder.flex.items-center.justify-center.text-ghmuted
+                %i.bi.bi-person-fill.text-sm
+              %span.text-sm.text-gray-200.font-mono= current_user.callsign
+              %i.bi.bi-chevron-down.text-gray-500.text-xs
+            #userMenu.hidden.absolute.right-0.mt-1.w-48.rounded-lg.border.border-ghborder.bg-ghcard.shadow-lg.z-50.py-1
+              - if current_user.admin?
+                = link_to admin_users_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-ghborder2" do
+                  %i.bi.bi-people
+                  Users
+                = link_to edit_admin_settings_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-ghborder2" do
+                  %i.bi.bi-gear
+                  Settings
+                .border-t.border-ghborder2.my-1
+              = button_to logout_path, method: :delete, class: "flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-ghborder2 w-full" do
+                %i.bi.bi-box-arrow-right
+                Logout
         - else
-          = link_to login_path, class: "btn btn-sm btn-outline-secondary" do
-            %i.bi.bi-box-arrow-in-right.me-1
+          = link_to login_path, class: "inline-block text-sm px-2 py-1 rounded border border-gray-600 text-gray-500 hover:text-gray-300" do
+            %i.bi.bi-box-arrow-in-right.mr-1
             Login
+:javascript
+  document.addEventListener('click', function(e) {
+    var menu = document.getElementById('userMenu');
+    if (menu && !menu.parentElement.contains(e.target)) menu.classList.add('hidden');
+  });

@@ -1,45 +1,46 @@
 = form_with model: [:admin, user], local: true do |f|
   - if user.errors.any?
-    .alert.alert-danger.py-2
-      %ul.mb-0
+    .p-2.rounded.bg-red-900\/30.border.border-red-700.text-red-400.text-sm.mb-4
+      %ul.mb-0.list-disc.pl-4
         - user.errors.full_messages.each do |msg|
           %li= msg
 
-  .mb-3
-    = f.label :callsign, "Callsign", class: "form-label text-secondary small"
-    = f.text_field :callsign, class: "form-control bg-dark text-light border-secondary", autocapitalize: "characters"
+  .mb-4
+    = f.label :callsign, "Callsign", class: "block text-sm text-gray-500 mb-1"
+    = f.text_field :callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", autocapitalize: "characters"
 
-  .mb-3
-    = f.label :name, "Name", class: "form-label text-secondary small"
-    = f.text_field :name, class: "form-control bg-dark text-light border-secondary"
+  .mb-4
+    = f.label :name, "Name", class: "block text-sm text-gray-500 mb-1"
+    = f.text_field :name, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
 
-  .mb-3
-    = f.label :email, "Email", class: "form-label text-secondary small"
-    = f.email_field :email, class: "form-control bg-dark text-light border-secondary"
+  .mb-4
+    = f.label :email, "Email", class: "block text-sm text-gray-500 mb-1"
+    = f.email_field :email, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
 
-  .mb-3
-    = f.label :mobile, "Mobile", class: "form-label text-secondary small"
-    = f.telephone_field :mobile, class: "form-control bg-dark text-light border-secondary"
+  .mb-4
+    = f.label :mobile, "Mobile", class: "block text-sm text-gray-500 mb-1"
+    = f.telephone_field :mobile, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
 
-  .mb-3
-    = f.label :telegram, "Telegram", class: "form-label text-secondary small"
-    = f.text_field :telegram, class: "form-control bg-dark text-light border-secondary", placeholder: "@handle"
+  .mb-4
+    = f.label :telegram, "Telegram", class: "block text-sm text-gray-500 mb-1"
+    = f.text_field :telegram, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", placeholder: "@handle"
 
-  .mb-3
-    = f.label :password, "Password#{' (leave blank to keep current)' if user.persisted?}", class: "form-label text-secondary small"
-    = f.password_field :password, class: "form-control bg-dark text-light border-secondary"
+  .mb-4
+    = f.label :password, "Password#{' (leave blank to keep current)' if user.persisted?}", class: "block text-sm text-gray-500 mb-1"
+    = f.password_field :password, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
 
-  .mb-3
-    = f.label :password_confirmation, "Confirm password", class: "form-label text-secondary small"
-    = f.password_field :password_confirmation, class: "form-control bg-dark text-light border-secondary"
+  .mb-4
+    = f.label :password_confirmation, "Confirm password", class: "block text-sm text-gray-500 mb-1"
+    = f.password_field :password_confirmation, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
 
-  .mb-3
-    = f.label :role, "Role", class: "form-label text-secondary small"
+  .mb-4
+    = f.label :role, "Role", class: "block text-sm text-gray-500 mb-1"
     - if user.persisted? && user == current_user
-      = f.select :role, [["Admin", "admin"]], {}, class: "form-select bg-dark text-light border-secondary", disabled: true
-      %small.text-secondary You cannot change your own role.
+      = f.select :role, [["Admin", "admin"]], {}, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100", disabled: true
+      %small.text-gray-500 You cannot change your own role.
     - else
-      = f.select :role, [["User", "user"], ["Admin", "admin"]], {}, class: "form-select bg-dark text-light border-secondary"
+      = f.select :role, [["User", "user"], ["Admin", "admin"]], {}, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100"
 
-  = f.submit (user.persisted? ? "Update User" : "Create User"), class: "btn btn-primary"
-  = link_to "Cancel", admin_users_path, class: "btn btn-outline-secondary ms-2"
+  .flex.gap-2
+    = f.submit (user.persisted? ? "Update User" : "Create User"), class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
+    = link_to "Cancel", admin_users_path, class: "px-4 py-2 rounded-md border border-gray-600 text-gray-400 hover:text-gray-200"
