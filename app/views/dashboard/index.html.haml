@@ -124,7 +124,7 @@
         100% { background-color: transparent; }
       }
       .flash { animation: flash-update .8s ease-out; }
-  %body.text-ghtext
+  %body.text-ghtext.pb-8
     = render 'shared/navbar', active: 'dashboard', ws_indicator: true
 
     .px-3.md:px-4
@@ -613,12 +613,14 @@
 
         // ── WebSocket indicator ────────────────────────────────────────────────────
         function setWs(state) {
-          var dot   = document.getElementById('ws-dot');
-          var label = document.getElementById('ws-label');
-          if (dot)   dot.className   = 'ws-dot ws-' + state;
-          if (label) label.textContent =
-            state === 'connected'    ? 'Live'         :
-            state === 'disconnected' ? 'Disconnected' : 'Connecting\u2026';
+          document.querySelectorAll('.js-ws-dot').forEach(function(el) {
+            el.className = 'ws-dot ws-' + state;
+          });
+          document.querySelectorAll('.js-ws-label').forEach(function(el) {
+            el.textContent =
+              state === 'connected'    ? 'Live'         :
+              state === 'disconnected' ? 'Disconnected' : 'Connecting\u2026';
+          });
         }
 
         // ── ActionCable subscription ───────────────────────────────────────────────

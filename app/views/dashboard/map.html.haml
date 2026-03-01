@@ -26,6 +26,9 @@
     :css
       body { background: #0d1117; margin: 0; }
       #map { height: calc(100vh - 72px); width: 100%; }
+      @media (min-width: 1024px) {
+        #map { height: 100vh; }
+      }
 
       .ws-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; vertical-align: middle; }
       .ws-connected    { background: #3fb950; }
@@ -387,12 +390,14 @@
 
         // ── WebSocket indicator ────────────────────────────────────────────────────
         function setWs(state) {
-          var dot   = document.getElementById('ws-dot');
-          var label = document.getElementById('ws-label');
-          if (dot)   dot.className   = 'ws-dot ws-' + state;
-          if (label) label.textContent =
-            state === 'connected'    ? 'Live'         :
-            state === 'disconnected' ? 'Disconnected' : 'Connecting\u2026';
+          document.querySelectorAll('.js-ws-dot').forEach(function(el) {
+            el.className = 'ws-dot ws-' + state;
+          });
+          document.querySelectorAll('.js-ws-label').forEach(function(el) {
+            el.textContent =
+              state === 'connected'    ? 'Live'         :
+              state === 'disconnected' ? 'Disconnected' : 'Connecting\u2026';
+          });
         }
 
         // ── WebSocket for live updates ─────────────────────────────────────────────
