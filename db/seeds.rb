@@ -62,3 +62,23 @@ if CtcssTone.count.zero?
   CtcssTone.insert_all(tones.map { |t| t.merge(created_at: Time.current, updated_at: Time.current) })
   puts "Seeded #{tones.size} standard CTCSS tones"
 end
+
+# Node classes from SVXReflector
+if NodeClass.count.zero?
+  %w[repeater bridge].each { |name| NodeClass.create!(name: name) }
+  puts "Seeded #{NodeClass.count} node classes"
+end
+
+# Talkgroups from SVXReflector
+if Talkgroup.count.zero?
+  talkgroups = [
+    { number: 222,    name: nil },
+    { number: 223,    name: nil },
+    { number: 22212,  name: nil },
+    { number: 222121, name: nil },
+    { number: 222264, name: nil },
+  ]
+
+  Talkgroup.insert_all(talkgroups.map { |t| t.merge(created_at: Time.current, updated_at: Time.current) })
+  puts "Seeded #{talkgroups.size} talkgroups"
+end

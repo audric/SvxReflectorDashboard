@@ -16,6 +16,10 @@ Rails.application.routes.draw do
         patch :approve
       end
     end
+    resources :nodes
+    resources :node_classes
+    resources :talkgroups
+    resources :ctcss_tones
     resource :settings, only: %i[edit update]
   end
 

@@ -17,6 +17,6 @@ class RegistrationsController < ApplicationController
   private
 
   def registration_params
-    params.require(:user).permit(:callsign, :password, :password_confirmation, :name, :email, :mobile, :telegram)
+    params.require(:user).permit(:callsign, :password, :password_confirmation)
   end
 end

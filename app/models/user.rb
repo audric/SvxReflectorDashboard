@@ -5,7 +5,10 @@ class User < ApplicationRecord
 
   before_validation { self.callsign = callsign.upcase.strip if callsign.present? }
 
-  validates :callsign, presence: true, uniqueness: { case_sensitive: false }
+  validates :callsign, presence: true,
+                      uniqueness: { case_sensitive: false },
+                      length: { maximum: 8 },
+                      format: { with: /\A[A-Z0-9]{1,3}\d[A-Z]{1,4}\z/, message: "is not a valid callsign (e.g. W1AW, KA1ABC, VE3XYZ)" }
   validates :role, inclusion: { in: %w[admin user] }
 
   def admin?

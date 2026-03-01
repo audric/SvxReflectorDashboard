@@ -1,0 +1,42 @@
+= form_with model: [:admin, node], local: true do |f|
+  - if node.errors.any?
+    %div.p-2.rounded.border.border-red-700.text-red-400.text-sm.mb-4{class: "bg-red-900/30"}
+      %ul.mb-0.list-disc.pl-4
+        - node.errors.full_messages.each do |msg|
+          %li= msg
+
+  .mb-4
+    = f.label :callsign, "Callsign", class: "block text-sm text-gray-500 mb-1"
+    = f.text_field :callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", autocapitalize: "characters"
+
+  .grid.grid-cols-2.gap-4.mb-4
+    .col-span-1
+      = f.label :node_class_id, "Class", class: "block text-sm text-gray-500 mb-1"
+      = f.select :node_class_id, NodeClass.order(:name).map { |nc| [nc.name, nc.id] }, { include_blank: "— None —" }, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+    .col-span-1
+      = f.label :talkgroup_id, "Talkgroup", class: "block text-sm text-gray-500 mb-1"
+      = f.select :talkgroup_id, Talkgroup.order(:number).map { |tg| ["#{tg.number}#{" — #{tg.name}" if tg.name.present?}", tg.id] }, { include_blank: "— None —" }, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+
+  .mb-4
+    = f.label :node_location, "Location", class: "block text-sm text-gray-500 mb-1"
+    = f.text_field :node_location, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+
+  .mb-4
+    = f.label :sysop, "Sysop", class: "block text-sm text-gray-500 mb-1"
+    = f.text_field :sysop, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+
+  .grid.grid-cols-2.gap-4.mb-4
+    .col-span-1
+      = f.label :rx_freq, "RX Freq", class: "block text-sm text-gray-500 mb-1"
+      = f.text_field :rx_freq, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+    .col-span-1
+      = f.label :tx_freq, "TX Freq", class: "block text-sm text-gray-500 mb-1"
+      = f.text_field :tx_freq, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+
+  .mb-4
+    = f.label :locator, "Locator", class: "block text-sm text-gray-500 mb-1"
+    = f.text_field :locator, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", placeholder: "Maidenhead locator"
+
+  .flex.gap-2
+    = f.submit (node.persisted? ? "Update Node" : "Create Node"), class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
+    = link_to "Cancel", admin_nodes_path, class: "px-4 py-2 rounded-md border border-gray-600 text-gray-400 hover:text-gray-200"

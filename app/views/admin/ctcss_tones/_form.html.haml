@@ -1,0 +1,18 @@
+= form_with model: [:admin, ctcss_tone], local: true do |f|
+  - if ctcss_tone.errors.any?
+    %div.p-2.rounded.border.border-red-700.text-red-400.text-sm.mb-4{class: "bg-red-900/30"}
+      %ul.mb-0.list-disc.pl-4
+        - ctcss_tone.errors.full_messages.each do |msg|
+          %li= msg
+
+  .grid.grid-cols-2.gap-4.mb-4
+    .col-span-1
+      = f.label :frequency, "Frequency (Hz)", class: "block text-sm text-gray-500 mb-1"
+      = f.number_field :frequency, step: 0.1, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+    .col-span-1
+      = f.label :code, "Code", class: "block text-sm text-gray-500 mb-1"
+      = f.text_field :code, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+
+  .flex.gap-2
+    = f.submit (ctcss_tone.persisted? ? "Update Tone" : "Create Tone"), class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
+    = link_to "Cancel", admin_ctcss_tones_path, class: "px-4 py-2 rounded-md border border-gray-600 text-gray-400 hover:text-gray-200"

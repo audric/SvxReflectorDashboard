@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_27_130000) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_28_000002) do
   create_table "ctcss_tones", force: :cascade do |t|
     t.string "code", null: false
     t.datetime "created_at", null: false
@@ -18,6 +18,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_27_130000) do
     t.datetime "updated_at", null: false
     t.index ["code"], name: "index_ctcss_tones_on_code", unique: true
     t.index ["frequency"], name: "index_ctcss_tones_on_frequency", unique: true
+  end
+
+  create_table "node_classes", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.datetime "updated_at", null: false
+    t.index ["name"], name: "index_node_classes_on_name", unique: true
   end
 
   create_table "node_events", force: :cascade do |t|
@@ -34,12 +41,38 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_27_130000) do
     t.index ["tg"], name: "index_node_events_on_tg"
   end
 
+  create_table "nodes", force: :cascade do |t|
+    t.string "callsign", null: false
+    t.datetime "created_at", null: false
+    t.string "locator"
+    t.text "monitored_tgs"
+    t.integer "node_class_id"
+    t.string "node_location"
+    t.string "rx_freq"
+    t.string "sysop"
+    t.integer "talkgroup_id"
+    t.text "tone_to_talkgroup"
+    t.string "tx_freq"
+    t.datetime "updated_at", null: false
+    t.index ["callsign"], name: "index_nodes_on_callsign", unique: true
+    t.index ["node_class_id"], name: "index_nodes_on_node_class_id"
+    t.index ["talkgroup_id"], name: "index_nodes_on_talkgroup_id"
+  end
+
   create_table "settings", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "key", null: false
     t.datetime "updated_at", null: false
     t.string "value"
     t.index ["key"], name: "index_settings_on_key", unique: true
+  end
+
+  create_table "talkgroups", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "name"
+    t.integer "number", null: false
+    t.datetime "updated_at", null: false
+    t.index ["number"], name: "index_talkgroups_on_number", unique: true
   end
 
   create_table "users", force: :cascade do |t|
@@ -55,4 +88,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_27_130000) do
     t.datetime "updated_at", null: false
     t.index ["callsign"], name: "index_users_on_callsign", unique: true
   end
+
+  add_foreign_key "nodes", "node_classes"
+  add_foreign_key "nodes", "talkgroups"
 end
