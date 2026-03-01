@@ -38,5 +38,8 @@ module App
 
     # Don't generate system test files.
     config.generators.system_tests = nil
+
+    # Allow the host specified by ALLOWED_HOST env var.
+    config.hosts << ENV["ALLOWED_HOST"] if ENV["ALLOWED_HOST"].present?
   end
 end

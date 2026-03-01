@@ -7,6 +7,8 @@ services:
     ports:
       - "3000:3000"
     environment:
+      RAILS_ENV: production
+      ALLOWED_HOST: ${ALLOWED_HOST}
       BRAND_NAME: ${BRAND_NAME}
       REFLECTOR_STATUS_URL: ${REFLECTOR_STATUS_URL}
       REDIS_URL: redis://redis:6379/1
@@ -21,6 +23,7 @@ services:
     build: .
     command: bash -lc "bundle exec rails runner 'require Rails.root.join(\"lib\",\"reflector_listener\").to_s; ReflectorListener.start; sleep'"
     environment:
+      RAILS_ENV: production
       REFLECTOR_STATUS_URL: ${REFLECTOR_STATUS_URL}
       REDIS_URL: redis://redis:6379/1
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
