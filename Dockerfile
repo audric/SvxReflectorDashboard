@@ -10,7 +10,8 @@ WORKDIR /rails
 # Set production environment
 ENV RAILS_ENV="production" \
     BUNDLE_PATH="/usr/local/bundle" \
-    BUNDLE_WITHOUT="development"
+    BUNDLE_WITHOUT="development" \
+    BUNDLE_FROZEN="true"
 
 
 # Throw-away build stage to reduce size of final image
@@ -50,8 +51,7 @@ COPY --from=build /rails /rails
 
 # Create non-root user for runtime (entrypoint drops privileges via gosu)
 RUN useradd rails --create-home --shell /bin/bash && \
-    chown -R rails:rails db log storage tmp && \
-    chown rails:rails Gemfile.lock
+    chown -R rails:rails db log storage tmp
 
 # Entrypoint fixes volume permissions then drops to rails user.
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]
