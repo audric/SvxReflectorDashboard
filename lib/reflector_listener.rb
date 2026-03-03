@@ -108,6 +108,15 @@ class ReflectorListener
       next unless nodes.key?(callsign)
       meta = JSON.parse(json_str) rescue next
       meta.each { |k, v| nodes[callsign][k] ||= v }
+
+      # Build qth structure from nodeLocation so the map can place a marker
+      loc = nodes[callsign]['nodeLocation'].to_s
+      if nodes[callsign]['qth'].nil? && loc.include?(',')
+        lat, lon = loc.split(',', 2).map { |s| s.strip.to_f }
+        if lat != 0.0 || lon != 0.0
+          nodes[callsign]['qth'] = [{ 'pos' => { 'lat' => lat, 'long' => lon } }]
+        end
+      end
     end
   rescue => e
     STDERR.puts "[Poller] Web node enrich error: #{e.message}"
