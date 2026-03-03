@@ -55,11 +55,16 @@ func main() {
 		ch := sub.Channel()
 		for msg := range ch {
 			var cmd struct {
-				Action   string `json:"action"`
-				TG       int    `json:"tg"`
-				Callsign string `json:"callsign"`
-				AuthKey  string `json:"auth_key"`
-				Audio    string `json:"audio"`
+				Action       string `json:"action"`
+				TG           int    `json:"tg"`
+				Callsign     string `json:"callsign"`
+				AuthKey      string `json:"auth_key"`
+				Audio        string `json:"audio"`
+				SW           string `json:"sw"`
+				SWVer        string `json:"sw_ver"`
+				NodeClass    string `json:"node_class"`
+				NodeLocation string `json:"node_location"`
+				Sysop        string `json:"sysop"`
 			}
 			if err := json.Unmarshal([]byte(msg.Payload), &cmd); err != nil {
 				log.Printf("Invalid command: %v", err)
@@ -69,7 +74,14 @@ func main() {
 			switch cmd.Action {
 			case "connect":
 				if cmd.Callsign != "" && cmd.TG > 0 {
-					sess.start(cmd.Callsign, cmd.AuthKey, uint32(cmd.TG))
+					nodeInfo := map[string]string{
+						"sw":           cmd.SW,
+						"swVer":        cmd.SWVer,
+						"nodeClass":    cmd.NodeClass,
+						"nodeLocation": cmd.NodeLocation,
+						"sysop":        cmd.Sysop,
+					}
+					sess.start(cmd.Callsign, cmd.AuthKey, uint32(cmd.TG), nodeInfo)
 				}
 			case "disconnect":
 				sess.stop()
@@ -116,9 +128,10 @@ type session struct {
 	callsign string
 	authKey  string
 	tg       uint32
+	nodeInfo map[string]string
 }
 
-func (s *session) start(callsign string, authKey string, tg uint32) {
+func (s *session) start(callsign string, authKey string, tg uint32, nodeInfo map[string]string) {
 	s.mu.Lock()
 	if s.client != nil {
 		s.client.Close()
@@ -127,6 +140,7 @@ func (s *session) start(callsign string, authKey string, tg uint32) {
 	s.mu.Unlock()
 
 	c := NewClient(s.host, s.port, authKey, callsign)
+	c.SetNodeInfo(nodeInfo)
 	if err := c.Connect(); err != nil {
 		log.Printf("Connect failed: %v", err)
 		return
@@ -158,6 +172,7 @@ func (s *session) start(callsign string, authKey string, tg uint32) {
 	s.callsign = callsign
 	s.authKey = authKey
 	s.tg = tg
+	s.nodeInfo = nodeInfo
 	s.mu.Unlock()
 
 	// Start protocol goroutines; if TCPReader dies the session is dead
@@ -200,9 +215,10 @@ func (s *session) selectTG(callsign string, tg uint32) {
 	// If no active session, start one
 	if s.client == nil {
 		authKey := s.authKey
+		nodeInfo := s.nodeInfo
 		s.mu.Unlock()
 		if callsign != "" {
-			s.start(callsign, authKey, tg)
+			s.start(callsign, authKey, tg, nodeInfo)
 		}
 		return
 	}
@@ -210,8 +226,9 @@ func (s *session) selectTG(callsign string, tg uint32) {
 	// If callsign changed, reconnect with new identity
 	if callsign != "" && callsign != s.callsign {
 		authKey := s.authKey
+		nodeInfo := s.nodeInfo
 		s.mu.Unlock()
-		s.start(callsign, authKey, tg)
+		s.start(callsign, authKey, tg, nodeInfo)
 		return
 	}
 

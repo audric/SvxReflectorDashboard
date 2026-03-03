@@ -5,8 +5,19 @@ class AudioChannel < ApplicationCable::Channel
       stream_from "audio:tg:#{tg}"
       callsign = params[:callsign].to_s.strip.upcase
       auth_key = params[:auth_key].to_s
+      @web_callsign = callsign
       redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
-      redis.publish("audio:commands", { action: "connect", tg: tg, callsign: callsign, auth_key: auth_key }.to_json)
+      redis.publish("audio:commands", {
+        action: "connect", tg: tg, callsign: callsign, auth_key: auth_key,
+        sw: params[:sw].to_s, sw_ver: params[:sw_ver].to_s,
+        node_class: params[:node_class].to_s, node_location: params[:node_location].to_s,
+        sysop: params[:sysop].to_s
+      }.to_json)
+      # Store metadata so the poller can enrich the reflector snapshot
+      meta = { sw: params[:sw].to_s, swVer: params[:sw_ver].to_s,
+               nodeClass: params[:node_class].to_s, nodeLocation: params[:node_location].to_s,
+               sysop: params[:sysop].to_s }.reject { |_, v| v.blank? }
+      redis.hset("web_node_info", callsign, meta.to_json) if meta.any?
       redis.close
     else
       reject
@@ -16,6 +27,7 @@ class AudioChannel < ApplicationCable::Channel
   def unsubscribed
     redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
     redis.publish("audio:commands", { action: "disconnect" }.to_json)
+    redis.hdel("web_node_info", @web_callsign) if @web_callsign.present?
   ensure
     redis&.close
   end

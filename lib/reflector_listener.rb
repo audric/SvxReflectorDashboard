@@ -18,6 +18,9 @@ class ReflectorListener
           res  = Net::HTTP.get_response(URI.parse(status_url))
           curr = JSON.parse(res.body).fetch('nodes', {})
 
+          # Enrich web listener nodes with browser/location metadata stored by AudioChannel
+          enrich_web_nodes(curr)
+
           changed = curr.select do |cs, node|
             p = prev[cs]
             next true if p.nil?
@@ -96,5 +99,17 @@ class ReflectorListener
     end
   rescue => e
     STDERR.puts "[Poller] DB error: #{e.message}"
+  end
+
+  def self.enrich_web_nodes(nodes)
+    redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
+    web_info = redis.hgetall('web_node_info')
+    web_info.each do |callsign, json_str|
+      next unless nodes.key?(callsign)
+      meta = JSON.parse(json_str) rescue next
+      meta.each { |k, v| nodes[callsign][k] ||= v }
+    end
+  rescue => e
+    STDERR.puts "[Poller] Web node enrich error: #{e.message}"
   end
 end

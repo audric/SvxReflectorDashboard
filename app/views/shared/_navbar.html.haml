@@ -100,7 +100,7 @@
   -# ── Audio player (visible only to users with monitor permission + auth key) ──
   - if logged_in? && current_user.can_monitor? && current_user.reflector_auth_key.present?
     - audio_tgs = (@nodes || {}).values.flat_map { |n| [n['tg'].to_i] + Array(n['monitoredTGs']).map(&:to_i) }.select { |t| t > 0 }.uniq.sort
-    .border-t.border-ghborder.px-3.py-3#audio-player-sidebar{"data-initial-tgs" => audio_tgs.join(','), "data-callsign" => "#{current_user.callsign.upcase}-WEB", "data-auth-key" => current_user.reflector_auth_key.to_s}
+    .border-t.border-ghborder.px-3.py-3#audio-player-sidebar{"data-initial-tgs" => audio_tgs.join(','), "data-callsign" => "#{current_user.callsign.upcase}-WEB", "data-auth-key" => current_user.reflector_auth_key.to_s, "data-sysop" => current_user.name.to_s}
       .flex.items-center.gap-1.mb-2
         %i.bi.bi-headphones.text-ghdim.text-xs
         %span.text-xs.uppercase.tracking-wider.text-ghdim Tune In
@@ -194,7 +194,7 @@
     // DOM refs (PTT)
     var pttBtn = document.getElementById('audio-ptt-btn');
     var pttBtnMobile = document.getElementById('audio-ptt-btn-mobile');
-    var hasPTT = typeof AudioEncoder !== 'undefined';
+    var hasPTT = typeof AudioEncoder !== 'undefined' && window.isSecureContext;
 
     // DOM refs (mobile)
     var tgSelectMobile = document.getElementById('audio-tg-select-mobile');
@@ -279,6 +279,32 @@
       var el = document.getElementById('audio-player-sidebar');
       return el ? (el.getAttribute('data-auth-key') || '') : '';
     })();
+    var txSysop = (function() {
+      var el = document.getElementById('audio-player-sidebar');
+      return el ? (el.getAttribute('data-sysop') || '') : '';
+    })();
+
+    // Parse browser name + version from userAgent
+    var browserSW = '', browserSWVer = '';
+    (function() {
+      var ua = navigator.userAgent;
+      var m;
+      if ((m = ua.match(/(?:Edg|Edge)\/([\d.]+)/))) { browserSW = 'Edge'; browserSWVer = m[1]; }
+      else if ((m = ua.match(/OPR\/([\d.]+)/))) { browserSW = 'Opera'; browserSWVer = m[1]; }
+      else if ((m = ua.match(/Chrome\/([\d.]+)/))) { browserSW = 'Chrome'; browserSWVer = m[1]; }
+      else if ((m = ua.match(/Firefox\/([\d.]+)/))) { browserSW = 'Firefox'; browserSWVer = m[1]; }
+      else if ((m = ua.match(/Version\/([\d.]+).*Safari/))) { browserSW = 'Safari'; browserSWVer = m[1]; }
+    })();
+
+    // Eagerly request geolocation — cached for when user clicks Play
+    var geoLocation = '';
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        function(pos) { geoLocation = pos.coords.latitude.toFixed(2) + ', ' + pos.coords.longitude.toFixed(2); },
+        function() {},
+        { timeout: 10000, maximumAge: 300000 }
+      );
+    }
 
     if (mobileBar) mobileBar.classList.remove('hidden');
 
@@ -303,22 +329,24 @@
     // ── PTT (Push-to-Talk) ──
     var pttActive = false;
     var micStream = null;
-    var micSource = null;
-    var micProcessor = null;
-    var micZeroGain = null;
+    var micReader = null;
     var txEncoder = null;
     var txTimestamp = 0;
 
-    function acIdentifier() {
-      return JSON.stringify({ channel: 'AudioChannel', tg: currentTG, callsign: txCallsign, auth_key: txAuthKey });
+    // Snapshot the identifier at subscribe time so it never changes mid-session
+    // (geoLocation resolves async and would cause a mismatch).
+    var subscribedIdentifier = null;
+
+    function buildIdentifier() {
+      return JSON.stringify({ channel: 'AudioChannel', tg: currentTG, callsign: txCallsign, auth_key: txAuthKey, sw: browserSW, sw_ver: browserSWVer, node_class: 'bridge', node_location: geoLocation, sysop: txSysop });
     }
 
     function acSend(action, data) {
-      if (!audioWs || audioWs.readyState !== WebSocket.OPEN) return;
+      if (!audioWs || audioWs.readyState !== WebSocket.OPEN || !subscribedIdentifier) return;
       var msg = Object.assign({ action: action }, data || {});
       audioWs.send(JSON.stringify({
         command: 'message',
-        identifier: acIdentifier(),
+        identifier: subscribedIdentifier,
         data: JSON.stringify(msg)
       }));
     }
@@ -336,18 +364,10 @@
       acSend('ptt_start', { tg: currentTG, callsign: txCallsign });
 
       navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000, channelCount: 1 }
+        audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 }
       }).then(function(stream) {
         if (!pttActive) { stream.getTracks().forEach(function(t) { t.stop(); }); return; }
         micStream = stream;
-
-        // Use the playback AudioContext for mic processing
-        micSource = audioCtx.createMediaStreamSource(stream);
-
-        // Zero-gain node prevents mic audio from going to speakers (feedback)
-        micZeroGain = audioCtx.createGain();
-        micZeroGain.gain.value = 0;
-        micZeroGain.connect(audioCtx.destination);
 
         txTimestamp = 0;
         txEncoder = new AudioEncoder({
@@ -355,7 +375,6 @@
             var buf = new ArrayBuffer(chunk.byteLength);
             var u8 = new Uint8Array(buf);
             chunk.copyTo(u8);
-            // Base64 encode
             var binary = '';
             for (var i = 0; i < u8.length; i++) binary += String.fromCharCode(u8[i]);
             var b64 = btoa(binary);
@@ -367,34 +386,27 @@
           codec: 'opus',
           sampleRate: 48000,
           numberOfChannels: 1,
-          bitrate: 24000,
-          frameDuration: 20000
+          bitrate: 24000
         });
 
-        micProcessor = audioCtx.createScriptProcessor(1024, 1, 1);
-        micProcessor.onaudioprocess = function(e) {
-          if (!txEncoder || txEncoder.state === 'closed') return;
-          var input = e.inputBuffer.getChannelData(0);
-          var samples = new Float32Array(input.length);
-          samples.set(input);
-          var data = new AudioData({
-            format: 'f32',
-            sampleRate: 48000,
-            numberOfFrames: samples.length,
-            numberOfChannels: 1,
-            timestamp: txTimestamp,
-            data: samples
-          });
-          txEncoder.encode(data);
-          data.close();
-          txTimestamp += Math.round(samples.length / 48000 * 1000000);
-        };
-
-        micSource.connect(micProcessor);
-        micProcessor.connect(micZeroGain);
+        // Use MediaStreamTrackProcessor instead of deprecated ScriptProcessor
+        var track = stream.getAudioTracks()[0];
+        var trackProcessor = new MediaStreamTrackProcessor({ track: track });
+        micReader = trackProcessor.readable.getReader();
+        (function readLoop() {
+          micReader.read().then(function(result) {
+            if (result.done || !pttActive) { result.value && result.value.close(); return; }
+            if (txEncoder && txEncoder.state !== 'closed') {
+              txEncoder.encode(result.value);
+            }
+            result.value.close();
+            readLoop();
+          }).catch(function() {});
+        })();
       }).catch(function(e) {
-        console.error('Mic access denied:', e);
+        console.error('Mic access error:', e);
         pttStop();
+        alert('Mic error: ' + (e.name || '') + ' — ' + (e.message || e));
       });
     }
 
@@ -408,9 +420,7 @@
         btn.classList.remove('text-red-400', 'bg-red-900/40');
       });
 
-      if (micProcessor) { try { micProcessor.disconnect(); } catch(e) {} micProcessor = null; }
-      if (micSource) { try { micSource.disconnect(); } catch(e) {} micSource = null; }
-      if (micZeroGain) { try { micZeroGain.disconnect(); } catch(e) {} micZeroGain = null; }
+      if (micReader) { try { micReader.cancel(); } catch(e) {} micReader = null; }
       if (txEncoder) { try { txEncoder.close(); } catch(e) {} txEncoder = null; }
       if (micStream) { micStream.getTracks().forEach(function(t) { t.stop(); }); micStream = null; }
 
@@ -476,9 +486,10 @@
       audioWs = new WebSocket(proto + '://' + location.host + '/cable');
 
       audioWs.onopen = function() {
+        subscribedIdentifier = buildIdentifier();
         audioWs.send(JSON.stringify({
           command: 'subscribe',
-          identifier: JSON.stringify({ channel: 'AudioChannel', tg: currentTG, callsign: txCallsign, auth_key: txAuthKey })
+          identifier: subscribedIdentifier
         }));
       };
 
@@ -513,6 +524,7 @@
       showAudioDot(false);
       clearState();
 
+      subscribedIdentifier = null;
       if (audioWs) { audioWs.onclose = null; audioWs.close(); audioWs = null; }
       if (decoder) { try { decoder.close(); } catch(e) {} decoder = null; }
       if (scriptNode) { scriptNode.disconnect(); scriptNode = null; }
@@ -533,15 +545,21 @@
     if (playBtnMobile) playBtnMobile.addEventListener('click', toggleAudio);
 
     // PTT button events (hold to talk)
+    // Release is tracked at the document level so moving the cursor off
+    // the small button while holding doesn't cancel the transmission.
+    function pttDown(e) { e.preventDefault(); pttStart(); }
+    function pttUp() {
+      if (!pttActive) return;
+      pttStop();
+    }
     [pttBtn, pttBtnMobile].forEach(function(btn) {
       if (!btn) return;
-      btn.addEventListener('mousedown', function(e) { e.preventDefault(); pttStart(); });
-      btn.addEventListener('mouseup', pttStop);
-      btn.addEventListener('mouseleave', pttStop);
-      btn.addEventListener('touchstart', function(e) { e.preventDefault(); pttStart(); });
-      btn.addEventListener('touchend', pttStop);
-      btn.addEventListener('touchcancel', pttStop);
+      btn.addEventListener('mousedown', pttDown);
+      btn.addEventListener('touchstart', pttDown);
     });
+    document.addEventListener('mouseup', pttUp);
+    document.addEventListener('touchend', pttUp);
+    document.addEventListener('touchcancel', pttUp);
 
     if (tgSelect) tgSelect.addEventListener('change', function() {
       syncTgSelects(tgSelect);

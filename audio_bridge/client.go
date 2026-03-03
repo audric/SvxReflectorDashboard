@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -29,6 +30,8 @@ type Client struct {
 
 	audioCallback func(opusFrame []byte)
 
+	nodeInfo map[string]string
+
 	mu     sync.Mutex
 	closed bool
 }
@@ -41,6 +44,11 @@ func NewClient(host string, port int, authKey, callsign string) *Client {
 		authKey:  authKey,
 		callsign: callsign,
 	}
+}
+
+// SetNodeInfo sets the node metadata sent during Connect.
+func (c *Client) SetNodeInfo(info map[string]string) {
+	c.nodeInfo = info
 }
 
 // readMsg reads the next TCP message, skipping heartbeats.
@@ -137,11 +145,20 @@ func (c *Client) Connect() error {
 	log.Printf("Client ID: %d, codecs: %v", clientID, codecs)
 
 	// Step 7: Send MsgNodeInfo (V2: just JSON, no cipher params)
-	nodeInfoPayload := BuildNodeInfoV2(fmt.Sprintf(`{"callsign":"%s"}`, c.callsign))
+	infoMap := map[string]string{"callsign": c.callsign}
+	if c.nodeInfo != nil {
+		for k, v := range c.nodeInfo {
+			if v != "" {
+				infoMap[k] = v
+			}
+		}
+	}
+	nodeJSON, _ := json.Marshal(infoMap)
+	nodeInfoPayload := BuildNodeInfoV2(string(nodeJSON))
 	if err := WriteTCPMessage(c.tcpConn, MsgTypeNodeInfo, nodeInfoPayload); err != nil {
 		return fmt.Errorf("send node info: %w", err)
 	}
-	log.Println("Sent MsgNodeInfo")
+	log.Printf("Sent MsgNodeInfo: %s", nodeJSON)
 
 	// Step 8: Establish UDP connection
 	udpAddr, err := net.ResolveUDPAddr("udp", addr)
