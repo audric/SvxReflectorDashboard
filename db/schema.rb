@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_28_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_03_000000) do
   create_table "ctcss_tones", force: :cascade do |t|
     t.string "code", null: false
     t.datetime "created_at", null: false
@@ -39,6 +39,36 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_28_000002) do
     t.index ["created_at"], name: "index_node_events_on_created_at"
     t.index ["event_type"], name: "index_node_events_on_event_type"
     t.index ["tg"], name: "index_node_events_on_tg"
+  end
+
+  create_table "node_infos", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "grid_locator"
+    t.boolean "hidden", default: false
+    t.float "latitude"
+    t.float "longitude"
+    t.string "node_class"
+    t.string "node_location"
+    t.string "qth_name"
+    t.string "rx_ant_comment"
+    t.integer "rx_ant_dir"
+    t.integer "rx_ant_height"
+    t.string "rx_ctcss_freqs"
+    t.float "rx_freq"
+    t.string "rx_name"
+    t.string "rx_sql_type"
+    t.string "sysop"
+    t.text "tone_to_talkgroup"
+    t.string "tx_ant_comment"
+    t.integer "tx_ant_dir"
+    t.integer "tx_ant_height"
+    t.float "tx_ctcss_freq"
+    t.float "tx_freq"
+    t.string "tx_name"
+    t.float "tx_pwr"
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["user_id"], name: "index_node_infos_on_user_id", unique: true
   end
 
   create_table "nodes", force: :cascade do |t|
@@ -78,6 +108,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_28_000002) do
   create_table "users", force: :cascade do |t|
     t.boolean "approved", default: false, null: false
     t.string "callsign", null: false
+    t.boolean "can_monitor", default: false, null: false
     t.datetime "created_at", null: false
     t.string "email"
     t.string "mobile"
@@ -89,6 +120,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_28_000002) do
     t.index ["callsign"], name: "index_users_on_callsign", unique: true
   end
 
+  add_foreign_key "node_infos", "users"
   add_foreign_key "nodes", "node_classes"
   add_foreign_key "nodes", "talkgroups"
 end

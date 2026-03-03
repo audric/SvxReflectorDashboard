@@ -41,6 +41,12 @@
     - else
       = f.select :role, [["User", "user"], ["Admin", "admin"]], {}, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100"
 
+  .mb-4
+    %label.flex.items-center.gap-2.cursor-pointer
+      = f.check_box :can_monitor, class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500 cursor-pointer"
+      %span.text-sm.text-gray-300 Can monitor audio
+    %small.text-gray-500.block.mt-1 Allow this user to listen to live talkgroup audio via the Tune In player.
+
   .flex.gap-2
     = f.submit (user.persisted? ? "Update User" : "Create User"), class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
     = link_to "Cancel", admin_users_path, class: "px-4 py-2 rounded-md border border-gray-600 text-gray-400 hover:text-gray-200"

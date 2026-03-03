@@ -625,9 +625,11 @@
 
         // ── ActionCable subscription ───────────────────────────────────────────────
         function connect() {
+          if (window._pageWs) { window._pageWs.onclose = null; window._pageWs.close(); }
           setWs('connecting');
           var proto = location.protocol === 'https:' ? 'wss' : 'ws';
           var ws    = new WebSocket(proto + '://' + location.host + '/cable');
+          window._pageWs = ws;
 
           ws.onopen = function () {
             ws.send(JSON.stringify({
@@ -666,6 +668,7 @@
                 }
               });
               refreshStats();
+              if (window.audioPlayerUpdateTgs) window.audioPlayerUpdateTgs(msg.nodes);
               addLog({ msg_type: 'Snapshot (' + Object.keys(msg.nodes).length + ' nodes)' });
               return;
             }

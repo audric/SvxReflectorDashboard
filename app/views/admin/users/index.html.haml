@@ -54,6 +54,7 @@
               %th.py-2 Mobile
               %th.py-2 Telegram
               %th.py-2 Role
+              %th.py-2 Monitor
               %th.py-2 Status
               %th.py-2.text-right.pr-3 Actions
           %tbody
@@ -73,6 +74,9 @@
                     %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-yellow-600.text-yellow-100 admin
                   - else
                     %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-gray-600.text-gray-200 user
+                %td.py-2
+                  - if user.can_monitor?
+                    %i.bi.bi-headphones.text-green-400{title: "Can monitor"}
                 %td.py-2
                   - if user.approved?
                     %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-green-700.text-green-100 approved

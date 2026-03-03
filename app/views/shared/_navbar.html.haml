@@ -97,6 +97,23 @@
               %i.bi{class: icon}
               = label
 
+  -# ── Audio player (visible only to users with monitor permission) ──
+  - if logged_in? && current_user.can_monitor?
+    - audio_tgs = (@nodes || {}).values.map { |n| n['tg'].to_i }.select { |t| t > 0 }.uniq.sort
+    .border-t.border-ghborder.px-3.py-3#audio-player-sidebar{"data-initial-tgs" => audio_tgs.join(',')}
+      .flex.items-center.gap-1.mb-2
+        %i.bi.bi-headphones.text-ghdim.text-xs
+        %span.text-xs.uppercase.tracking-wider.text-ghdim Tune In
+        %span#audio-dot-sidebar.hidden
+          %span.ws-dot.ws-connected{style: "width:6px;height:6px;animation:blink .8s ease-in-out infinite;margin-left:4px;"}
+      .space-y-2
+        %select#audio-tg-select.w-full.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-1.cursor-pointer{style: "outline:none;"}
+          %option{value: ""} Select TG...
+        .flex.items-center.gap-2
+          %button#audio-play-btn.flex.items-center.justify-center.w-7.h-7.rounded-full.bg-ghborder2.text-gray-300.hover:text-green-400.transition-colors.cursor-pointer{type: "button", title: "Play / Stop"}
+            %i.bi.bi-play-fill.text-xs
+          %input#audio-volume.flex-1{type: "range", min: "0", max: "100", value: "70", style: "accent-color:#3fb950;height:4px;cursor:pointer;"}
+
   .border-t.border-ghborder.px-3.py-3
     - if logged_in?
       .flex.items-center.gap-2.px-2.py-1
@@ -114,6 +131,18 @@
         %i.bi.bi-box-arrow-in-right
         Login
 
+-# ── Mobile audio bar (fixed bottom, below lg) ──
+- if logged_in? && current_user.can_monitor?
+  #audio-bar-mobile.fixed.bottom-0.left-0.right-0.z-50.bg-ghcard.border-t.border-ghborder.px-4.py-2.lg:hidden.hidden
+    .flex.items-center.gap-3
+      %button#audio-play-btn-mobile.flex.items-center.justify-center.w-8.h-8.rounded-full.bg-ghborder2.text-gray-300.hover:text-green-400.transition-colors.cursor-pointer{type: "button"}
+        %i.bi.bi-play-fill
+      %select#audio-tg-select-mobile.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-1.cursor-pointer{style: "outline:none;flex:0 0 auto;"}
+        %option{value: ""} TG...
+      %input#audio-volume-mobile.flex-1{type: "range", min: "0", max: "100", value: "70", style: "accent-color:#3fb950;height:4px;cursor:pointer;"}
+      %span#audio-dot-mobile.hidden
+        %span.ws-dot.ws-connected{style: "width:6px;height:6px;animation:blink .8s ease-in-out infinite;"}
+
 :css
   @media (min-width: 1024px) {
     body { padding-left: 14rem; padding-top: 1rem; }
@@ -123,3 +152,264 @@
     var menu = document.getElementById('userMenu');
     if (menu && !menu.parentElement.contains(e.target)) menu.classList.add('hidden');
   });
+
+  // Close page-level WebSockets when Turbo navigates away
+  document.addEventListener('turbo:before-cache', function() {
+    if (window._pageWs) {
+      window._pageWs.onclose = null;
+      window._pageWs.close();
+      window._pageWs = null;
+    }
+  });
+
+  /* ── Audio Player (Tune In) ─────────────────────────────────────── */
+  (function() {
+    // Tear down any previous instance (Turbo re-executes scripts)
+    if (window._audioStop) { window._audioStop(); }
+
+    var audioCtx = null;
+    var gainNode = null;
+    var audioWs = null;
+    var playing = false;
+    var currentTG = 0;
+    var decoder = null;
+    var pcmBuffer = [];
+    var bufferMaxSamples = 48000 * 2;
+    var scriptNode = null;
+    var sampleRate = 48000;
+    var timestamp = 0;
+
+    // DOM refs (sidebar)
+    var tgSelect = document.getElementById('audio-tg-select');
+    var playBtn = document.getElementById('audio-play-btn');
+    var volumeSlider = document.getElementById('audio-volume');
+    var dotSidebar = document.getElementById('audio-dot-sidebar');
+
+    // DOM refs (mobile)
+    var tgSelectMobile = document.getElementById('audio-tg-select-mobile');
+    var playBtnMobile = document.getElementById('audio-play-btn-mobile');
+    var volumeMobile = document.getElementById('audio-volume-mobile');
+    var dotMobile = document.getElementById('audio-dot-mobile');
+    var mobileBar = document.getElementById('audio-bar-mobile');
+
+    // ── Persist state across page loads ──
+    function saveState() {
+      try {
+        sessionStorage.setItem('_audio', JSON.stringify({
+          playing: playing, tg: currentTG,
+          vol: volumeSlider ? volumeSlider.value : (volumeMobile ? volumeMobile.value : 70)
+        }));
+      } catch(e) {}
+    }
+    function loadState() {
+      try { return JSON.parse(sessionStorage.getItem('_audio') || '{}'); } catch(e) { return {}; }
+    }
+    function clearState() {
+      try { sessionStorage.removeItem('_audio'); } catch(e) {}
+    }
+
+    function syncTgSelects(source) {
+      var val = source.value;
+      if (source === tgSelect && tgSelectMobile) tgSelectMobile.value = val;
+      if (source === tgSelectMobile && tgSelect) tgSelect.value = val;
+    }
+
+    function updateTgOptions(nodes) {
+      if (!nodes) return;
+      var tgs = {};
+      for (var cs in nodes) {
+        var n = nodes[cs];
+        var tg = parseInt(n.tg || n.TG || 0);
+        if (tg > 0) tgs[tg] = true;
+      }
+      var sorted = Object.keys(tgs).map(Number).sort(function(a,b){ return a-b; });
+      setTgOptions(sorted);
+    }
+
+    function populateInitialTgs() {
+      var el = document.getElementById('audio-player-sidebar');
+      if (!el) return;
+      var raw = el.getAttribute('data-initial-tgs');
+      if (!raw) return;
+      var tgs = raw.split(',').map(Number).filter(function(t) { return t > 0; });
+      if (tgs.length === 0) return;
+      setTgOptions(tgs);
+    }
+
+    function setTgOptions(sorted) {
+      var saved = loadState();
+      [tgSelect, tgSelectMobile].forEach(function(sel) {
+        if (!sel) return;
+        var cur = sel.value || (saved.tg ? String(saved.tg) : '');
+        while (sel.options.length > 1) sel.remove(1);
+        sorted.forEach(function(tg) {
+          var opt = document.createElement('option');
+          opt.value = tg;
+          opt.textContent = 'TG ' + tg;
+          sel.appendChild(opt);
+        });
+        if (cur) sel.value = cur;
+      });
+    }
+
+    window.audioPlayerUpdateTgs = updateTgOptions;
+
+    if (mobileBar) mobileBar.classList.remove('hidden');
+
+    function setPlaying(state) {
+      playing = state;
+      var icon = state ? 'bi-stop-fill' : 'bi-play-fill';
+      [playBtn, playBtnMobile].forEach(function(btn) {
+        if (!btn) return;
+        var i = btn.querySelector('i');
+        if (i) { i.className = 'bi ' + icon + ' text-xs'; }
+        if (state) btn.classList.add('text-green-400');
+        else btn.classList.remove('text-green-400');
+      });
+    }
+
+    function showAudioDot(show) {
+      [dotSidebar, dotMobile].forEach(function(d) {
+        if (!d) return;
+        if (show) d.classList.remove('hidden');
+        else d.classList.add('hidden');
+      });
+    }
+
+    function startAudio(tgOverride) {
+      var tg = tgOverride || parseInt(tgSelect ? tgSelect.value : (tgSelectMobile ? tgSelectMobile.value : 0));
+      if (!tg || tg <= 0) return;
+      currentTG = tg;
+
+      // Sync dropdown to match
+      [tgSelect, tgSelectMobile].forEach(function(sel) { if (sel) sel.value = tg; });
+
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: sampleRate });
+      gainNode = audioCtx.createGain();
+      var vol = volumeSlider ? volumeSlider.value : (volumeMobile ? volumeMobile.value : 70);
+      gainNode.gain.value = vol / 100;
+      gainNode.connect(audioCtx.destination);
+
+      pcmBuffer = [];
+      scriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
+      scriptNode.onaudioprocess = function(e) {
+        var output = e.outputBuffer.getChannelData(0);
+        for (var i = 0; i < output.length; i++) {
+          if (pcmBuffer.length > 0) {
+            output[i] = pcmBuffer.shift();
+          } else {
+            output[i] = 0;
+          }
+        }
+        showAudioDot(pcmBuffer.length > 0);
+      };
+      scriptNode.connect(gainNode);
+
+      timestamp = 0;
+      if (typeof AudioDecoder !== 'undefined') {
+        decoder = new AudioDecoder({
+          output: function(audioData) {
+            var samples = new Float32Array(audioData.numberOfFrames);
+            audioData.copyTo(samples, { planeIndex: 0 });
+            for (var i = 0; i < samples.length; i++) {
+              if (pcmBuffer.length < bufferMaxSamples) {
+                pcmBuffer.push(samples[i]);
+              }
+            }
+            audioData.close();
+          },
+          error: function(e) { console.error('AudioDecoder error:', e); }
+        });
+        decoder.configure({ codec: 'opus', sampleRate: sampleRate, numberOfChannels: 1 });
+      }
+
+      var proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      audioWs = new WebSocket(proto + '://' + location.host + '/cable');
+
+      audioWs.onopen = function() {
+        audioWs.send(JSON.stringify({
+          command: 'subscribe',
+          identifier: JSON.stringify({ channel: 'AudioChannel', tg: currentTG })
+        }));
+      };
+
+      audioWs.onmessage = function(ev) {
+        var envelope = JSON.parse(ev.data);
+        if (!envelope.message) return;
+        var msg = envelope.message;
+        if (msg.audio && decoder) {
+          try {
+            var raw = atob(msg.audio);
+            var buf = new Uint8Array(raw.length);
+            for (var i = 0; i < raw.length; i++) buf[i] = raw.charCodeAt(i);
+            var chunk = new EncodedAudioChunk({ type: 'key', timestamp: timestamp, data: buf });
+            decoder.decode(chunk);
+            timestamp += 20000;
+          } catch(e) { console.error('Decode error:', e); }
+        }
+      };
+
+      audioWs.onclose = function() {
+        if (playing) { setTimeout(function() { if (playing) startAudio(currentTG); }, 3000); }
+      };
+
+      setPlaying(true);
+      saveState();
+    }
+
+    function stopAudio() {
+      setPlaying(false);
+      showAudioDot(false);
+      clearState();
+
+      if (audioWs) { audioWs.onclose = null; audioWs.close(); audioWs = null; }
+      if (decoder) { try { decoder.close(); } catch(e) {} decoder = null; }
+      if (scriptNode) { scriptNode.disconnect(); scriptNode = null; }
+      if (gainNode) { gainNode.disconnect(); gainNode = null; }
+      if (audioCtx) { audioCtx.close(); audioCtx = null; }
+      pcmBuffer = [];
+    }
+
+    // Expose stop so next script execution can tear down cleanly
+    window._audioStop = stopAudio;
+
+    function toggleAudio() {
+      if (playing) stopAudio();
+      else startAudio();
+    }
+
+    if (playBtn) playBtn.addEventListener('click', toggleAudio);
+    if (playBtnMobile) playBtnMobile.addEventListener('click', toggleAudio);
+
+    if (tgSelect) tgSelect.addEventListener('change', function() {
+      syncTgSelects(tgSelect);
+      if (playing) { stopAudio(); startAudio(); }
+    });
+    if (tgSelectMobile) tgSelectMobile.addEventListener('change', function() {
+      syncTgSelects(tgSelectMobile);
+      if (playing) { stopAudio(); startAudio(); }
+    });
+
+    function setVolume(val) {
+      if (gainNode) gainNode.gain.value = val / 100;
+      if (volumeSlider) volumeSlider.value = val;
+      if (volumeMobile) volumeMobile.value = val;
+      if (playing) saveState();
+    }
+    if (volumeSlider) volumeSlider.addEventListener('input', function() { setVolume(this.value); });
+    if (volumeMobile) volumeMobile.addEventListener('input', function() { setVolume(this.value); });
+
+    // Populate TGs, restore saved selection, auto-resume
+    populateInitialTgs();
+    var saved = loadState();
+    if (saved.tg) {
+      [tgSelect, tgSelectMobile].forEach(function(sel) { if (sel) sel.value = saved.tg; });
+    }
+    if (saved.vol) {
+      if (volumeSlider) volumeSlider.value = saved.vol;
+      if (volumeMobile) volumeMobile.value = saved.vol;
+    }
+    if (saved.playing && saved.tg) {
+      startAudio(saved.tg);
+    }
+  })();

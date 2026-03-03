@@ -56,7 +56,7 @@ module Admin
     end
 
     def user_params
-      params.require(:user).permit(:callsign, :password, :password_confirmation, :role, :name, :email, :mobile, :telegram)
+      params.require(:user).permit(:callsign, :password, :password_confirmation, :role, :name, :email, :mobile, :telegram, :can_monitor)
     end
   end
 end

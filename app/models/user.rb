@@ -18,4 +18,8 @@ class User < ApplicationRecord
   def user?
     role == "user"
   end
+
+  def can_monitor?
+    can_monitor
+  end
 end

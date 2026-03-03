@@ -403,9 +403,11 @@
 
         // ── WebSocket for live updates ─────────────────────────────────────────────
         function connectMapWs() {
+          if (window._pageWs) { window._pageWs.onclose = null; window._pageWs.close(); }
           setWs('connecting');
           var proto = location.protocol === 'https:' ? 'wss' : 'ws';
           var ws = new WebSocket(proto + '://' + location.host + '/cable');
+          window._pageWs = ws;
           ws.onopen = function () {
             ws.send(JSON.stringify({ command: 'subscribe', identifier: JSON.stringify({ channel: 'UpdatesChannel' }) }));
           };
@@ -417,6 +419,7 @@
             if (envelope.type === 'confirm_subscription') { return; }
             var msg = envelope.message;
             if (!msg || !msg.nodes) return;
+            if (window.audioPlayerUpdateTgs) window.audioPlayerUpdateTgs(msg.nodes);
             (msg.removed || []).forEach(function (cs) {
               if (markersByCs[cs]) { markersByCs[cs].remove(); delete markersByCs[cs]; }
             });
