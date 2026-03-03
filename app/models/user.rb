@@ -22,4 +22,8 @@ class User < ApplicationRecord
   def can_monitor?
     can_monitor
   end
+
+  def can_transmit?
+    can_transmit
+  end
 end

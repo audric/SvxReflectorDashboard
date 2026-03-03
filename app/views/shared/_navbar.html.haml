@@ -97,10 +97,10 @@
               %i.bi{class: icon}
               = label
 
-  -# ── Audio player (visible only to users with monitor permission) ──
-  - if logged_in? && current_user.can_monitor?
-    - audio_tgs = (@nodes || {}).values.map { |n| n['tg'].to_i }.select { |t| t > 0 }.uniq.sort
-    .border-t.border-ghborder.px-3.py-3#audio-player-sidebar{"data-initial-tgs" => audio_tgs.join(',')}
+  -# ── Audio player (visible only to users with monitor permission + auth key) ──
+  - if logged_in? && current_user.can_monitor? && current_user.reflector_auth_key.present?
+    - audio_tgs = (@nodes || {}).values.flat_map { |n| [n['tg'].to_i] + Array(n['monitoredTGs']).map(&:to_i) }.select { |t| t > 0 }.uniq.sort
+    .border-t.border-ghborder.px-3.py-3#audio-player-sidebar{"data-initial-tgs" => audio_tgs.join(','), "data-callsign" => "#{current_user.callsign.upcase}-WEB", "data-auth-key" => current_user.reflector_auth_key.to_s}
       .flex.items-center.gap-1.mb-2
         %i.bi.bi-headphones.text-ghdim.text-xs
         %span.text-xs.uppercase.tracking-wider.text-ghdim Tune In
@@ -112,6 +112,9 @@
         .flex.items-center.gap-2
           %button#audio-play-btn.flex.items-center.justify-center.w-7.h-7.rounded-full.bg-ghborder2.text-gray-300.hover:text-green-400.transition-colors.cursor-pointer{type: "button", title: "Play / Stop"}
             %i.bi.bi-play-fill.text-xs
+          - if current_user.can_transmit?
+            %button#audio-ptt-btn.hidden.flex.items-center.justify-center.w-7.h-7.rounded-full.bg-ghborder2.text-gray-300.hover:text-red-400.transition-colors.cursor-pointer{type: "button", title: "Push to Talk"}
+              %i.bi.bi-mic-fill.text-xs
           %input#audio-volume.flex-1{type: "range", min: "0", max: "100", value: "70", style: "accent-color:#3fb950;height:4px;cursor:pointer;"}
 
   .border-t.border-ghborder.px-3.py-3
@@ -132,11 +135,14 @@
         Login
 
 -# ── Mobile audio bar (fixed bottom, below lg) ──
-- if logged_in? && current_user.can_monitor?
+- if logged_in? && current_user.can_monitor? && current_user.reflector_auth_key.present?
   #audio-bar-mobile.fixed.bottom-0.left-0.right-0.z-50.bg-ghcard.border-t.border-ghborder.px-4.py-2.lg:hidden.hidden
     .flex.items-center.gap-3
       %button#audio-play-btn-mobile.flex.items-center.justify-center.w-8.h-8.rounded-full.bg-ghborder2.text-gray-300.hover:text-green-400.transition-colors.cursor-pointer{type: "button"}
         %i.bi.bi-play-fill
+      - if current_user.can_transmit?
+        %button#audio-ptt-btn-mobile.hidden.flex.items-center.justify-center.w-8.h-8.rounded-full.bg-ghborder2.text-gray-300.hover:text-red-400.transition-colors.cursor-pointer{type: "button"}
+          %i.bi.bi-mic-fill
       %select#audio-tg-select-mobile.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-1.cursor-pointer{style: "outline:none;flex:0 0 auto;"}
         %option{value: ""} TG...
       %input#audio-volume-mobile.flex-1{type: "range", min: "0", max: "100", value: "70", style: "accent-color:#3fb950;height:4px;cursor:pointer;"}
@@ -185,6 +191,11 @@
     var volumeSlider = document.getElementById('audio-volume');
     var dotSidebar = document.getElementById('audio-dot-sidebar');
 
+    // DOM refs (PTT)
+    var pttBtn = document.getElementById('audio-ptt-btn');
+    var pttBtnMobile = document.getElementById('audio-ptt-btn-mobile');
+    var hasPTT = typeof AudioEncoder !== 'undefined';
+
     // DOM refs (mobile)
     var tgSelectMobile = document.getElementById('audio-tg-select-mobile');
     var playBtnMobile = document.getElementById('audio-play-btn-mobile');
@@ -221,6 +232,11 @@
         var n = nodes[cs];
         var tg = parseInt(n.tg || n.TG || 0);
         if (tg > 0) tgs[tg] = true;
+        var monitored = n.monitoredTGs || [];
+        for (var i = 0; i < monitored.length; i++) {
+          var mt = parseInt(monitored[i]);
+          if (mt > 0) tgs[mt] = true;
+        }
       }
       var sorted = Object.keys(tgs).map(Number).sort(function(a,b){ return a-b; });
       setTgOptions(sorted);
@@ -254,6 +270,16 @@
 
     window.audioPlayerUpdateTgs = updateTgOptions;
 
+    // TX callsign and auth key from data attributes
+    var txCallsign = (function() {
+      var el = document.getElementById('audio-player-sidebar');
+      return el ? (el.getAttribute('data-callsign') || '') : '';
+    })();
+    var txAuthKey = (function() {
+      var el = document.getElementById('audio-player-sidebar');
+      return el ? (el.getAttribute('data-auth-key') || '') : '';
+    })();
+
     if (mobileBar) mobileBar.classList.remove('hidden');
 
     function setPlaying(state) {
@@ -266,6 +292,129 @@
         if (state) btn.classList.add('text-green-400');
         else btn.classList.remove('text-green-400');
       });
+      // Show/hide PTT button when playing and AudioEncoder is available
+      [pttBtn, pttBtnMobile].forEach(function(btn) {
+        if (!btn) return;
+        if (state && hasPTT) btn.classList.remove('hidden');
+        else btn.classList.add('hidden');
+      });
+    }
+
+    // ── PTT (Push-to-Talk) ──
+    var pttActive = false;
+    var micStream = null;
+    var micSource = null;
+    var micProcessor = null;
+    var micZeroGain = null;
+    var txEncoder = null;
+    var txTimestamp = 0;
+
+    function acIdentifier() {
+      return JSON.stringify({ channel: 'AudioChannel', tg: currentTG, callsign: txCallsign, auth_key: txAuthKey });
+    }
+
+    function acSend(action, data) {
+      if (!audioWs || audioWs.readyState !== WebSocket.OPEN) return;
+      var msg = Object.assign({ action: action }, data || {});
+      audioWs.send(JSON.stringify({
+        command: 'message',
+        identifier: acIdentifier(),
+        data: JSON.stringify(msg)
+      }));
+    }
+
+    function pttStart() {
+      if (pttActive || !playing || !audioWs) return;
+      pttActive = true;
+
+      // Visual feedback — red
+      [pttBtn, pttBtnMobile].forEach(function(btn) {
+        if (!btn) return;
+        btn.classList.add('text-red-400', 'bg-red-900/40');
+      });
+
+      acSend('ptt_start', { tg: currentTG, callsign: txCallsign });
+
+      navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 48000, channelCount: 1 }
+      }).then(function(stream) {
+        if (!pttActive) { stream.getTracks().forEach(function(t) { t.stop(); }); return; }
+        micStream = stream;
+
+        // Use the playback AudioContext for mic processing
+        micSource = audioCtx.createMediaStreamSource(stream);
+
+        // Zero-gain node prevents mic audio from going to speakers (feedback)
+        micZeroGain = audioCtx.createGain();
+        micZeroGain.gain.value = 0;
+        micZeroGain.connect(audioCtx.destination);
+
+        txTimestamp = 0;
+        txEncoder = new AudioEncoder({
+          output: function(chunk) {
+            var buf = new ArrayBuffer(chunk.byteLength);
+            var u8 = new Uint8Array(buf);
+            chunk.copyTo(u8);
+            // Base64 encode
+            var binary = '';
+            for (var i = 0; i < u8.length; i++) binary += String.fromCharCode(u8[i]);
+            var b64 = btoa(binary);
+            acSend('tx_audio', { audio: b64 });
+          },
+          error: function(e) { console.error('TX AudioEncoder error:', e); }
+        });
+        txEncoder.configure({
+          codec: 'opus',
+          sampleRate: 48000,
+          numberOfChannels: 1,
+          bitrate: 24000,
+          frameDuration: 20000
+        });
+
+        micProcessor = audioCtx.createScriptProcessor(1024, 1, 1);
+        micProcessor.onaudioprocess = function(e) {
+          if (!txEncoder || txEncoder.state === 'closed') return;
+          var input = e.inputBuffer.getChannelData(0);
+          var samples = new Float32Array(input.length);
+          samples.set(input);
+          var data = new AudioData({
+            format: 'f32',
+            sampleRate: 48000,
+            numberOfFrames: samples.length,
+            numberOfChannels: 1,
+            timestamp: txTimestamp,
+            data: samples
+          });
+          txEncoder.encode(data);
+          data.close();
+          txTimestamp += Math.round(samples.length / 48000 * 1000000);
+        };
+
+        micSource.connect(micProcessor);
+        micProcessor.connect(micZeroGain);
+      }).catch(function(e) {
+        console.error('Mic access denied:', e);
+        pttStop();
+      });
+    }
+
+    function pttStop() {
+      if (!pttActive) return;
+      pttActive = false;
+
+      // Restore button appearance
+      [pttBtn, pttBtnMobile].forEach(function(btn) {
+        if (!btn) return;
+        btn.classList.remove('text-red-400', 'bg-red-900/40');
+      });
+
+      if (micProcessor) { try { micProcessor.disconnect(); } catch(e) {} micProcessor = null; }
+      if (micSource) { try { micSource.disconnect(); } catch(e) {} micSource = null; }
+      if (micZeroGain) { try { micZeroGain.disconnect(); } catch(e) {} micZeroGain = null; }
+      if (txEncoder) { try { txEncoder.close(); } catch(e) {} txEncoder = null; }
+      if (micStream) { micStream.getTracks().forEach(function(t) { t.stop(); }); micStream = null; }
+
+      acSend('ptt_stop', { tg: currentTG, callsign: txCallsign });
     }
 
     function showAudioDot(show) {
@@ -329,7 +478,7 @@
       audioWs.onopen = function() {
         audioWs.send(JSON.stringify({
           command: 'subscribe',
-          identifier: JSON.stringify({ channel: 'AudioChannel', tg: currentTG })
+          identifier: JSON.stringify({ channel: 'AudioChannel', tg: currentTG, callsign: txCallsign, auth_key: txAuthKey })
         }));
       };
 
@@ -350,6 +499,7 @@
       };
 
       audioWs.onclose = function() {
+        pttStop();
         if (playing) { setTimeout(function() { if (playing) startAudio(currentTG); }, 3000); }
       };
 
@@ -358,6 +508,7 @@
     }
 
     function stopAudio() {
+      pttStop();
       setPlaying(false);
       showAudioDot(false);
       clearState();
@@ -380,6 +531,17 @@
 
     if (playBtn) playBtn.addEventListener('click', toggleAudio);
     if (playBtnMobile) playBtnMobile.addEventListener('click', toggleAudio);
+
+    // PTT button events (hold to talk)
+    [pttBtn, pttBtnMobile].forEach(function(btn) {
+      if (!btn) return;
+      btn.addEventListener('mousedown', function(e) { e.preventDefault(); pttStart(); });
+      btn.addEventListener('mouseup', pttStop);
+      btn.addEventListener('mouseleave', pttStop);
+      btn.addEventListener('touchstart', function(e) { e.preventDefault(); pttStart(); });
+      btn.addEventListener('touchend', pttStop);
+      btn.addEventListener('touchcancel', pttStop);
+    });
 
     if (tgSelect) tgSelect.addEventListener('change', function() {
       syncTgSelects(tgSelect);

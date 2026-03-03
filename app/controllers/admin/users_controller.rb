@@ -26,6 +26,7 @@ module Admin
 
     def update
       attrs = user_params
+      attrs = attrs.except(:callsign) if @user == current_user
       attrs = attrs.except(:password, :password_confirmation) if attrs[:password].blank?
       attrs = attrs.except(:role) if @user == current_user
       if @user.update(attrs)
@@ -56,7 +57,7 @@ module Admin
     end
 
     def user_params
-      params.require(:user).permit(:callsign, :password, :password_confirmation, :role, :name, :email, :mobile, :telegram, :can_monitor)
+      params.require(:user).permit(:callsign, :password, :password_confirmation, :role, :name, :email, :mobile, :telegram, :can_monitor, :can_transmit, :reflector_auth_key)
     end
   end
 end

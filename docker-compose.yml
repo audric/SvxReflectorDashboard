@@ -39,10 +39,7 @@ services:
     environment:
       REFLECTOR_HOST: ${REFLECTOR_HOST}
       REFLECTOR_PORT: ${REFLECTOR_PORT:-5300}
-      REFLECTOR_AUTH_KEY: ${REFLECTOR_AUTH_KEY}
-      AUDIO_CALLSIGN: ${AUDIO_CALLSIGN:-MONITOR}
       REDIS_URL: redis://localhost:6379/1
-      DEFAULT_TG: ${DEFAULT_TG:-1}
     depends_on:
       - redis
     restart: unless-stopped

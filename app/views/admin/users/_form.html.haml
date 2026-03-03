@@ -7,7 +7,11 @@
 
   .mb-4
     = f.label :callsign, "Callsign", class: "block text-sm text-gray-500 mb-1"
-    = f.text_field :callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", autocapitalize: "characters"
+    - if user.persisted? && user == current_user
+      = f.text_field :callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-500 focus:outline-none", disabled: true
+      %small.text-gray-500 You cannot change your own callsign.
+    - else
+      = f.text_field :callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", autocapitalize: "characters"
 
   .mb-4
     = f.label :name, "Name", class: "block text-sm text-gray-500 mb-1"
@@ -27,11 +31,11 @@
 
   .mb-4
     = f.label :password, "Password#{' (leave blank to keep current)' if user.persisted?}", class: "block text-sm text-gray-500 mb-1"
-    = f.password_field :password, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+    = f.password_field :password, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", autocomplete: "new-password"
 
   .mb-4
     = f.label :password_confirmation, "Confirm password", class: "block text-sm text-gray-500 mb-1"
-    = f.password_field :password_confirmation, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+    = f.password_field :password_confirmation, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", autocomplete: "new-password"
 
   .mb-4
     = f.label :role, "Role", class: "block text-sm text-gray-500 mb-1"
@@ -42,10 +46,21 @@
       = f.select :role, [["User", "user"], ["Admin", "admin"]], {}, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100"
 
   .mb-4
+    = f.label :reflector_auth_key, "Reflector Auth Key", class: "block text-sm text-gray-500 mb-1"
+    = f.text_field :reflector_auth_key, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 font-mono focus:outline-none focus:border-blue-500"
+    %small.text-gray-500.block.mt-1 Required to connect to the SVXReflector. Tune In is hidden until this is set.
+
+  .mb-4
     %label.flex.items-center.gap-2.cursor-pointer
       = f.check_box :can_monitor, class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500 cursor-pointer"
       %span.text-sm.text-gray-300 Can monitor audio
     %small.text-gray-500.block.mt-1 Allow this user to listen to live talkgroup audio via the Tune In player.
+
+  .mb-4
+    %label.flex.items-center.gap-2.cursor-pointer
+      = f.check_box :can_transmit, class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500 cursor-pointer"
+      %span.text-sm.text-gray-300 Can transmit audio
+    %small.text-gray-500.block.mt-1 Allow this user to transmit audio via Push-to-Talk (PTT).
 
   .flex.gap-2
     = f.submit (user.persisted? ? "Update User" : "Create User"), class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"

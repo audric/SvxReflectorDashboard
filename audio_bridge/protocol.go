@@ -239,6 +239,36 @@ func BuildUDPHeartbeatV2(clientID uint16, seq uint16) []byte {
 	return buf
 }
 
+// BuildTalkerStart creates payload for MsgTalkerStart (type 104).
+// Fields: tg (uint32 BE), callsign (string).
+func BuildTalkerStart(tg uint32, callsign string) []byte {
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.BigEndian, tg)
+	writeString(buf, callsign)
+	return buf.Bytes()
+}
+
+// BuildTalkerStop creates payload for MsgTalkerStop (type 105).
+// Fields: tg (uint32 BE), callsign (string).
+func BuildTalkerStop(tg uint32, callsign string) []byte {
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.BigEndian, tg)
+	writeString(buf, callsign)
+	return buf.Bytes()
+}
+
+// BuildUDPAudioV2 creates a V2 UDP audio packet.
+// V2 wire format: [2B type=101][2B client_id][2B seq][2B audio_len][OPUS data]
+func BuildUDPAudioV2(clientID, seq uint16, opusData []byte) []byte {
+	buf := make([]byte, 8+len(opusData))
+	binary.BigEndian.PutUint16(buf[0:2], UDPMsgTypeAudio)
+	binary.BigEndian.PutUint16(buf[2:4], clientID)
+	binary.BigEndian.PutUint16(buf[4:6], seq)
+	binary.BigEndian.PutUint16(buf[6:8], uint16(len(opusData)))
+	copy(buf[8:], opusData)
+	return buf
+}
+
 // BuildCipherIV constructs the 12-byte IV for AES-128-GCM.
 // Layout: [6B iv_rand][2B client_id BE][4B counter BE]
 func BuildCipherIV(ivRand []byte, clientID uint16, counter uint32) []byte {

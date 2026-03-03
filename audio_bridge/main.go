@@ -9,7 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"sync/atomic"
+	"sync"
 	"syscall"
 	"time"
 
@@ -20,17 +20,12 @@ func main() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 	log.Println("SVX Audio Bridge starting...")
 
-	// Read configuration from environment
 	host := envRequired("REFLECTOR_HOST")
 	port := envInt("REFLECTOR_PORT", 5300)
-	authKey := envDefault("REFLECTOR_AUTH_KEY", "")
-	callsign := envDefault("AUDIO_CALLSIGN", "MONITOR")
-	defaultTG := envInt("DEFAULT_TG", 1)
 	redisURL := envDefault("REDIS_URL", "redis://redis:6379/1")
 
-	log.Printf("Config: host=%s port=%d callsign=%s defaultTG=%d", host, port, callsign, defaultTG)
+	log.Printf("Config: host=%s port=%d", host, port)
 
-	// Connect to Redis
 	opts, err := redis.ParseURL(redisURL)
 	if err != nil {
 		log.Fatalf("Invalid REDIS_URL: %v", err)
@@ -43,127 +38,233 @@ func main() {
 	}
 	log.Println("Connected to Redis")
 
-	// Track current TG for publishing
-	var currentTG atomic.Uint32
-	currentTG.Store(uint32(defaultTG))
+	sess := &session{
+		host: host,
+		port: port,
+		rdb:  rdb,
+		ctx:  ctx,
+	}
 
-	// Reconnect loop
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	backoff := 5 * time.Second
-	resetBackoff := func() { backoff = 5 * time.Second }
-	for {
-		err := runClient(ctx, rdb, host, port, authKey, callsign, &currentTG, sigCh, resetBackoff)
-		if err == errShutdown {
-			log.Println("Shutting down gracefully")
-			rdb.Close()
-			return
-		}
-		log.Printf("Client disconnected: %v — reconnecting in %v...", err, backoff)
-		time.Sleep(backoff)
-		// Exponential backoff up to 60s for repeated failures (e.g. auth denied)
-		if backoff < 60*time.Second {
-			backoff *= 2
-			if backoff > 60*time.Second {
-				backoff = 60 * time.Second
-			}
-		}
-	}
-}
-
-var errShutdown = fmt.Errorf("shutdown requested")
-
-func runClient(ctx context.Context, rdb *redis.Client, host string, port int, authKey, callsign string, currentTG *atomic.Uint32, sigCh chan os.Signal, resetBackoff func()) error {
-	client := NewClient(host, port, authKey, callsign)
-
-	// Connect and authenticate
-	if err := client.Connect(); err != nil {
-		return fmt.Errorf("connect: %w", err)
-	}
-	resetBackoff() // Connection succeeded, reset backoff
-	defer client.Close()
-
-	// Select initial TG
-	tg := currentTG.Load()
-	if err := client.SelectTG(tg); err != nil {
-		return fmt.Errorf("select TG: %w", err)
-	}
-
-	// Set audio callback: publish OPUS frames to Redis via ActionCable-compatible broadcast
-	client.SetAudioCallback(func(opusFrame []byte) {
-		tg := currentTG.Load()
-		channel := fmt.Sprintf("audio:tg:%d", tg)
-
-		// Encode as base64 for JSON transport
-		encoded := base64.StdEncoding.EncodeToString(opusFrame)
-
-		// Publish via Redis in ActionCable-compatible format
-		// ActionCable with Redis adapter subscribes to channel names directly
-		msg := map[string]interface{}{
-			"audio": encoded,
-			"seq":   time.Now().UnixMilli(),
-		}
-		payload, _ := json.Marshal(msg)
-		rdb.Publish(ctx, channel, payload)
-	})
-
-	// Start all goroutines
-	errCh := make(chan error, 4)
+	sub := rdb.Subscribe(ctx, "audio:commands", "audio:tx")
+	defer sub.Close()
 
 	go func() {
-		client.RunTCPReader()
-		errCh <- fmt.Errorf("TCP reader stopped")
-	}()
-
-	go func() {
-		client.RunTCPHeartbeat()
-		errCh <- fmt.Errorf("TCP heartbeat stopped")
-	}()
-
-	go func() {
-		client.RunUDPReader()
-		errCh <- fmt.Errorf("UDP reader stopped")
-	}()
-
-	go func() {
-		client.RunUDPHeartbeat()
-		errCh <- fmt.Errorf("UDP heartbeat stopped")
-	}()
-
-	// Listen for TG switch commands from Redis
-	go func() {
-		sub := rdb.Subscribe(ctx, "audio:commands")
-		defer sub.Close()
-
 		ch := sub.Channel()
 		for msg := range ch {
 			var cmd struct {
-				Action string `json:"action"`
-				TG     int    `json:"tg"`
+				Action   string `json:"action"`
+				TG       int    `json:"tg"`
+				Callsign string `json:"callsign"`
+				AuthKey  string `json:"auth_key"`
+				Audio    string `json:"audio"`
 			}
 			if err := json.Unmarshal([]byte(msg.Payload), &cmd); err != nil {
 				log.Printf("Invalid command: %v", err)
 				continue
 			}
 
-			if cmd.Action == "select_tg" && cmd.TG > 0 {
-				newTG := uint32(cmd.TG)
-				currentTG.Store(newTG)
-				if err := client.SelectTG(newTG); err != nil {
-					log.Printf("SelectTG error: %v", err)
+			switch cmd.Action {
+			case "connect":
+				if cmd.Callsign != "" && cmd.TG > 0 {
+					sess.start(cmd.Callsign, cmd.AuthKey, uint32(cmd.TG))
+				}
+			case "disconnect":
+				sess.stop()
+			case "select_tg":
+				if cmd.TG > 0 {
+					sess.selectTG(cmd.Callsign, uint32(cmd.TG))
+				}
+			case "ptt_start":
+				tg := uint32(cmd.TG)
+				if tg == 0 {
+					tg = sess.currentTG()
+				}
+				sess.sendTalkerStart(tg, cmd.Callsign)
+			case "ptt_stop":
+				tg := uint32(cmd.TG)
+				if tg == 0 {
+					tg = sess.currentTG()
+				}
+				sess.sendTalkerStop(tg, cmd.Callsign)
+			case "audio":
+				if cmd.Audio != "" {
+					sess.sendAudio(cmd.Audio)
 				}
 			}
 		}
 	}()
 
-	// Wait for shutdown signal or error
-	select {
-	case sig := <-sigCh:
-		log.Printf("Received signal: %v", sig)
-		return errShutdown
-	case err := <-errCh:
-		return err
+	log.Println("Waiting for tune-in commands...")
+	<-sigCh
+	log.Println("Shutting down...")
+	sess.stop()
+	rdb.Close()
+}
+
+// session manages a single on-demand reflector connection.
+type session struct {
+	host string
+	port int
+	rdb  *redis.Client
+	ctx  context.Context
+
+	mu       sync.Mutex
+	client   *Client
+	callsign string
+	authKey  string
+	tg       uint32
+}
+
+func (s *session) start(callsign string, authKey string, tg uint32) {
+	s.mu.Lock()
+	if s.client != nil {
+		s.client.Close()
+		s.client = nil
+	}
+	s.mu.Unlock()
+
+	c := NewClient(s.host, s.port, authKey, callsign)
+	if err := c.Connect(); err != nil {
+		log.Printf("Connect failed: %v", err)
+		return
+	}
+
+	if err := c.SelectTG(tg); err != nil {
+		log.Printf("SelectTG error: %v", err)
+		c.Close()
+		return
+	}
+
+	c.SetAudioCallback(func(opusFrame []byte) {
+		s.mu.Lock()
+		currentTG := s.tg
+		s.mu.Unlock()
+
+		channel := fmt.Sprintf("audio:tg:%d", currentTG)
+		encoded := base64.StdEncoding.EncodeToString(opusFrame)
+		msg := map[string]interface{}{
+			"audio": encoded,
+			"seq":   time.Now().UnixMilli(),
+		}
+		payload, _ := json.Marshal(msg)
+		s.rdb.Publish(s.ctx, channel, payload)
+	})
+
+	s.mu.Lock()
+	s.client = c
+	s.callsign = callsign
+	s.authKey = authKey
+	s.tg = tg
+	s.mu.Unlock()
+
+	// Start protocol goroutines; if TCPReader dies the session is dead
+	go func() {
+		c.RunTCPReader()
+		s.cleanup(c)
+	}()
+	go c.RunTCPHeartbeat()
+	go c.RunUDPReader()
+	go c.RunUDPHeartbeat()
+
+	log.Printf("Session started: callsign=%s tg=%d", callsign, tg)
+}
+
+func (s *session) stop() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.client != nil {
+		log.Printf("Session stopped: callsign=%s", s.callsign)
+		s.client.Close()
+		s.client = nil
+		s.callsign = ""
+	}
+}
+
+// cleanup is called when the reflector connection drops unexpectedly.
+func (s *session) cleanup(c *Client) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.client == c {
+		log.Printf("Session lost (reflector disconnected)")
+		s.client = nil
+		s.callsign = ""
+	}
+}
+
+func (s *session) selectTG(callsign string, tg uint32) {
+	s.mu.Lock()
+
+	// If no active session, start one
+	if s.client == nil {
+		authKey := s.authKey
+		s.mu.Unlock()
+		if callsign != "" {
+			s.start(callsign, authKey, tg)
+		}
+		return
+	}
+
+	// If callsign changed, reconnect with new identity
+	if callsign != "" && callsign != s.callsign {
+		authKey := s.authKey
+		s.mu.Unlock()
+		s.start(callsign, authKey, tg)
+		return
+	}
+
+	s.tg = tg
+	c := s.client
+	s.mu.Unlock()
+
+	if err := c.SelectTG(tg); err != nil {
+		log.Printf("SelectTG error: %v", err)
+	}
+}
+
+func (s *session) currentTG() uint32 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.tg
+}
+
+func (s *session) sendTalkerStart(tg uint32, callsign string) {
+	s.mu.Lock()
+	c := s.client
+	s.mu.Unlock()
+	if c != nil {
+		if err := c.SendTalkerStart(tg, callsign); err != nil {
+			log.Printf("SendTalkerStart error: %v", err)
+		}
+	}
+}
+
+func (s *session) sendTalkerStop(tg uint32, callsign string) {
+	s.mu.Lock()
+	c := s.client
+	s.mu.Unlock()
+	if c != nil {
+		if err := c.SendTalkerStop(tg, callsign); err != nil {
+			log.Printf("SendTalkerStop error: %v", err)
+		}
+	}
+}
+
+func (s *session) sendAudio(b64 string) {
+	opusData, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		log.Printf("TX audio base64 decode error: %v", err)
+		return
+	}
+	s.mu.Lock()
+	c := s.client
+	s.mu.Unlock()
+	if c != nil {
+		if err := c.SendAudio(opusData); err != nil {
+			log.Printf("SendAudio error: %v", err)
+		}
 	}
 }
 

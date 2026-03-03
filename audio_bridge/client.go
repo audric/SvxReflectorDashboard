@@ -172,6 +172,39 @@ func (c *Client) SelectTG(tg uint32) error {
 	return WriteTCPMessage(c.tcpConn, MsgTypeSelectTG, payload)
 }
 
+// SendTalkerStart sends a TalkerStart message for the given TG.
+// If callsign is empty, falls back to the client's own callsign.
+func (c *Client) SendTalkerStart(tg uint32, callsign string) error {
+	if callsign == "" {
+		callsign = c.callsign
+	}
+	payload := BuildTalkerStart(tg, callsign)
+	log.Printf("TX: TalkerStart TG %d callsign %s", tg, callsign)
+	return WriteTCPMessage(c.tcpConn, MsgTypeTalkerStart, payload)
+}
+
+// SendTalkerStop sends a TalkerStop message for the given TG.
+// If callsign is empty, falls back to the client's own callsign.
+func (c *Client) SendTalkerStop(tg uint32, callsign string) error {
+	if callsign == "" {
+		callsign = c.callsign
+	}
+	payload := BuildTalkerStop(tg, callsign)
+	log.Printf("TX: TalkerStop TG %d callsign %s", tg, callsign)
+	return WriteTCPMessage(c.tcpConn, MsgTypeTalkerStop, payload)
+}
+
+// SendAudio sends a single OPUS frame via UDP.
+func (c *Client) SendAudio(opusFrame []byte) error {
+	c.mu.Lock()
+	seq := c.udpSeq
+	c.udpSeq++
+	c.mu.Unlock()
+	pkt := BuildUDPAudioV2(c.clientID, seq, opusFrame)
+	_, err := c.udpConn.Write(pkt)
+	return err
+}
+
 // SetAudioCallback sets the function called for each OPUS frame.
 func (c *Client) SetAudioCallback(cb func(opusFrame []byte)) {
 	c.audioCallback = cb

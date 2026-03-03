@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_03_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_03_154148) do
   create_table "ctcss_tones", force: :cascade do |t|
     t.string "code", null: false
     t.datetime "created_at", null: false
@@ -109,11 +109,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_03_000000) do
     t.boolean "approved", default: false, null: false
     t.string "callsign", null: false
     t.boolean "can_monitor", default: false, null: false
+    t.boolean "can_transmit", default: false, null: false
     t.datetime "created_at", null: false
     t.string "email"
     t.string "mobile"
     t.string "name"
     t.string "password_digest", null: false
+    t.string "reflector_auth_key"
     t.string "role", default: "user", null: false
     t.string "telegram"
     t.datetime "updated_at", null: false
