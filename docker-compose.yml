@@ -1,3 +1,7 @@
+x-rails-env: &rails-env
+  RAILS_ENV: production
+  REFLECTOR_STATUS_URL: ${REFLECTOR_STATUS_URL:-http://svxreflector:8080/status}
+  REDIS_URL: redis://redis:6379/1
 
 services:
 
@@ -36,13 +40,9 @@ services:
     build: .
     ports:
       - "3000:3000"
+    env_file: .env
     environment:
-      RAILS_ENV: production
-      ALLOWED_HOST: ${ALLOWED_HOST}
-      BRAND_NAME: ${BRAND_NAME}
-      REFLECTOR_STATUS_URL: ${REFLECTOR_STATUS_URL:-http://svxreflector:8080/status}
-      REDIS_URL: redis://redis:6379/1
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      <<: *rails-env
     volumes:
       - db_data:/rails/storage
       - ./reflector:/rails/reflector
@@ -59,11 +59,9 @@ services:
     image: audric/svxreflectordashboard_updater
     build: .
     command: bash -lc "bundle exec rails runner 'require Rails.root.join(\"lib\",\"reflector_listener\").to_s; ReflectorListener.start; sleep'"
+    env_file: .env
     environment:
-      RAILS_ENV: production
-      REFLECTOR_STATUS_URL: ${REFLECTOR_STATUS_URL:-http://svxreflector:8080/status}
-      REDIS_URL: redis://redis:6379/1
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      <<: *rails-env
     volumes:
       - db_data:/rails/storage
     depends_on:
@@ -74,6 +72,7 @@ services:
   audio_bridge:
     build: ./audio_bridge
     network_mode: host
+    env_file: .env
     environment:
       REFLECTOR_HOST: ${REFLECTOR_HOST:-svxreflector}
       REFLECTOR_PORT: ${REFLECTOR_PORT:-5300}
