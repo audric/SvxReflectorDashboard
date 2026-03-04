@@ -1,0 +1,182 @@
+!!!
+%html{lang: "en"}
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title SVXReflector · Reflector Config
+    %script{src: "https://cdn.tailwindcss.com"}
+    :javascript
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ghbg: '#0d1117',
+              ghcard: '#161b22',
+              ghborder: '#30363d',
+              ghborder2: '#21262d',
+              ghtext: '#c9d1d9',
+              ghmuted: '#8b949e',
+              ghdim: '#6e7681',
+            }
+          }
+        }
+      }
+    %link{rel: "stylesheet", href: "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"}
+    :css
+      body { background: #0d1117; }
+
+  %body.text-ghtext
+    = render 'shared/navbar', active: 'admin'
+
+    .max-w-3xl.mx-auto.px-4.pb-12
+      - if flash[:notice]
+        %div.p-2.rounded.border.border-green-700.text-green-400.text-sm.mb-4.flex.items-center.justify-between{class: "bg-green-900/30", id: "flash-notice"}
+          %span= flash[:notice]
+          %button.text-green-400.hover:text-green-200.cursor-pointer{type: "button", onclick: "this.parentElement.remove()"}
+            %i.bi.bi-x
+
+      = form_with url: admin_reflector_path, method: :patch, local: true do |f|
+
+        -# ── Global Settings ──
+        .rounded-lg.border.border-gray-600.bg-ghcard.mb-6
+          .px-4.py-3.border-b.border-gray-600
+            %h5.text-lg.font-semibold.text-gray-100
+              %i.bi.bi-globe.mr-2
+              Global Settings
+          .p-4
+            .grid.grid-cols-1.md:grid-cols-2.gap-4
+              - %w[LISTEN_PORT HTTP_SRV_PORT SQL_TIMEOUT SQL_TIMEOUT_BLOCKTIME CODECS ACCEPT_CALLSIGN REJECT_CALLSIGN RANDOM_QSY_RANGE].each do |key|
+                .mb-2
+                  %label.block.text-sm.text-gray-500.mb-1= key
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][#{key}]", value: @config.global[key]}
+
+        -# ── Users ──
+        .rounded-lg.border.border-gray-600.bg-ghcard.mb-6
+          .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between
+            %h5.text-lg.font-semibold.text-gray-100
+              %i.bi.bi-people.mr-2
+              Users
+            %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "addUserRow()"}
+              %i.bi.bi-plus.mr-1
+              Add
+          .p-4
+            %table.w-full.text-sm
+              %thead
+                %tr.text-gray-500.text-left
+                  %th.pb-2.pr-2 Callsign
+                  %th.pb-2.pr-2 Password Group
+                  %th.pb-2.w-10
+              %tbody#users-tbody
+                - @config.users.each do |callsign, group|
+                  %tr.border-t.border-gray-700
+                    %td.py-2.pr-2
+                      %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[user_callsigns][]", value: callsign}
+                    %td.py-2.pr-2
+                      %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[user_groups][]", value: group}
+                    %td.py-2.text-center
+                      %button.text-red-400.hover:text-red-300.cursor-pointer{type: "button", onclick: "this.closest('tr').remove()"}
+                        %i.bi.bi-x-lg
+
+        -# ── Passwords ──
+        .rounded-lg.border.border-gray-600.bg-ghcard.mb-6
+          .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between
+            %h5.text-lg.font-semibold.text-gray-100
+              %i.bi.bi-key.mr-2
+              Passwords
+            %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "addPasswordRow()"}
+              %i.bi.bi-plus.mr-1
+              Add
+          .p-4
+            %table.w-full.text-sm
+              %thead
+                %tr.text-gray-500.text-left
+                  %th.pb-2.pr-2 Group Name
+                  %th.pb-2.pr-2 Password
+                  %th.pb-2.w-10
+              %tbody#passwords-tbody
+                - @config.passwords.each do |name, password|
+                  %tr.border-t.border-gray-700
+                    %td.py-2.pr-2
+                      %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[password_names][]", value: name}
+                    %td.py-2.pr-2
+                      %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[password_values][]", value: password}
+                    %td.py-2.text-center
+                      %button.text-red-400.hover:text-red-300.cursor-pointer{type: "button", onclick: "this.closest('tr').remove()"}
+                        %i.bi.bi-x-lg
+
+        -# ── Talkgroup Rules ──
+        .rounded-lg.border.border-gray-600.bg-ghcard.mb-6
+          .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between
+            %h5.text-lg.font-semibold.text-gray-100
+              %i.bi.bi-collection.mr-2
+              Talkgroup Rules
+            %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "addTgRule()"}
+              %i.bi.bi-plus.mr-1
+              Add TG Rule
+          #tg-rules.p-4.space-y-4
+            - @config.tg_rules.keys.sort.each do |tg_num|
+              - rules = @config.tg_rules[tg_num]
+              .tg-rule.border.border-gray-700.rounded-lg.p-4.relative
+                %button.absolute.top-2.right-2.text-red-400.hover:text-red-300.cursor-pointer{type: "button", onclick: "this.closest('.tg-rule').remove()"}
+                  %i.bi.bi-x-lg
+                .grid.grid-cols-1.md:grid-cols-2.gap-3
+                  .col-span-1
+                    %label.block.text-sm.text-gray-500.mb-1 TG Number
+                    %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "number", name: "config[tg_numbers][]", value: tg_num, min: 1}
+                  .col-span-1
+                    %label.block.text-sm.text-gray-500.mb-1 ALLOW (regex)
+                    %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[tg_allows][]", value: rules["ALLOW"], placeholder: "^.*$"}
+                  .col-span-1
+                    %label.block.text-sm.text-gray-500.mb-1 AUTO_QSY_AFTER (seconds)
+                    %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "number", name: "config[tg_auto_qsys][]", value: rules["AUTO_QSY_AFTER"]}
+                  .col-span-1
+                    %label.block.text-sm.text-gray-500.mb-1 SHOW_ACTIVITY
+                    %select.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", name: "config[tg_show_activities][]"}
+                      %option{value: "", selected: rules["SHOW_ACTIVITY"].blank?} (not set)
+                      %option{value: "1", selected: rules["SHOW_ACTIVITY"] == "1"} Yes
+                      %option{value: "0", selected: rules["SHOW_ACTIVITY"] == "0"} No
+
+        -# ── Save ──
+        .flex.gap-2
+          = f.submit "Save Configuration", class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
+          = link_to "Back", admin_users_path, class: "px-4 py-2 rounded-md border border-gray-600 text-gray-400 hover:text-gray-200"
+
+    :javascript
+      (function() {
+        var flash = document.getElementById('flash-notice');
+        if (flash) setTimeout(function() { flash.style.transition = 'opacity 0.5s'; flash.style.opacity = '0'; setTimeout(function() { flash.remove(); }, 500); }, 5000);
+      })();
+
+      function addUserRow() {
+        var tbody = document.getElementById('users-tbody');
+        var tr = document.createElement('tr');
+        tr.className = 'border-t border-gray-700';
+        tr.innerHTML = '<td class="py-2 pr-2"><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[user_callsigns][]" placeholder="CALLSIGN"></td>' +
+          '<td class="py-2 pr-2"><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[user_groups][]" placeholder="default"></td>' +
+          '<td class="py-2 text-center"><button type="button" class="text-red-400 hover:text-red-300 cursor-pointer" onclick="this.closest(\'tr\').remove()"><i class="bi bi-x-lg"></i></button></td>';
+        tbody.appendChild(tr);
+      }
+
+      function addPasswordRow() {
+        var tbody = document.getElementById('passwords-tbody');
+        var tr = document.createElement('tr');
+        tr.className = 'border-t border-gray-700';
+        tr.innerHTML = '<td class="py-2 pr-2"><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[password_names][]" placeholder="group_name"></td>' +
+          '<td class="py-2 pr-2"><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[password_values][]" placeholder="password"></td>' +
+          '<td class="py-2 text-center"><button type="button" class="text-red-400 hover:text-red-300 cursor-pointer" onclick="this.closest(\'tr\').remove()"><i class="bi bi-x-lg"></i></button></td>';
+        tbody.appendChild(tr);
+      }
+
+      function addTgRule() {
+        var container = document.getElementById('tg-rules');
+        var div = document.createElement('div');
+        div.className = 'tg-rule border border-gray-700 rounded-lg p-4 relative';
+        div.innerHTML = '<button type="button" class="absolute top-2 right-2 text-red-400 hover:text-red-300 cursor-pointer" onclick="this.closest(\'.tg-rule\').remove()"><i class="bi bi-x-lg"></i></button>' +
+          '<div class="grid grid-cols-1 md:grid-cols-2 gap-3">' +
+            '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">TG Number</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="number" name="config[tg_numbers][]" min="1" placeholder="1"></div>' +
+            '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">ALLOW (regex)</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[tg_allows][]" placeholder="^.*$"></div>' +
+            '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">AUTO_QSY_AFTER (seconds)</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="number" name="config[tg_auto_qsys][]"></div>' +
+            '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">SHOW_ACTIVITY</label><select class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" name="config[tg_show_activities][]"><option value="">(not set)</option><option value="1">Yes</option><option value="0">No</option></select></div>' +
+          '</div>';
+        container.appendChild(div);
+      }

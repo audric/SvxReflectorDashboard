@@ -51,7 +51,7 @@ COPY --from=build /rails /rails
 
 # Create non-root user for runtime (entrypoint drops privileges via gosu)
 RUN useradd rails --create-home --shell /bin/bash && \
-    chown -R rails:rails db log storage tmp
+    chown -R rails:rails db log storage tmp reflector
 
 # Entrypoint fixes volume permissions then drops to rails user.
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]

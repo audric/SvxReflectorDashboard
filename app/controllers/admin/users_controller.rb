@@ -29,6 +29,7 @@ module Admin
       attrs = attrs.except(:callsign) if @user == current_user
       attrs = attrs.except(:password, :password_confirmation) if attrs[:password].blank?
       attrs = attrs.except(:role) if @user == current_user
+      attrs = attrs.except(:reflector_admin) if @user == current_user
       if @user.update(attrs)
         redirect_to admin_users_path, notice: "User #{@user.callsign} updated"
       else
@@ -57,7 +58,7 @@ module Admin
     end
 
     def user_params
-      params.require(:user).permit(:callsign, :password, :password_confirmation, :role, :name, :email, :mobile, :telegram, :can_monitor, :can_transmit, :reflector_auth_key)
+      params.require(:user).permit(:callsign, :password, :password_confirmation, :role, :name, :email, :mobile, :telegram, :can_monitor, :can_transmit, :reflector_auth_key, :reflector_admin)
     end
   end
 end

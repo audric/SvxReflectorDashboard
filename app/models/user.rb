@@ -11,8 +11,14 @@ class User < ApplicationRecord
                       format: { with: /\A[A-Z0-9]{1,3}\d[A-Z]{1,4}\z/, message: "is not a valid callsign (e.g. W1AW, KA1ABC, VE3XYZ)" }
   validates :role, inclusion: { in: %w[admin user] }
 
+  validate :must_have_at_least_one_reflector_admin
+
   def admin?
     role == "admin"
+  end
+
+  def reflector_admin?
+    reflector_admin
   end
 
   def user?
@@ -25,5 +31,13 @@ class User < ApplicationRecord
 
   def can_transmit?
     can_transmit
+  end
+
+  private
+
+  def must_have_at_least_one_reflector_admin
+    return unless reflector_admin_changed? && !reflector_admin
+    remaining = User.where(reflector_admin: true).where.not(id: id).count
+    errors.add(:reflector_admin, "cannot be removed — at least one reflector admin is required") if remaining.zero?
   end
 end

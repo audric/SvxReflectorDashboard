@@ -52,6 +52,18 @@
 
   .mb-4
     %label.flex.items-center.gap-2.cursor-pointer
+      - if user.persisted? && user == current_user
+        = f.check_box :reflector_admin, class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500", disabled: true
+      - else
+        = f.check_box :reflector_admin, class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500 cursor-pointer"
+      %span.text-sm.text-gray-300 Reflector admin
+    - if user.persisted? && user == current_user
+      %small.text-gray-500.block.mt-1 You cannot change your own reflector admin status.
+    - else
+      %small.text-gray-500.block.mt-1 Allow this user to manage the SVXReflector configuration.
+
+  .mb-4
+    %label.flex.items-center.gap-2.cursor-pointer
       = f.check_box :can_monitor, class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500 cursor-pointer"
       %span.text-sm.text-gray-300 Can monitor audio
     %small.text-gray-500.block.mt-1 Allow this user to listen to live talkgroup audio via the Tune In player.
