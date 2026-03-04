@@ -15,9 +15,12 @@ module Admin
         config.global[key] = value if value.present?
       end
 
-      # Server cert (preserve existing)
-      existing = ReflectorConfig.load
-      config.server_cert = existing.server_cert
+      # Certificate sections (ROOT_CA, ISSUING_CA, SERVER_CERT)
+      %w[root_ca issuing_ca server_cert].each do |section|
+        (params.dig(:config, section.to_sym) || {}).each do |key, value|
+          config.send(section)[key] = value if value.present?
+        end
+      end
 
       # Users
       callsigns = Array(params.dig(:config, :user_callsigns))
@@ -39,7 +42,7 @@ module Admin
       tg_allows = Array(cfg[:tg_allows]).map(&:to_s)
       tg_auto_qsys = Array(cfg[:tg_auto_qsys]).map(&:to_s)
       tg_show_activities = Array(cfg[:tg_show_activities]).map(&:to_s)
-      Rails.logger.info "[ReflectorConfig] TG params: numbers=#{tg_numbers.inspect} allows=#{tg_allows.inspect} auto_qsy=#{tg_auto_qsys.inspect} show=#{tg_show_activities.inspect}"
+      tg_allow_monitors = Array(cfg[:tg_allow_monitors]).map(&:to_s)
       tg_numbers.each_with_index do |num, i|
         next if num.blank?
         tg_num = num.to_i
@@ -49,6 +52,7 @@ module Admin
         rules["ALLOW"] = tg_allows[i] if tg_allows[i].present?
         rules["AUTO_QSY_AFTER"] = tg_auto_qsys[i] if tg_auto_qsys[i].present?
         rules["SHOW_ACTIVITY"] = tg_show_activities[i] if tg_show_activities[i].present?
+        rules["ALLOW_MONITOR"] = tg_allow_monitors[i] if tg_allow_monitors[i].present?
         config.tg_rules[tg_num] = rules
       end
 

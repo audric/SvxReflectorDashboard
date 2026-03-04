@@ -1,12 +1,14 @@
 class ReflectorConfig
-  attr_accessor :global, :server_cert, :users, :passwords, :tg_rules
+  attr_accessor :global, :root_ca, :issuing_ca, :server_cert, :users, :passwords, :tg_rules
 
   def initialize
     @global = {}
+    @root_ca = {}
+    @issuing_ca = {}
     @server_cert = {}
     @users = {}       # callsign => group
     @passwords = {}   # group => password
-    @tg_rules = {}    # tg_number (Integer) => { "ALLOW" => ..., "AUTO_QSY_AFTER" => ..., "SHOW_ACTIVITY" => ... }
+    @tg_rules = {}    # tg_number (Integer) => { "ALLOW" => ..., "AUTO_QSY_AFTER" => ..., "SHOW_ACTIVITY" => ..., "ALLOW_MONITOR" => ... }
   end
 
   def self.config_path
@@ -40,6 +42,10 @@ class ReflectorConfig
       case current_section
       when "GLOBAL"
         config.global[key] = value
+      when "ROOT_CA"
+        config.root_ca[key] = value
+      when "ISSUING_CA"
+        config.issuing_ca[key] = value
       when "SERVER_CERT"
         config.server_cert[key] = value
       when "USERS"
@@ -63,6 +69,20 @@ class ReflectorConfig
     lines << "[GLOBAL]"
     global.each { |k, v| lines << "#{k}=#{v}" }
     lines << ""
+
+    # ROOT_CA
+    if root_ca.any?
+      lines << "[ROOT_CA]"
+      root_ca.each { |k, v| lines << "#{k}=#{v}" }
+      lines << ""
+    end
+
+    # ISSUING_CA
+    if issuing_ca.any?
+      lines << "[ISSUING_CA]"
+      issuing_ca.each { |k, v| lines << "#{k}=#{v}" }
+      lines << ""
+    end
 
     # SERVER_CERT
     if server_cert.any?

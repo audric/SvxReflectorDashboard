@@ -24,9 +24,56 @@
     %link{rel: "stylesheet", href: "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"}
     :css
       body { background: #0d1117; }
+      .accordion-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+      .accordion-body.open { max-height: 5000px; }
+      .accordion-chevron { transition: transform 0.3s ease; }
+      .accordion-chevron.open { transform: rotate(180deg); }
+
+  -# Help texts from official svxreflector.conf(5) man page
+  - help = {}
+  - help["LISTEN_PORT"] = "The TCP and UDP port number to use for network communications. The default is 5300. Make sure to open this port for incoming traffic to the server on both TCP and UDP. Clients do not have to open any ports in their firewalls."
+  - help["HTTP_SRV_PORT"] = "Set which port to use for the HTTP server. The HTTP server can be used to fetch reflector status. No port is set by default. Don't expose this port to the public Internet. The built in web server is very simple and could be incompatible with some clients. It has not been audited for security problems so there may be security issues. There is also the risk of some client overwhelming the reflector with requests causing disturbances in the reflector operation. Example: HTTP_SRV_PORT=8080"
+  - help["CODECS"] = "A comma separated list of allowed codecs. For the moment only one codec can be specified. Choose from the following codecs: OPUS, SPEEX, GSM, S16 (uncompressed signed 16 bit), RAW (uncompressed 32 bit floats). The default is OPUS and you should have a very good reason for changing this since that codec provide both low bandwidth (~20kbps by default) and very good audio quality."
+  - help["ACCEPT_CALLSIGN"] = "A regular expression for verifying that a received login callsign has the correct format. The default is to roughly match standard ham radio callsigns. Example: ACCEPT_CALLSIGN=\"S[A-M]\\d[A-Z]{1,3}(?:-[A-Z0-9]{1,3})?\""
+  - help["REJECT_CALLSIGN"] = "A regular expression for rejecting login callsigns. This can be used to block some specific callsigns or even a whole range of callsigns. No callsigns are rejected by default. Example: REJECT_CALLSIGN=\"SM0XYZ|SM1ABC|SM2.*\""
+  - help["ACCEPT_CERT_EMAIL"] = "A regular expression for verifying that email addresses in a received certificate signing requests are valid. If unset, which is the default, all email addresses are accepted. If an invalid email address is received from a node it will be disconnected and an error message will be sent to the node."
+  - help["SQL_TIMEOUT"] = "Use this configuration variable to set a time in seconds after which a clients audio is blocked if he has been talking for too long. The default is 0 (disabled)."
+  - help["SQL_TIMEOUT_BLOCKTIME"] = "If a client has been talking for longer than the time specified in the SQL_TIMEOUT configuration variable he will not be able to talk again until the time in this configuration variable have elapsed. If not specified, the default is one second."
+  - help["TG_FOR_V1_CLIENTS"] = "Set which talk group to place protocol version 1 clients in. Without this configuration version 1 clients will not be able to use the reflector since they cannot select a talk group by themselves. Talk groups should normally be configured to start with the ITU-T E.212 Mobile Country Code (MCC) for your country, e.g. 240 for Sweden."
+  - help["RANDOM_QSY_RANGE"] = "Specify in which talk group range the reflector server should select random talk groups used when using the QSY functionality. The range is specified using two colon separated values. The first one is the lower limit and the second value is the number of talk groups in the range. As an example, if set to 1239900:100 QSY talk groups will be selected from the range 1239900 to 1239999. The recommended lower range to use is <MCC>9900 where MCC is the ITU-T E.212 Mobile Country Code for your country."
+  - help["TIMESTAMP_FORMAT"] = "This variable specifies the format of the timestamp that is written in front of each row in the log file. The format string is in the same format as specified in the strftime(3) manual page. The default is \"%c\" which is described as: \"the preferred date and time representation for the current locale\". Example: TIMESTAMP_FORMAT=\"%d %b %Y %H:%M:%S\" would give a timestamp looking something like: \"29 Nov 2005 22:31:59\"."
+  - help["COMMAND_PTY"] = "Configure a path for a pseudo tty device to send runtime commands to the svxreflector. Example: COMMAND_PTY=/dev/shm/reflector_ctrl. To change a config variable: echo CFG GLOBAL SQL_TIMEOUT_BLOCKTIME 60 > /dev/shm/reflector_ctrl. To sign a client certificate: echo CA SIGN callsign > /dev/shm/reflector_ctrl."
+  - help["CFG_DIR"] = "Specify the path to a directory that contain additional configuration files. If a relative path is specified, the path will be relative to the directory where the main configuration file is at. All files in the specified directory will be read as additional configuration. Filenames starting with a dot are ignored."
+  - help["CERT_PKI_DIR"] = "The path to the directory containing PKI (Public Key Infrastructure) files. If a relative path is given, the value of the build time variable SVX_LOCAL_STATE_DIR (e.g. /var/lib/svxlink/) will be prepended. Default: pki/"
+  - help["CERT_CA_KEYS_DIR"] = "The path to the directory containing private key files. If a relative path is given, the value of the CERT_PKI_DIR variable will be prepended. Default: private/"
+  - help["CERT_CA_PENDING_CSRS_DIR"] = "The path to the directory containing unsigned CSR files. If a relative path is given, the value of the CERT_PKI_DIR variable will be prepended. Default: pending_csrs/"
+  - help["CERT_CA_CSRS_DIR"] = "The path to the directory containing signed CSR files. If a relative path is given, the value of the CERT_PKI_DIR variable will be prepended. Default: csrs/"
+  - help["CERT_CA_CERTS_DIR"] = "The path to the directory containing signed certificate files. If a relative path is given, the value of the CERT_PKI_DIR variable will be prepended. Default: certs/"
+  - help["CERT_CA_HOOK"] = "Set to a path for an external application that is run on CA events like when a CSR is received or when a certificate is signed. The following environment variables will be set up before running the external application: CA_OP (set to PENDING_CSR_CREATE, PENDING_CSR_UPDATE or CSR_SIGNED), CA_CSR_PEM (CSR data in PEM format, not set for CSR_SIGNED), CA_CRT_PEM (Certificate data in PEM format, only for CSR_SIGNED)."
+  - help["COMMON_NAME"] = "The common name (CN) used in the subject of the certificate."
+  - help["ORG_UNIT"] = "The organizational unit (OU) used in the subject of the certificate. Example: ORG_UNIT=\"VHF/UHF-sektionen\""
+  - help["ORG"] = "The organization name (O) used in the subject of the certificate. Example: ORG=SSA"
+  - help["LOCALITY"] = "The locality name (L) used in the subject of the certificate. Example: LOCALITY=Boden"
+  - help["STATE"] = "The name of the state or province (ST) used in the subject of the certificate. Example: STATE=Norrbotten"
+  - help["COUNTRY"] = "The ISO country code (C) used in the subject of the certificate. Example: COUNTRY=SE"
+  - help["EMAIL_ADDRESS"] = "The email address that can be used to get in contact with the owner of the certificate. Example: EMAIL_ADDRESS=sysop@svxlink.example.org"
+  - help["SUBJECT_ALT_NAME"] = "A comma separated list of subject alternative names. Example: SUBJECT_ALT_NAME=DNS:public-hostname.example.org,IP:172.17.1.42"
+  - help["ALLOW"] = "A regular expression that must match the whole callsign of the nodes that try to select this talkgroup. The regular expression standard used is the same as for ECMAScript with the exception that the backslash special patterns (e.g. \\s, \\d etc) must be expressed with double backslash notation. An example that match most Swedish callsigns and a specific Norwegian one is \"S[A-M]\\\\d.*|LA8PV\"."
+  - help["AUTO_QSY_AFTER"] = "Set this to the number of seconds after which an automatic QSY to a random talkgroup is requested. This is typically used to keep call channels and wide area channels clear so that stations does not dwell there for too long. Auto QSY is only triggered directly after a talker stop event. The default is that auto QSY is disabled (AUTO_QSY_AFTER=0)."
+  - help["SHOW_ACTIVITY"] = "If set to 0, do not indicate in the HTTP status message when the talkgroup is in use by a node. Default is 1 = show activity."
+  - help["ALLOW_MONITOR"] = "A regular expression that must match the callsign of nodes allowed to monitor this talkgroup. Uses the same regex format as ALLOW."
 
   %body.text-ghtext
     = render 'shared/navbar', active: 'admin'
+
+    -# Help popup modal
+    #help-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
+      .bg-ghcard.border.border-gray-600.rounded-lg.p-5.max-w-md.w-full.mx-4.shadow-xl
+        .flex.items-center.justify-between.mb-3
+          %h6.text-base.font-semibold.text-gray-100#help-modal-title
+          %button.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "closeHelp()"}
+            %i.bi.bi-x-lg
+        %p.text-sm.text-gray-300.leading-relaxed#help-modal-body
 
     .max-w-3xl.mx-auto.px-4.pb-12
       - if flash[:notice]
@@ -37,29 +84,102 @@
 
       = form_with url: admin_reflector_path, method: :patch, local: true do |f|
 
-        -# ── Global Settings ──
-        .rounded-lg.border.border-gray-600.bg-ghcard.mb-6
-          .px-4.py-3.border-b.border-gray-600
+        -# ── 1. Global Settings (expanded by default) ──
+        .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+          .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('global')"}
             %h5.text-lg.font-semibold.text-gray-100
               %i.bi.bi-globe.mr-2
               Global Settings
-          .p-4
-            .grid.grid-cols-1.md:grid-cols-2.gap-4
-              - %w[LISTEN_PORT HTTP_SRV_PORT SQL_TIMEOUT SQL_TIMEOUT_BLOCKTIME CODECS ACCEPT_CALLSIGN REJECT_CALLSIGN RANDOM_QSY_RANGE].each do |key|
-                .mb-2
-                  %label.block.text-sm.text-gray-500.mb-1= key
+            %i.bi.bi-chevron-down.accordion-chevron.open.text-gray-400{id: "chevron-global"}
+          .accordion-body.open.p-4{id: "body-global"}
+            %h6.text-sm.font-semibold.text-gray-400.mb-3.mt-1 Core
+            .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
+              - %w[LISTEN_PORT HTTP_SRV_PORT CODECS].each do |key|
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1
+                    = key
+                    - if help[key]
+                      %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('#{key}')", title: "Help"}
+                        %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
                   %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][#{key}]", value: @config.global[key]}
 
-        -# ── Users ──
-        .rounded-lg.border.border-gray-600.bg-ghcard.mb-6
-          .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between
+            %h6.text-sm.font-semibold.text-gray-400.mb-3 Access Control
+            .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
+              - %w[ACCEPT_CALLSIGN REJECT_CALLSIGN ACCEPT_CERT_EMAIL].each do |key|
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1
+                    = key
+                    - if help[key]
+                      %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('#{key}')", title: "Help"}
+                        %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][#{key}]", value: @config.global[key]}
+
+            %h6.text-sm.font-semibold.text-gray-400.mb-3 Timeouts
+            .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
+              - %w[SQL_TIMEOUT SQL_TIMEOUT_BLOCKTIME].each do |key|
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1
+                    = key
+                    - if help[key]
+                      %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('#{key}')", title: "Help"}
+                        %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][#{key}]", value: @config.global[key]}
+
+            %h6.text-sm.font-semibold.text-gray-400.mb-3 Advanced
+            .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
+              - %w[TG_FOR_V1_CLIENTS RANDOM_QSY_RANGE TIMESTAMP_FORMAT COMMAND_PTY CFG_DIR].each do |key|
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1
+                    = key
+                    - if help[key]
+                      %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('#{key}')", title: "Help"}
+                        %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][#{key}]", value: @config.global[key]}
+
+            %h6.text-sm.font-semibold.text-gray-400.mb-3 PKI Paths
+            .grid.grid-cols-1.md:grid-cols-2.gap-4
+              - %w[CERT_PKI_DIR CERT_CA_KEYS_DIR CERT_CA_PENDING_CSRS_DIR CERT_CA_CSRS_DIR CERT_CA_CERTS_DIR CERT_CA_HOOK].each do |key|
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1
+                    = key
+                    - if help[key]
+                      %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('#{key}')", title: "Help"}
+                        %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][#{key}]", value: @config.global[key]}
+
+        -# ── 2. Certificates (collapsed) ──
+        .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+          .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('certs')"}
+            %h5.text-lg.font-semibold.text-gray-100
+              %i.bi.bi-shield-lock.mr-2
+              Certificates
+            %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-certs"}
+          .accordion-body.p-4{id: "body-certs"}
+            - cert_fields = %w[COMMON_NAME ORG_UNIT ORG LOCALITY STATE COUNTRY EMAIL_ADDRESS SUBJECT_ALT_NAME]
+            - [["ROOT_CA", :root_ca, @config.root_ca], ["ISSUING_CA", :issuing_ca, @config.issuing_ca], ["SERVER_CERT", :server_cert, @config.server_cert]].each do |label, param_key, data|
+              %h6.text-sm.font-semibold.text-gray-400.mb-3.mt-4= label
+              .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-2
+                - cert_fields.each do |key|
+                  .mb-1
+                    %label.block.text-sm.text-gray-500.mb-1
+                      = key
+                      - if help[key]
+                        %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('#{key}')", title: "Help"}
+                          %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                    %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[#{param_key}][#{key}]", value: data[key]}
+
+        -# ── 3. Users (collapsed) ──
+        .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+          .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('users')"}
             %h5.text-lg.font-semibold.text-gray-100
               %i.bi.bi-people.mr-2
               Users
-            %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "addUserRow()"}
-              %i.bi.bi-plus.mr-1
-              Add
-          .p-4
+            .flex.items-center.gap-2
+              %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "event.stopPropagation(); addUserRow()"}
+                %i.bi.bi-plus.mr-1
+                Add
+              %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-users"}
+          .accordion-body.p-4{id: "body-users"}
             %table.w-full.text-sm
               %thead
                 %tr.text-gray-500.text-left
@@ -77,16 +197,18 @@
                       %button.text-red-400.hover:text-red-300.cursor-pointer{type: "button", onclick: "this.closest('tr').remove()"}
                         %i.bi.bi-x-lg
 
-        -# ── Passwords ──
-        .rounded-lg.border.border-gray-600.bg-ghcard.mb-6
-          .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between
+        -# ── 4. Passwords (collapsed) ──
+        .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+          .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('passwords')"}
             %h5.text-lg.font-semibold.text-gray-100
               %i.bi.bi-key.mr-2
               Passwords
-            %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "addPasswordRow()"}
-              %i.bi.bi-plus.mr-1
-              Add
-          .p-4
+            .flex.items-center.gap-2
+              %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "event.stopPropagation(); addPasswordRow()"}
+                %i.bi.bi-plus.mr-1
+                Add
+              %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-passwords"}
+          .accordion-body.p-4{id: "body-passwords"}
             %table.w-full.text-sm
               %thead
                 %tr.text-gray-500.text-left
@@ -104,37 +226,55 @@
                       %button.text-red-400.hover:text-red-300.cursor-pointer{type: "button", onclick: "this.closest('tr').remove()"}
                         %i.bi.bi-x-lg
 
-        -# ── Talkgroup Rules ──
-        .rounded-lg.border.border-gray-600.bg-ghcard.mb-6
-          .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between
+        -# ── 5. Talkgroup Rules (collapsed) ──
+        .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+          .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('tg')"}
             %h5.text-lg.font-semibold.text-gray-100
               %i.bi.bi-collection.mr-2
               Talkgroup Rules
-            %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "addTgRule()"}
-              %i.bi.bi-plus.mr-1
-              Add TG Rule
-          #tg-rules.p-4.space-y-4
-            - @config.tg_rules.keys.sort.each do |tg_num|
-              - rules = @config.tg_rules[tg_num]
-              .tg-rule.border.border-gray-700.rounded-lg.p-4.relative
-                %button.absolute.top-2.right-2.text-red-400.hover:text-red-300.cursor-pointer{type: "button", onclick: "this.closest('.tg-rule').remove()"}
-                  %i.bi.bi-x-lg
-                .grid.grid-cols-1.md:grid-cols-2.gap-3
-                  .col-span-1
-                    %label.block.text-sm.text-gray-500.mb-1 TG Number
-                    %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "number", name: "config[tg_numbers][]", value: tg_num, min: 1}
-                  .col-span-1
-                    %label.block.text-sm.text-gray-500.mb-1 ALLOW (regex)
-                    %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[tg_allows][]", value: rules["ALLOW"], placeholder: "^.*$"}
-                  .col-span-1
-                    %label.block.text-sm.text-gray-500.mb-1 AUTO_QSY_AFTER (seconds)
-                    %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "number", name: "config[tg_auto_qsys][]", value: rules["AUTO_QSY_AFTER"]}
-                  .col-span-1
-                    %label.block.text-sm.text-gray-500.mb-1 SHOW_ACTIVITY
-                    %select.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", name: "config[tg_show_activities][]"}
-                      %option{value: "", selected: rules["SHOW_ACTIVITY"].blank?} (not set)
-                      %option{value: "1", selected: rules["SHOW_ACTIVITY"] == "1"} Yes
-                      %option{value: "0", selected: rules["SHOW_ACTIVITY"] == "0"} No
+            .flex.items-center.gap-2
+              %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "event.stopPropagation(); addTgRule()"}
+                %i.bi.bi-plus.mr-1
+                Add TG Rule
+              %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-tg"}
+          .accordion-body.p-4{id: "body-tg"}
+            #tg-rules.space-y-4
+              - @config.tg_rules.keys.sort.each do |tg_num|
+                - rules = @config.tg_rules[tg_num]
+                .tg-rule.border.border-gray-700.rounded-lg.p-4.relative
+                  %button.absolute.top-2.right-2.text-red-400.hover:text-red-300.cursor-pointer{type: "button", onclick: "this.closest('.tg-rule').remove()"}
+                    %i.bi.bi-x-lg
+                  .grid.grid-cols-1.md:grid-cols-2.gap-3
+                    .col-span-1
+                      %label.block.text-sm.text-gray-500.mb-1 TG Number
+                      %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "number", name: "config[tg_numbers][]", value: tg_num, min: 1}
+                    .col-span-1
+                      %label.block.text-sm.text-gray-500.mb-1
+                        ALLOW (regex)
+                        %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ALLOW')", title: "Help"}
+                          %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                      %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[tg_allows][]", value: rules["ALLOW"], placeholder: "^.*$"}
+                    .col-span-1
+                      %label.block.text-sm.text-gray-500.mb-1
+                        AUTO_QSY_AFTER (seconds)
+                        %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('AUTO_QSY_AFTER')", title: "Help"}
+                          %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                      %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "number", name: "config[tg_auto_qsys][]", value: rules["AUTO_QSY_AFTER"]}
+                    .col-span-1
+                      %label.block.text-sm.text-gray-500.mb-1
+                        SHOW_ACTIVITY
+                        %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('SHOW_ACTIVITY')", title: "Help"}
+                          %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                      %select.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", name: "config[tg_show_activities][]"}
+                        %option{value: "", selected: rules["SHOW_ACTIVITY"].blank?} (not set)
+                        %option{value: "1", selected: rules["SHOW_ACTIVITY"] == "1"} Yes
+                        %option{value: "0", selected: rules["SHOW_ACTIVITY"] == "0"} No
+                    .col-span-1
+                      %label.block.text-sm.text-gray-500.mb-1
+                        ALLOW_MONITOR (regex)
+                        %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ALLOW_MONITOR')", title: "Help"}
+                          %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                      %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[tg_allow_monitors][]", value: rules["ALLOW_MONITOR"], placeholder: "^.*$"}
 
         -# ── Save ──
         .flex.gap-2
@@ -142,10 +282,32 @@
           = link_to "Back", admin_users_path, class: "px-4 py-2 rounded-md border border-gray-600 text-gray-400 hover:text-gray-200"
 
     :javascript
+      var HELP_TEXTS = #{help.to_json};
+
+      function showHelp(key) {
+        var modal = document.getElementById('help-modal');
+        document.getElementById('help-modal-title').textContent = key;
+        document.getElementById('help-modal-body').textContent = HELP_TEXTS[key] || 'No description available.';
+        modal.style.display = 'flex';
+      }
+      function closeHelp() {
+        document.getElementById('help-modal').style.display = 'none';
+      }
+      document.getElementById('help-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeHelp();
+      });
+
       (function() {
         var flash = document.getElementById('flash-notice');
         if (flash) setTimeout(function() { flash.style.transition = 'opacity 0.5s'; flash.style.opacity = '0'; setTimeout(function() { flash.remove(); }, 500); }, 5000);
       })();
+
+      function toggleSection(id) {
+        var body = document.getElementById('body-' + id);
+        var chevron = document.getElementById('chevron-' + id);
+        body.classList.toggle('open');
+        chevron.classList.toggle('open');
+      }
 
       function addUserRow() {
         var tbody = document.getElementById('users-tbody');
@@ -155,6 +317,8 @@
           '<td class="py-2 pr-2"><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[user_groups][]" placeholder="default"></td>' +
           '<td class="py-2 text-center"><button type="button" class="text-red-400 hover:text-red-300 cursor-pointer" onclick="this.closest(\'tr\').remove()"><i class="bi bi-x-lg"></i></button></td>';
         tbody.appendChild(tr);
+        var body = document.getElementById('body-users');
+        if (!body.classList.contains('open')) toggleSection('users');
       }
 
       function addPasswordRow() {
@@ -165,6 +329,8 @@
           '<td class="py-2 pr-2"><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[password_values][]" placeholder="password"></td>' +
           '<td class="py-2 text-center"><button type="button" class="text-red-400 hover:text-red-300 cursor-pointer" onclick="this.closest(\'tr\').remove()"><i class="bi bi-x-lg"></i></button></td>';
         tbody.appendChild(tr);
+        var body = document.getElementById('body-passwords');
+        if (!body.classList.contains('open')) toggleSection('passwords');
       }
 
       function addTgRule() {
@@ -174,9 +340,12 @@
         div.innerHTML = '<button type="button" class="absolute top-2 right-2 text-red-400 hover:text-red-300 cursor-pointer" onclick="this.closest(\'.tg-rule\').remove()"><i class="bi bi-x-lg"></i></button>' +
           '<div class="grid grid-cols-1 md:grid-cols-2 gap-3">' +
             '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">TG Number</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="number" name="config[tg_numbers][]" min="1" placeholder="1"></div>' +
-            '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">ALLOW (regex)</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[tg_allows][]" placeholder="^.*$"></div>' +
-            '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">AUTO_QSY_AFTER (seconds)</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="number" name="config[tg_auto_qsys][]"></div>' +
-            '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">SHOW_ACTIVITY</label><select class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" name="config[tg_show_activities][]"><option value="">(not set)</option><option value="1">Yes</option><option value="0">No</option></select></div>' +
+            '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">ALLOW (regex) <button type="button" class="ml-1 text-gray-500 hover:text-blue-400 cursor-pointer" onclick="showHelp(\'ALLOW\')" title="Help"><i class="bi bi-question-circle" style="font-size:0.75rem"></i></button></label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[tg_allows][]" placeholder="^.*$"></div>' +
+            '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">AUTO_QSY_AFTER (seconds) <button type="button" class="ml-1 text-gray-500 hover:text-blue-400 cursor-pointer" onclick="showHelp(\'AUTO_QSY_AFTER\')" title="Help"><i class="bi bi-question-circle" style="font-size:0.75rem"></i></button></label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="number" name="config[tg_auto_qsys][]"></div>' +
+            '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">SHOW_ACTIVITY <button type="button" class="ml-1 text-gray-500 hover:text-blue-400 cursor-pointer" onclick="showHelp(\'SHOW_ACTIVITY\')" title="Help"><i class="bi bi-question-circle" style="font-size:0.75rem"></i></button></label><select class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" name="config[tg_show_activities][]"><option value="">(not set)</option><option value="1">Yes</option><option value="0">No</option></select></div>' +
+            '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">ALLOW_MONITOR (regex) <button type="button" class="ml-1 text-gray-500 hover:text-blue-400 cursor-pointer" onclick="showHelp(\'ALLOW_MONITOR\')" title="Help"><i class="bi bi-question-circle" style="font-size:0.75rem"></i></button></label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[tg_allow_monitors][]" placeholder="^.*$"></div>' +
           '</div>';
         container.appendChild(div);
+        var body = document.getElementById('body-tg');
+        if (!body.classList.contains('open')) toggleSection('tg');
       }
