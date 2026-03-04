@@ -6,6 +6,7 @@
 web           → Rails app (Puma), serves the dashboard on port 3000
 updater       → Background process running ReflectorListener
 audio_bridge  → Go binary, bridges browser audio ↔ reflector (SVXReflector protocol V2)
+svxreflector  → SVXReflector instance, configurable via the web admin UI
 redis         → ActionCable adapter + audio pub/sub + web node metadata cache
 db_data       → Named Docker volume persisting the SQLite database (storage/)
 ```
@@ -21,6 +22,10 @@ A background Rails runner process that starts `ReflectorListener`. It polls the 
 ### audio_bridge
 
 A standalone Go binary that speaks the SVXReflector protocol V2 (TCP + UDP). It listens for commands on Redis channels and bridges audio between browsers and the reflector. See [[Audio Bridge]] for details.
+
+### svxreflector
+
+The SVXReflector instance runs as a Docker container alongside the dashboard. Reflector admins can configure it entirely from the web UI at `/admin/reflector` — global settings, users, passwords, and talkgroup rules. On save, the dashboard writes the configuration file and automatically restarts the container via the Docker socket.
 
 ### redis
 
