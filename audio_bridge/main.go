@@ -38,11 +38,13 @@ func main() {
 	}
 	log.Println("Connected to Redis")
 
-	sess := &session{
-		host: host,
-		port: port,
-		rdb:  rdb,
-		ctx:  ctx,
+	reg := &registry{
+		host:        host,
+		port:        port,
+		rdb:         rdb,
+		ctx:         ctx,
+		sessions:    make(map[string]*entry),
+		tgPublisher: make(map[uint32]string),
 	}
 
 	sigCh := make(chan os.Signal, 1)
@@ -81,29 +83,35 @@ func main() {
 						"nodeLocation": cmd.NodeLocation,
 						"sysop":        cmd.Sysop,
 					}
-					sess.start(cmd.Callsign, cmd.AuthKey, uint32(cmd.TG), nodeInfo)
+					reg.connect(cmd.Callsign, cmd.AuthKey, uint32(cmd.TG), nodeInfo)
 				}
 			case "disconnect":
-				sess.stop()
+				if cmd.Callsign != "" {
+					reg.disconnect(cmd.Callsign)
+				}
 			case "select_tg":
-				if cmd.TG > 0 {
-					sess.selectTG(cmd.Callsign, uint32(cmd.TG))
+				if cmd.TG > 0 && cmd.Callsign != "" {
+					reg.selectTG(cmd.Callsign, uint32(cmd.TG))
 				}
 			case "ptt_start":
-				tg := uint32(cmd.TG)
-				if tg == 0 {
-					tg = sess.currentTG()
+				if cmd.Callsign != "" {
+					tg := uint32(cmd.TG)
+					if tg == 0 {
+						tg = reg.currentTG(cmd.Callsign)
+					}
+					reg.sendTalkerStart(cmd.Callsign, tg)
 				}
-				sess.sendTalkerStart(tg, cmd.Callsign)
 			case "ptt_stop":
-				tg := uint32(cmd.TG)
-				if tg == 0 {
-					tg = sess.currentTG()
+				if cmd.Callsign != "" {
+					tg := uint32(cmd.TG)
+					if tg == 0 {
+						tg = reg.currentTG(cmd.Callsign)
+					}
+					reg.sendTalkerStop(cmd.Callsign, tg)
 				}
-				sess.sendTalkerStop(tg, cmd.Callsign)
 			case "audio":
-				if cmd.Audio != "" {
-					sess.sendAudio(cmd.Audio)
+				if cmd.Audio != "" && cmd.Callsign != "" {
+					reg.sendAudio(cmd.Callsign, cmd.Audio)
 				}
 			}
 		}
@@ -112,18 +120,12 @@ func main() {
 	log.Println("Waiting for tune-in commands...")
 	<-sigCh
 	log.Println("Shutting down...")
-	sess.stop()
+	reg.stopAll()
 	rdb.Close()
 }
 
-// session manages a single on-demand reflector connection.
-type session struct {
-	host string
-	port int
-	rdb  *redis.Client
-	ctx  context.Context
-
-	mu       sync.Mutex
+// entry represents a single web listener's reflector connection.
+type entry struct {
 	client   *Client
 	callsign string
 	authKey  string
@@ -131,31 +133,60 @@ type session struct {
 	nodeInfo map[string]string
 }
 
-func (s *session) start(callsign string, authKey string, tg uint32, nodeInfo map[string]string) {
-	s.mu.Lock()
-	if s.client != nil {
-		s.client.Close()
-		s.client = nil
-	}
-	s.mu.Unlock()
+// registry manages multiple concurrent reflector sessions keyed by callsign.
+type registry struct {
+	host string
+	port int
+	rdb  *redis.Client
+	ctx  context.Context
 
-	c := NewClient(s.host, s.port, authKey, callsign)
+	mu          sync.Mutex
+	sessions    map[string]*entry  // keyed by callsign
+	tgPublisher map[uint32]string  // callsign publishing audio for each TG
+}
+
+func (r *registry) connect(callsign string, authKey string, tg uint32, nodeInfo map[string]string) {
+	r.mu.Lock()
+	// If this callsign already has a session, close the old one (reconnect)
+	if old, ok := r.sessions[callsign]; ok {
+		log.Printf("Replacing existing session for %s", callsign)
+		old.client.Close()
+		r.removePublisher(callsign, old.tg)
+		delete(r.sessions, callsign)
+	}
+	r.mu.Unlock()
+
+	c := NewClient(r.host, r.port, authKey, callsign)
 	c.SetNodeInfo(nodeInfo)
 	if err := c.Connect(); err != nil {
-		log.Printf("Connect failed: %v", err)
+		log.Printf("Connect failed for %s: %v", callsign, err)
 		return
 	}
 
 	if err := c.SelectTG(tg); err != nil {
-		log.Printf("SelectTG error: %v", err)
+		log.Printf("SelectTG error for %s: %v", callsign, err)
 		c.Close()
 		return
 	}
 
+	e := &entry{
+		client:   c,
+		callsign: callsign,
+		authKey:  authKey,
+		tg:       tg,
+		nodeInfo: nodeInfo,
+	}
+
 	c.SetAudioCallback(func(opusFrame []byte) {
-		s.mu.Lock()
-		currentTG := s.tg
-		s.mu.Unlock()
+		r.mu.Lock()
+		// Only publish if this session is the designated publisher for its TG
+		currentTG := e.tg
+		publisher := r.tgPublisher[currentTG]
+		r.mu.Unlock()
+
+		if publisher != callsign {
+			return
+		}
 
 		channel := fmt.Sprintf("audio:tg:%d", currentTG)
 		encoded := base64.StdEncoding.EncodeToString(opusFrame)
@@ -164,21 +195,21 @@ func (s *session) start(callsign string, authKey string, tg uint32, nodeInfo map
 			"seq":   time.Now().UnixMilli(),
 		}
 		payload, _ := json.Marshal(msg)
-		s.rdb.Publish(s.ctx, channel, payload)
+		r.rdb.Publish(r.ctx, channel, payload)
 	})
 
-	s.mu.Lock()
-	s.client = c
-	s.callsign = callsign
-	s.authKey = authKey
-	s.tg = tg
-	s.nodeInfo = nodeInfo
-	s.mu.Unlock()
+	r.mu.Lock()
+	r.sessions[callsign] = e
+	// Become publisher for this TG if there isn't one already
+	if _, ok := r.tgPublisher[tg]; !ok {
+		r.tgPublisher[tg] = callsign
+	}
+	r.mu.Unlock()
 
 	// Start protocol goroutines; if TCPReader dies the session is dead
 	go func() {
 		c.RunTCPReader()
-		s.cleanup(c)
+		r.cleanup(callsign, c)
 	}()
 	go c.RunTCPHeartbeat()
 	go c.RunUDPReader()
@@ -187,102 +218,134 @@ func (s *session) start(callsign string, authKey string, tg uint32, nodeInfo map
 	log.Printf("Session started: callsign=%s tg=%d", callsign, tg)
 }
 
-func (s *session) stop() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.client != nil {
-		log.Printf("Session stopped: callsign=%s", s.callsign)
-		s.client.Close()
-		s.client = nil
-		s.callsign = ""
+func (r *registry) disconnect(callsign string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	e, ok := r.sessions[callsign]
+	if !ok {
+		return
 	}
+
+	log.Printf("Session stopped: callsign=%s", callsign)
+	e.client.Close()
+	r.removePublisher(callsign, e.tg)
+	delete(r.sessions, callsign)
 }
 
 // cleanup is called when the reflector connection drops unexpectedly.
-func (s *session) cleanup(c *Client) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.client == c {
-		log.Printf("Session lost (reflector disconnected)")
-		s.client = nil
-		s.callsign = ""
+// Only cleans up if the stored client matches (guards against reconnect races).
+func (r *registry) cleanup(callsign string, c *Client) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	e, ok := r.sessions[callsign]
+	if !ok || e.client != c {
+		return
 	}
+
+	log.Printf("Session lost (reflector disconnected): callsign=%s", callsign)
+	r.removePublisher(callsign, e.tg)
+	delete(r.sessions, callsign)
 }
 
-func (s *session) selectTG(callsign string, tg uint32) {
-	s.mu.Lock()
-
-	// If no active session, start one
-	if s.client == nil {
-		authKey := s.authKey
-		nodeInfo := s.nodeInfo
-		s.mu.Unlock()
-		if callsign != "" {
-			s.start(callsign, authKey, tg, nodeInfo)
-		}
+func (r *registry) selectTG(callsign string, tg uint32) {
+	r.mu.Lock()
+	e, ok := r.sessions[callsign]
+	if !ok {
+		r.mu.Unlock()
 		return
 	}
 
-	// If callsign changed, reconnect with new identity
-	if callsign != "" && callsign != s.callsign {
-		authKey := s.authKey
-		nodeInfo := s.nodeInfo
-		s.mu.Unlock()
-		s.start(callsign, authKey, tg, nodeInfo)
-		return
-	}
+	oldTG := e.tg
+	e.tg = tg
+	c := e.client
 
-	s.tg = tg
-	c := s.client
-	s.mu.Unlock()
+	// Update publisher tracking
+	r.removePublisher(callsign, oldTG)
+	if _, ok := r.tgPublisher[tg]; !ok {
+		r.tgPublisher[tg] = callsign
+	}
+	r.mu.Unlock()
 
 	if err := c.SelectTG(tg); err != nil {
-		log.Printf("SelectTG error: %v", err)
+		log.Printf("SelectTG error for %s: %v", callsign, err)
 	}
 }
 
-func (s *session) currentTG() uint32 {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.tg
+func (r *registry) currentTG(callsign string) uint32 {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if e, ok := r.sessions[callsign]; ok {
+		return e.tg
+	}
+	return 0
 }
 
-func (s *session) sendTalkerStart(tg uint32, callsign string) {
-	s.mu.Lock()
-	c := s.client
-	s.mu.Unlock()
-	if c != nil {
-		if err := c.SendTalkerStart(tg, callsign); err != nil {
-			log.Printf("SendTalkerStart error: %v", err)
+func (r *registry) sendTalkerStart(callsign string, tg uint32) {
+	r.mu.Lock()
+	e, ok := r.sessions[callsign]
+	r.mu.Unlock()
+	if ok {
+		if err := e.client.SendTalkerStart(tg, callsign); err != nil {
+			log.Printf("SendTalkerStart error for %s: %v", callsign, err)
 		}
 	}
 }
 
-func (s *session) sendTalkerStop(tg uint32, callsign string) {
-	s.mu.Lock()
-	c := s.client
-	s.mu.Unlock()
-	if c != nil {
-		if err := c.SendTalkerStop(tg, callsign); err != nil {
-			log.Printf("SendTalkerStop error: %v", err)
+func (r *registry) sendTalkerStop(callsign string, tg uint32) {
+	r.mu.Lock()
+	e, ok := r.sessions[callsign]
+	r.mu.Unlock()
+	if ok {
+		if err := e.client.SendTalkerStop(tg, callsign); err != nil {
+			log.Printf("SendTalkerStop error for %s: %v", callsign, err)
 		}
 	}
 }
 
-func (s *session) sendAudio(b64 string) {
+func (r *registry) sendAudio(callsign string, b64 string) {
 	opusData, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {
 		log.Printf("TX audio base64 decode error: %v", err)
 		return
 	}
-	s.mu.Lock()
-	c := s.client
-	s.mu.Unlock()
-	if c != nil {
-		if err := c.SendAudio(opusData); err != nil {
-			log.Printf("SendAudio error: %v", err)
+	r.mu.Lock()
+	e, ok := r.sessions[callsign]
+	r.mu.Unlock()
+	if ok {
+		if err := e.client.SendAudio(opusData); err != nil {
+			log.Printf("SendAudio error for %s: %v", callsign, err)
 		}
 	}
+}
+
+// removePublisher removes callsign as the TG publisher and promotes another session if available.
+// Must be called with r.mu held.
+func (r *registry) removePublisher(callsign string, tg uint32) {
+	if r.tgPublisher[tg] != callsign {
+		return
+	}
+	delete(r.tgPublisher, tg)
+	// Promote another session on the same TG
+	for cs, e := range r.sessions {
+		if e.tg == tg && cs != callsign {
+			r.tgPublisher[tg] = cs
+			log.Printf("Promoted %s as publisher for TG %d", cs, tg)
+			break
+		}
+	}
+}
+
+func (r *registry) stopAll() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for cs, e := range r.sessions {
+		log.Printf("Stopping session: callsign=%s", cs)
+		e.client.Close()
+	}
+	r.sessions = make(map[string]*entry)
+	r.tgPublisher = make(map[uint32]string)
 }
 
 func envRequired(key string) string {
