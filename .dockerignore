@@ -38,3 +38,4 @@
 /app/assets/builds/*
 !/app/assets/builds/.keep
 /public/assets
+./docker-compose.override.yml
