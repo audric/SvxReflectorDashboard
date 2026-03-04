@@ -46,13 +46,19 @@
 
       -# Flash messages
       - if flash[:notice]
-        .rounded-md.border.border-green-800.text-sm.mb-5.px-4.py-3{class: "bg-green-900/20 text-green-400"}
-          %i.bi.bi-check-circle.mr-1
-          = flash[:notice]
+        .rounded-md.border.border-green-800.text-sm.mb-5.px-4.py-3.flex.items-center.justify-between{class: "bg-green-900/20 text-green-400", id: "flash-notice"}
+          %span
+            %i.bi.bi-check-circle.mr-1
+            = flash[:notice]
+          %button.text-green-400.hover:text-green-200.cursor-pointer{type: "button", onclick: "this.closest('[id^=flash]').remove()"}
+            %i.bi.bi-x
       - if flash[:alert]
-        .rounded-md.border.border-red-800.text-sm.mb-5.px-4.py-3{class: "bg-red-900/20 text-red-400"}
-          %i.bi.bi-exclamation-triangle.mr-1
-          = flash[:alert]
+        .rounded-md.border.border-red-800.text-sm.mb-5.px-4.py-3.flex.items-center.justify-between{class: "bg-red-900/20 text-red-400", id: "flash-alert"}
+          %span
+            %i.bi.bi-exclamation-triangle.mr-1
+            = flash[:alert]
+          %button.text-red-400.hover:text-red-200.cursor-pointer{type: "button", onclick: "this.closest('[id^=flash]').remove()"}
+            %i.bi.bi-x
 
       = form_with url: login_path, method: :post, local: true do |f|
 
@@ -71,3 +77,8 @@
       .text-center.mt-4.text-sm.text-ghdim
         Don't have an account?
         %a.text-blue-400.hover:text-blue-300.ml-1{href: register_path} Register
+
+    :javascript
+      document.querySelectorAll('[id^="flash-"]').forEach(function(el) {
+        setTimeout(function() { el.style.transition = 'opacity 0.5s'; el.style.opacity = '0'; setTimeout(function() { el.remove(); }, 500); }, 5000);
+      });
