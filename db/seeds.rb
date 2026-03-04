@@ -1,4 +1,5 @@
 if User.count.zero?
-  User.create!(callsign: "ADMIN", password: "changeme", password_confirmation: "changeme", role: "admin")
-  puts "Created default admin user: ADMIN / changeme"
+  admin = User.new(callsign: "ADM1N", password: "changeme", password_confirmation: "changeme", role: "admin", reflector_admin: true)
+  admin.save!
+  puts "Created default admin user: ADM1N / changeme"
 end

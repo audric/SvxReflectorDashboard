@@ -26,7 +26,7 @@ docker compose up -d
 docker compose run --rm web ./bin/rails db:prepare
 ```
 
-Open <http://localhost:3000>. Default admin: `ADMIN` / `changeme`.
+Open <http://localhost:3000>. Default admin: `ADM1N` / `changeme`.
 
 See the wiki for [configuration details](https://github.com/audric/SvxReflectorDashboard/wiki/Configuration) and [production deployment](https://github.com/audric/SvxReflectorDashboard/wiki/Getting-Started#deploying-to-production).
 
