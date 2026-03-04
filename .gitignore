@@ -37,3 +37,9 @@
 
 # Ignore master key for decrypting credentials and more.
 /config/master.key
+
+# Compiled Go binary
+/audio_bridge/audio_bridge
+
+# Runtime reflector config (managed via admin UI)
+/reflector/
