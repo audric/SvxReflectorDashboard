@@ -125,12 +125,14 @@ func main() {
 }
 
 // entry represents a single web listener's reflector connection.
+// refCount tracks how many browser sessions share this connection.
 type entry struct {
 	client   *Client
 	callsign string
 	authKey  string
 	tg       uint32
 	nodeInfo map[string]string
+	refCount int
 }
 
 // registry manages multiple concurrent reflector sessions keyed by callsign.
@@ -147,9 +149,16 @@ type registry struct {
 
 func (r *registry) connect(callsign string, authKey string, tg uint32, nodeInfo map[string]string) {
 	r.mu.Lock()
-	// If this callsign already has a session, close the old one (reconnect)
+	// If this callsign already has a session on the same TG, just bump refCount
 	if old, ok := r.sessions[callsign]; ok {
-		log.Printf("Replacing existing session for %s", callsign)
+		if old.tg == tg {
+			old.refCount++
+			log.Printf("Ref++ for %s tg=%d (refCount=%d)", callsign, tg, old.refCount)
+			r.mu.Unlock()
+			return
+		}
+		// Different TG — replace the session entirely
+		log.Printf("Replacing existing session for %s (TG %d -> %d)", callsign, old.tg, tg)
 		old.client.Close()
 		r.removePublisher(callsign, old.tg)
 		delete(r.sessions, callsign)
@@ -160,11 +169,21 @@ func (r *registry) connect(callsign string, authKey string, tg uint32, nodeInfo 
 	c.SetNodeInfo(nodeInfo)
 	if err := c.Connect(); err != nil {
 		log.Printf("Connect failed for %s: %v", callsign, err)
+		errPayload, _ := json.Marshal(map[string]interface{}{
+			"type":    "error",
+			"message": err.Error(),
+		})
+		r.rdb.Publish(r.ctx, "audio:user:"+callsign, string(errPayload))
 		return
 	}
 
 	if err := c.SelectTG(tg); err != nil {
 		log.Printf("SelectTG error for %s: %v", callsign, err)
+		errPayload, _ := json.Marshal(map[string]interface{}{
+			"type":    "error",
+			"message": err.Error(),
+		})
+		r.rdb.Publish(r.ctx, "audio:user:"+callsign, string(errPayload))
 		c.Close()
 		return
 	}
@@ -175,6 +194,7 @@ func (r *registry) connect(callsign string, authKey string, tg uint32, nodeInfo 
 		authKey:  authKey,
 		tg:       tg,
 		nodeInfo: nodeInfo,
+		refCount: 1,
 	}
 
 	c.SetAudioCallback(func(opusFrame []byte) {
@@ -227,6 +247,12 @@ func (r *registry) disconnect(callsign string) {
 		return
 	}
 
+	e.refCount--
+	log.Printf("Ref-- for %s (refCount=%d)", callsign, e.refCount)
+	if e.refCount > 0 {
+		return
+	}
+
 	log.Printf("Session stopped: callsign=%s", callsign)
 	e.client.Close()
 	r.removePublisher(callsign, e.tg)
@@ -244,7 +270,8 @@ func (r *registry) cleanup(callsign string, c *Client) {
 		return
 	}
 
-	log.Printf("Session lost (reflector disconnected): callsign=%s", callsign)
+	log.Printf("Session lost (reflector disconnected): callsign=%s (refCount was %d)", callsign, e.refCount)
+	e.refCount = 0
 	r.removePublisher(callsign, e.tg)
 	delete(r.sessions, callsign)
 }

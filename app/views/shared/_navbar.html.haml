@@ -763,6 +763,11 @@
         var envelope = JSON.parse(ev.data);
         if (!envelope.message) return;
         var msg = envelope.message;
+        if (msg.type === 'error') {
+          stopAudio();
+          alert('Connection failed: ' + (msg.message || 'Unknown error'));
+          return;
+        }
         if (msg.audio && decoder) {
           try {
             var raw = atob(msg.audio);
