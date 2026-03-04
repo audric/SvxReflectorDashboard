@@ -72,7 +72,7 @@ module Admin
 
       # List containers to find svxreflector
       containers = docker_api_get("/containers/json")
-      container = containers.find { |c| c["Names"].any? { |n| n.include?("svxreflector") && !n.include?("init") } }
+      container = containers.find { |c| c["Names"].any? { |n| n =~ /-svxreflector-\d+$/ } }
       unless container
         Rails.logger.error "[ReflectorConfig] svxreflector container not found"
         return
