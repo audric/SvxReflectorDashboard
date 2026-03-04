@@ -67,24 +67,39 @@ module Admin
     end
 
     def restart_svxreflector
-      # Find the svxreflector container via Docker socket and restart it
       require "net/http"
-      socket = Net::BufferedIO.new(UNIXSocket.new("/var/run/docker.sock"))
-      # List containers to find svxreflector
-      request = Net::HTTP::Get.new("/containers/json")
-      request.exec(socket, "1.1", "/containers/json")
-      response = Net::HTTPResponse.read_new(socket)
-      response.reading_body(socket, request.response_body_permitted?) {}
-      containers = JSON.parse(response.body)
-      container = containers.find { |c| c["Names"].any? { |n| n.include?("svxreflector") } }
-      return unless container
+      require "socket"
 
-      # Restart it
-      restart_req = Net::HTTP::Post.new("/containers/#{container["Id"]}/restart")
-      restart_req.exec(socket, "1.1", "/containers/#{container["Id"]}/restart")
-      Net::HTTPResponse.read_new(socket).reading_body(socket, true) {}
+      # List containers to find svxreflector
+      containers = docker_api_get("/containers/json")
+      container = containers.find { |c| c["Names"].any? { |n| n.include?("svxreflector") && !n.include?("init") } }
+      unless container
+        Rails.logger.error "[ReflectorConfig] svxreflector container not found"
+        return
+      end
+
+      Rails.logger.info "[ReflectorConfig] Restarting container #{container["Id"][0..11]} (#{container["Names"].first})"
+      docker_api_post("/containers/#{container["Id"]}/restart?t=5")
+      Rails.logger.info "[ReflectorConfig] Restart request sent"
     rescue => e
-      Rails.logger.error "[ReflectorConfig] Failed to restart svxreflector: #{e.message}"
+      Rails.logger.error "[ReflectorConfig] Failed to restart svxreflector: #{e.class} #{e.message}"
+    end
+
+    def docker_api_get(path)
+      sock = UNIXSocket.new("/var/run/docker.sock")
+      sock.write("GET #{path} HTTP/1.0\r\nHost: localhost\r\n\r\n")
+      response = sock.read
+      sock.close
+      body = response.split("\r\n\r\n", 2).last
+      JSON.parse(body)
+    end
+
+    def docker_api_post(path)
+      sock = UNIXSocket.new("/var/run/docker.sock")
+      sock.write("POST #{path} HTTP/1.0\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n")
+      response = sock.read
+      sock.close
+      Rails.logger.info "[ReflectorConfig] Docker API response: #{response.split("\r\n").first}"
     end
   end
 end
