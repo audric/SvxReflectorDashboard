@@ -2,6 +2,64 @@
 
 The audio bridge is a standalone Go binary (`audio_bridge/`) that connects browsers to the SVXReflector using protocol V2. It manages a single on-demand session and relays audio in both directions via Redis.
 
+## SVXReflector configuration
+
+The audio bridge connects as a regular SVXReflector client using protocol V2 (no encryption). Your `svxreflector.conf` needs the following:
+
+### Minimal example
+
+```ini
+[GLOBAL]
+LISTEN_PORT=5300
+HTTP_SRV_PORT=8080
+AUTH_KEY="YourSecretAuthKey"
+CODECS=OPUS
+```
+
+### Key settings
+
+| Setting | Required | Description |
+|---|---|---|
+| `LISTEN_PORT` | Yes | TCP/UDP port the reflector listens on (set as `REFLECTOR_PORT` in `.env`, default `5300`) |
+| `HTTP_SRV_PORT` | Yes | HTTP status API port (used by `REFLECTOR_STATUS_URL` in `.env`) |
+| `AUTH_KEY` | Yes | Shared secret for HMAC-SHA1 authentication — must match the key configured per-user in the dashboard admin panel |
+| `CODECS` | Yes | Must include `OPUS` — the audio bridge only speaks Opus |
+
+### Per-user authentication
+
+SVXReflector supports per-user auth keys via its `svxreflector_auth.conf` file:
+
+```ini
+[F4ABC-WEB]
+AUTH_KEY="UserSpecificKey"
+```
+
+When a user tunes in, the dashboard appends `-WEB` to their callsign (e.g. `F4ABC` becomes `F4ABC-WEB`) and authenticates with the auth key configured in their user profile. The admin sets each user's auth key from the admin panel.
+
+If per-user keys are not configured, the reflector falls back to the global `AUTH_KEY` from `svxreflector.conf`.
+
+### Dashboard `.env` configuration
+
+```bash
+# IP or hostname where SVXReflector is running
+REFLECTOR_HOST=192.168.1.100
+
+# Must match LISTEN_PORT in svxreflector.conf (default 5300)
+REFLECTOR_PORT=5300
+
+# Must point to HTTP_SRV_PORT in svxreflector.conf
+REFLECTOR_STATUS_URL=http://192.168.1.100:8080/status
+```
+
+### Network requirements
+
+The audio bridge needs both **TCP and UDP** access to the reflector on `LISTEN_PORT`:
+
+- **TCP** — control channel (handshake, auth, TG selection, talker start/stop)
+- **UDP** — audio channel (Opus frames, heartbeats)
+
+If the reflector is behind a firewall, ensure both TCP and UDP are open on the configured port. The `audio_bridge` Docker service runs with `network_mode: host` to avoid NAT issues with UDP.
+
 ## How it works
 
 1. The bridge starts and subscribes to two Redis channels: `audio:commands` and `audio:tx`
