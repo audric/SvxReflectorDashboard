@@ -10,6 +10,7 @@ A Rails web application for monitoring amateur radio [SVXReflector](https://www.
 - Interactive map with per-node popups and multiple tile layers
 - Historical stats: top talkers, top talkgroups, signal strength
 - Web listener — tune in to any talkgroup (Opus audio via WebSocket)
+- S-meter and spectrum analyser showing real-time audio levels (RX and TX)
 - Push-to-Talk from the browser (requires HTTPS)
 - User registration with callsign validation and admin approval
 

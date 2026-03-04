@@ -36,7 +36,7 @@
 | `app/views/registrations/` | Registration form |
 | `app/views/admin/users/` | Admin user list and management |
 | `app/views/admin/settings/` | Admin settings form |
-| `app/views/shared/` | Navbar (includes audio player/PTT JavaScript) |
+| `app/views/shared/` | Navbar (includes audio player/PTT, S-meter, and spectrum analyser JavaScript) |
 | `app/views/layouts/` | Application layout |
 
 All templates use **HAML** (not ERB).

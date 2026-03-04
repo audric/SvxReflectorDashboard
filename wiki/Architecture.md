@@ -64,12 +64,14 @@ RX (receiving audio from the reflector):
 
 SVXReflector UDP → audio_bridge (Go) → Redis (audio:tg:<N>)
   → ActionCable → Browser → Opus decoder → AudioContext → speaker
+                                            └→ AnalyserNode → S-meter + spectrum
 
 TX (transmitting audio to the reflector):
 
 Browser mic → MediaStreamTrackProcessor → Opus encoder
   → ActionCable (tx_audio) → Redis (audio:tx) → audio_bridge (Go)
   → SVXReflector UDP (protocol V2)
+  └→ AnalyserNode → S-meter + spectrum
 ```
 
 ### Redis channels
