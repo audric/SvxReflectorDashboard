@@ -110,6 +110,9 @@
             %button#audio-ptt-btn.hidden.flex.items-center.justify-center.w-7.h-7.rounded-full.bg-ghborder2.text-gray-300.hover:text-red-400.transition-colors.cursor-pointer{type: "button", title: "Push to Talk"}
               %i.bi.bi-mic-fill.text-xs
           %input#audio-volume.flex-1{type: "range", min: "0", max: "100", value: "70", style: "accent-color:#3fb950;height:4px;cursor:pointer;"}
+        #s-meter.hidden{style: "height:4px;border-radius:2px;background:#21262d;overflow:hidden;"}
+          #s-meter-fill{style: "height:100%;width:100%;border-radius:2px;background:linear-gradient(to right,#3fb950,#d29922,#f85149);transform:scaleX(0);transform-origin:left;transition:transform 50ms;"}
+        %canvas#spectrum.hidden{width: "200", height: "32", style: "width:100%;height:32px;border-radius:4px;display:block;"}
 
   .border-t.border-ghborder.px-3.py-3
     - if logged_in?
@@ -140,6 +143,9 @@
       %select#audio-tg-select-mobile.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-1.cursor-pointer{style: "outline:none;flex:0 0 auto;"}
         %option{value: ""} TG...
       %input#audio-volume-mobile.flex-1{type: "range", min: "0", max: "100", value: "70", style: "accent-color:#3fb950;height:4px;cursor:pointer;"}
+      #s-meter-mobile.hidden{style: "height:4px;border-radius:2px;background:#21262d;overflow:hidden;flex:1 1 40px;"}
+        #s-meter-fill-mobile{style: "height:100%;width:100%;border-radius:2px;background:linear-gradient(to right,#3fb950,#d29922,#f85149);transform:scaleX(0);transform-origin:left;transition:transform 50ms;"}
+      %canvas#spectrum-mobile.hidden{width: "120", height: "24", style: "height:24px;border-radius:3px;flex:1 1 50px;"}
       %span#audio-dot-mobile.hidden
         %span.ws-dot.ws-connected{style: "width:6px;height:6px;animation:blink .8s ease-in-out infinite;"}
 
@@ -196,6 +202,20 @@
     var volumeMobile = document.getElementById('audio-volume-mobile');
     var dotMobile = document.getElementById('audio-dot-mobile');
     var mobileBar = document.getElementById('audio-bar-mobile');
+
+    // DOM refs (S-meter)
+    var sMeter = document.getElementById('s-meter');
+    var sMeterFill = document.getElementById('s-meter-fill');
+    var sMeterMobile = document.getElementById('s-meter-mobile');
+    var sMeterFillMobile = document.getElementById('s-meter-fill-mobile');
+
+    // S-meter / spectrum state
+    var analyser = null, micAnalyser = null, meterRaf = null, meterData = null;
+    var spectrumCanvas = document.getElementById('spectrum');
+    var spectrumMobile = document.getElementById('spectrum-mobile');
+    var specCtx = spectrumCanvas ? spectrumCanvas.getContext('2d') : null;
+    var specMobileCtx = spectrumMobile ? spectrumMobile.getContext('2d') : null;
+    var freqData = null;
 
     // ── Persist state across page loads ──
     function saveState() {
@@ -363,6 +383,16 @@
         if (!pttActive) { stream.getTracks().forEach(function(t) { t.stop(); }); return; }
         micStream = stream;
 
+        // S-meter: switch to mic input
+        var micCtxForMeter = audioCtx || new AudioContext({ sampleRate: 48000 });
+        var micSourceForMeter = micCtxForMeter.createMediaStreamSource(stream);
+        micAnalyser = micCtxForMeter.createAnalyser();
+        micAnalyser.fftSize = 256;
+        micAnalyser.smoothingTimeConstant = 0.8;
+        micSourceForMeter.connect(micAnalyser);
+        meterGain = 16;
+        startMeter(micAnalyser);
+
         txTimestamp = 0;
         txEncoder = new AudioEncoder({
           output: function(chunk) {
@@ -449,6 +479,12 @@
       if (micReader) { try { micReader.cancel(); } catch(e) {} micReader = null; }
       if (txEncoder) { try { txEncoder.close(); } catch(e) {} txEncoder = null; }
       if (micStream) { micStream.getTracks().forEach(function(t) { t.stop(); }); micStream = null; }
+      micAnalyser = null;
+
+      // S-meter: switch back to RX analyser or stop
+      meterGain = 4;
+      if (playing && analyser) startMeter(analyser);
+      else stopMeter();
 
       acSend('ptt_stop', { tg: currentTG, callsign: txCallsign });
     }
@@ -459,6 +495,116 @@
         if (show) d.classList.remove('hidden');
         else d.classList.add('hidden');
       });
+    }
+
+    // ── S-Meter + Spectrum ──
+    var meterGain = 4;
+
+    function barColor(pct) {
+      // green (#3fb950) → yellow (#d29922) → red (#f85149)
+      if (pct < 0.5) {
+        var t = pct * 2;
+        return 'rgb(' + Math.round(63 + (210 - 63) * t) + ',' + Math.round(185 + (153 - 185) * t) + ',' + Math.round(80 + (34 - 80) * t) + ')';
+      }
+      var t2 = (pct - 0.5) * 2;
+      return 'rgb(' + Math.round(210 + (248 - 210) * t2) + ',' + Math.round(153 + (81 - 153) * t2) + ',' + Math.round(34 + (73 - 34) * t2) + ')';
+    }
+
+    function drawSpectrum(ctx, canvas, src) {
+      src.getByteFrequencyData(freqData);
+      var w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      // Use lower half of frequency bins (voice range)
+      var bins = Math.floor(freqData.length / 2);
+      var barCount = Math.min(bins, Math.floor(w / 3));
+      var barW = w / barCount;
+      var gap = Math.max(1, barW * 0.2);
+      var bw = barW - gap;
+
+      for (var i = 0; i < barCount; i++) {
+        // Average a few bins per bar
+        var binStart = Math.floor(i * bins / barCount);
+        var binEnd = Math.floor((i + 1) * bins / barCount);
+        var sum = 0;
+        for (var b = binStart; b < binEnd; b++) sum += freqData[b];
+        var val = sum / (binEnd - binStart) / 255;
+        val = Math.pow(val, 0.7) * meterGain / 4;
+        val = Math.min(val, 1);
+
+        var barH = val * h;
+        if (barH < 1) continue;
+
+        var x = i * barW;
+        var y = h - barH;
+        var col = barColor(val);
+
+        // Glow
+        ctx.shadowColor = col;
+        ctx.shadowBlur = 4;
+        ctx.fillStyle = col;
+
+        // Rounded top
+        var r = Math.min(bw / 2, 2);
+        ctx.beginPath();
+        ctx.moveTo(x, h);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.lineTo(x + bw - r, y);
+        ctx.quadraticCurveTo(x + bw, y, x + bw, y + r);
+        ctx.lineTo(x + bw, h);
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    function updateMeter(src) {
+      // S-meter (RMS)
+      src.getByteTimeDomainData(meterData);
+      var sum = 0;
+      for (var i = 0; i < meterData.length; i++) {
+        var v = (meterData[i] - 128) / 128;
+        sum += v * v;
+      }
+      var rms = Math.sqrt(sum / meterData.length);
+      var level = Math.min(rms * meterGain, 1);
+      var tx = 'scaleX(' + level + ')';
+      if (sMeterFill) sMeterFill.style.transform = tx;
+      if (sMeterFillMobile) sMeterFillMobile.style.transform = tx;
+
+      // Spectrum
+      if (specCtx && spectrumCanvas) drawSpectrum(specCtx, spectrumCanvas, src);
+      if (specMobileCtx && spectrumMobile) drawSpectrum(specMobileCtx, spectrumMobile, src);
+
+      meterRaf = requestAnimationFrame(function() { updateMeter(src); });
+    }
+
+    function startMeter(src) {
+      if (meterRaf) cancelAnimationFrame(meterRaf);
+      meterData = new Uint8Array(src.fftSize);
+      freqData = new Uint8Array(src.frequencyBinCount);
+
+      // Size canvases to actual pixel width for crisp rendering
+      if (spectrumCanvas) {
+        spectrumCanvas.width = spectrumCanvas.clientWidth * (window.devicePixelRatio || 1);
+        spectrumCanvas.height = spectrumCanvas.clientHeight * (window.devicePixelRatio || 1);
+      }
+      if (spectrumMobile) {
+        spectrumMobile.width = spectrumMobile.clientWidth * (window.devicePixelRatio || 1);
+        spectrumMobile.height = spectrumMobile.clientHeight * (window.devicePixelRatio || 1);
+      }
+
+      [sMeter, sMeterMobile, spectrumCanvas, spectrumMobile].forEach(function(el) { if (el) el.classList.remove('hidden'); });
+      meterRaf = requestAnimationFrame(function() { updateMeter(src); });
+    }
+
+    function stopMeter() {
+      if (meterRaf) { cancelAnimationFrame(meterRaf); meterRaf = null; }
+      if (sMeterFill) sMeterFill.style.transform = 'scaleX(0)';
+      if (sMeterFillMobile) sMeterFillMobile.style.transform = 'scaleX(0)';
+      if (specCtx && spectrumCanvas) specCtx.clearRect(0, 0, spectrumCanvas.width, spectrumCanvas.height);
+      if (specMobileCtx && spectrumMobile) specMobileCtx.clearRect(0, 0, spectrumMobile.width, spectrumMobile.height);
+      [sMeter, sMeterMobile, spectrumCanvas, spectrumMobile].forEach(function(el) { if (el) el.classList.add('hidden'); });
     }
 
     function startAudio(tgOverride) {
@@ -489,6 +635,12 @@
         showAudioDot(pcmBuffer.length > 0);
       };
       scriptNode.connect(gainNode);
+
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.8;
+      scriptNode.connect(analyser);
+      startMeter(analyser);
 
       timestamp = 0;
       if (typeof AudioDecoder !== 'undefined') {
@@ -546,6 +698,8 @@
 
     function stopAudio() {
       pttStop();
+      stopMeter();
+      analyser = null;
       setPlaying(false);
       showAudioDot(false);
       clearState();
