@@ -39,9 +39,6 @@ Rails.application.configure do
   # Store uploaded files on the local file system (see config/storage.yml for options).
   config.active_storage.service = :local
 
-  # Allow WebSocket connections from any origin (local dashboard, no TLS).
-  config.action_cable.disable_request_forgery_protection = true
-
   # Assume all access to the app is happening through a SSL-terminating reverse proxy.
   # Can be used together with config.force_ssl for Strict-Transport-Security and secure cookies.
   # config.assume_ssl = true
@@ -85,6 +82,11 @@ Rails.application.configure do
 
   # Do not dump schema after migrations.
   config.active_record.dump_schema_after_migration = false
+
+  # Allow extra WebSocket origins when behind a reverse proxy on a different domain.
+  if ENV["ALLOWED_CABLE_ORIGINS"].present?
+    config.action_cable.allowed_request_origins = ENV["ALLOWED_CABLE_ORIGINS"].split(",").map(&:strip)
+  end
 
   # Allow all hosts (app is designed for self-hosted/LAN use).
   config.hosts.clear
