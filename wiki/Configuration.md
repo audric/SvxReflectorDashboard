@@ -39,3 +39,14 @@ Some settings can be changed at runtime from the admin panel (`/admin/settings`)
 - **Poll interval** — how often the updater fetches the reflector status (1–10 seconds, default 4)
 
 These are stored in the `settings` table and take effect on the next poll cycle without restarting services.
+
+## Reflector configuration
+
+Users with the **reflector admin** role can configure the SVXReflector itself from `/admin/reflector`. This web UI edits the reflector's configuration file directly and provides sections for:
+
+- **Global settings** — listen port, HTTP port, codecs, callsign accept/reject filters, random QSY range
+- **Users** — callsign-to-password-group mappings
+- **Passwords** — password group definitions
+- **Talkgroup rules** — per-TG allow patterns (regex), auto QSY timeout, and activity visibility
+
+After saving, the dashboard automatically restarts the SVXReflector Docker container (via the Docker socket) so changes take effect immediately.

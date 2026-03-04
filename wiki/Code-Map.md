@@ -19,6 +19,7 @@
 | `app/controllers/registrations_controller.rb` | New user registration |
 | `app/controllers/admin/users_controller.rb` | Admin user management and approval |
 | `app/controllers/admin/settings_controller.rb` | Admin runtime settings |
+| `app/controllers/admin/reflector_controller.rb` | Web admin for SVXReflector configuration (reads/writes config, restarts container) |
 
 ### Channels (ActionCable)
 
