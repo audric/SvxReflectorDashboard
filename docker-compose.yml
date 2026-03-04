@@ -23,8 +23,9 @@ services:
       START_SVXREFLECTOR: 1
       SVXREFLECTOR_CONF: /etc/svxlink/svxreflector.conf
     volumes:
-      - ./reflector/svxreflector.conf:/etc/svxlink/svxreflector.conf
+      - ./reflector:/mnt/reflector
       - reflector_pki:/var/lib/svxlink/pki
+    entrypoint: ["/bin/sh", "-c", "cp /mnt/reflector/svxreflector.conf /etc/svxlink/svxreflector.conf; exec /entrypoint.sh"]
     restart: unless-stopped
     depends_on:
       init-reflector-conf:
@@ -44,7 +45,7 @@ services:
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
     volumes:
       - db_data:/rails/storage
-      - ./reflector/svxreflector.conf:/rails/reflector/svxreflector.conf
+      - ./reflector:/rails/reflector
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       init-reflector-conf:
