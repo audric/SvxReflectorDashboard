@@ -3,6 +3,15 @@
 # Fix ownership of the storage volume (may be root-owned on first run)
 if [ "$(id -u)" = "0" ]; then
   chown -R rails:rails /rails/storage /rails/db /rails/log /rails/tmp /rails/reflector
+  # Grant rails user access to Docker socket for svxreflector restart
+  if [ -S /var/run/docker.sock ]; then
+    SOCK_GID=$(stat -c '%g' /var/run/docker.sock)
+    if ! getent group "$SOCK_GID" > /dev/null 2>&1; then
+      groupadd -g "$SOCK_GID" dockersock
+    fi
+    SOCK_GROUP=$(getent group "$SOCK_GID" | cut -d: -f1)
+    usermod -aG "$SOCK_GROUP" rails
+  fi
   exec gosu rails "$0" "$@"
 fi
 
