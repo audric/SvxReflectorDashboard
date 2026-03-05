@@ -272,7 +272,7 @@
                         = node['sysop']
 
                   .card-footer.flex.justify-between.px-3.py-1
-                    %span.text-gray-500= [node['sw'], node['swVer']].compact.join(' ')
+                    %span.text-gray-500{id: "node-#{callsign}-sw"}= [node['sw'], node['swVer'].to_s.sub(/(\.0)+$/, '')].reject(&:blank?).join(' ')
                     %span.text-gray-500{id: "node-#{callsign}-updated"}
 
             - if visible.empty?
@@ -427,6 +427,10 @@
             });
           }
 
+          // Software version
+          var swEl = document.getElementById('node-' + callsign + '-sw');
+          if (swEl) swEl.textContent = [n.sw, (n.swVer||'').replace(/(\.0)+$/, '')].filter(Boolean).join(' ');
+
           var updEl = document.getElementById('node-' + callsign + '-updated');
           if (updEl) updEl.textContent = new Date().toLocaleTimeString();
 
@@ -548,7 +552,7 @@
 
           // Footer
           h += '<div class="card-footer flex justify-between px-3 py-1">' +
-               '<span class="text-gray-500">' + esc([n.sw, n.swVer].filter(Boolean).join(' ')) + '</span>' +
+               '<span class="text-gray-500" id="node-' + cs + '-sw">' + esc([n.sw, (n.swVer||'').replace(/(\.0)+$/, '')].filter(Boolean).join(' ')) + '</span>' +
                '<span class="text-gray-500" id="node-' + cs + '-updated"></span>' +
                '</div>';
 

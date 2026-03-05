@@ -103,13 +103,13 @@
       .space-y-2
         %select#audio-tg-select.w-full.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-1.cursor-pointer{style: "outline:none;"}
           %option{value: ""} Select TG...
-        .flex.items-center.gap-2
-          %button#audio-play-btn.flex.items-center.justify-center.w-7.h-7.rounded-full.bg-ghborder2.text-gray-300.hover:text-green-400.transition-colors.cursor-pointer{type: "button", title: "Play / Stop"}
+        .flex.items-center.gap-2{style: "min-width:0;"}
+          %button#audio-play-btn.flex.items-center.justify-center.rounded-full.bg-ghborder2.text-gray-300.hover:text-green-400.transition-colors.cursor-pointer{type: "button", title: "Play / Stop", style: "width:28px;height:28px;flex-shrink:0;"}
             %i.bi.bi-play-fill.text-xs
           - if current_user.can_transmit?
-            %button#audio-ptt-btn.hidden.flex.items-center.justify-center.w-7.h-7.rounded-full.bg-ghborder2.text-gray-300.hover:text-red-400.transition-colors.cursor-pointer{type: "button", title: "Push to Talk"}
+            %button#audio-ptt-btn.hidden.flex.items-center.justify-center.rounded-full.bg-ghborder2.text-gray-300.hover:text-red-400.transition-colors.cursor-pointer{type: "button", title: "Push to Talk", style: "width:28px;height:28px;flex-shrink:0;"}
               %i.bi.bi-mic-fill.text-xs
-          %input#audio-volume.flex-1{type: "range", min: "0", max: "100", value: "70", style: "accent-color:#3fb950;height:4px;cursor:pointer;"}
+          %input#audio-volume{type: "range", min: "0", max: "100", value: "70", style: "accent-color:#3fb950;height:4px;cursor:pointer;flex:1 1 0;min-width:0;"}
         #s-meter.hidden{style: "height:4px;border-radius:2px;background:#21262d;overflow:hidden;"}
           #s-meter-fill{style: "height:100%;width:100%;border-radius:2px;background:linear-gradient(to right,#3fb950,#d29922,#f85149);transform:scaleX(0);transform-origin:left;transition:transform 50ms;"}
         %canvas#spectrum.hidden{width: "200", height: "32", style: "width:100%;height:32px;border-radius:4px;display:block;"}

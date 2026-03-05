@@ -25,6 +25,8 @@ class ReflectorListener
             p = prev[cs]
             next true if p.nil?
             next true if node['tg'] != p['tg'] || node['isTalker'] != p['isTalker']
+            next true if node['sw'] != p['sw'] || node['swVer'] != p['swVer']
+            next true if node['nodeLocation'] != p['nodeLocation']
             # Also trigger when any RX squelch opens/closes (gives fresh siglev data)
             node_rx = node.dig('qth', 0, 'rx') || {}
             prev_rx = p.dig('qth', 0, 'rx') || {}
@@ -107,7 +109,7 @@ class ReflectorListener
     web_info.each do |callsign, json_str|
       next unless nodes.key?(callsign)
       meta = JSON.parse(json_str) rescue next
-      meta.each { |k, v| nodes[callsign][k] ||= v }
+      meta.each { |k, v| nodes[callsign][k] = v if v.present? }
 
       # Build qth structure from nodeLocation so the map can place a marker
       loc = nodes[callsign]['nodeLocation'].to_s
