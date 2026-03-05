@@ -6,6 +6,7 @@ All configuration is done via environment variables. Docker Compose loads `.env`
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
+| `DOMAIN` | Yes | `localhost` | Public hostname for Caddy TLS and ActionCable allowed origins |
 | `BRAND_NAME` | Yes | — | Display name shown in the navbar and page titles |
 | `REFLECTOR_STATUS_URL` | Yes | — | HTTP status API endpoint (e.g. `http://host:8080/status`) |
 | `SECRET_KEY_BASE` | Yes | — | Rails secret for signing sessions and cookies |
@@ -13,7 +14,6 @@ All configuration is done via environment variables. Docker Compose loads `.env`
 | `REFLECTOR_PORT` | No | `5300` | Reflector port for the audio bridge |
 | `REDIS_URL` | No | `redis://redis:6379/1` | Redis connection URL |
 | `RAILS_ENV` | No | `production` | Rails environment |
-| `ALLOWED_HOST` | No | — | Hostname for Rails host authorization header checks |
 
 ## Generating SECRET_KEY_BASE
 

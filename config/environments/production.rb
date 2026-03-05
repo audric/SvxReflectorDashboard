@@ -83,9 +83,12 @@ Rails.application.configure do
   # Do not dump schema after migrations.
   config.active_record.dump_schema_after_migration = false
 
-  # Allow extra WebSocket origins when behind a reverse proxy on a different domain.
-  if ENV["ALLOWED_CABLE_ORIGINS"].present?
-    config.action_cable.allowed_request_origins = ENV["ALLOWED_CABLE_ORIGINS"].split(",").map(&:strip)
+  # Auto-derive allowed WebSocket origins from DOMAIN.
+  if ENV["DOMAIN"].present? && ENV["DOMAIN"] != "localhost"
+    config.action_cable.allowed_request_origins = [
+      "https://#{ENV["DOMAIN"]}",
+      "wss://#{ENV["DOMAIN"]}"
+    ]
   end
 
   # Allow all hosts (app is designed for self-hosted/LAN use).

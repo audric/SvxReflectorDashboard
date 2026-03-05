@@ -3,13 +3,19 @@
 ## Services
 
 ```
+svxreflector  → SVXReflector instance, configurable via the web admin UI
+caddy         → Reverse proxy with automatic HTTPS (Let's Encrypt)
 web           → Rails app (Puma), serves the dashboard on port 3000
 updater       → Background process running ReflectorListener
 audio_bridge  → Go binary, bridges browser audio ↔ reflector (SVXReflector protocol V2)
-svxreflector  → SVXReflector instance, configurable via the web admin UI
 redis         → ActionCable adapter + audio pub/sub + web node metadata cache
 db_data       → Named Docker volume persisting the SQLite database (storage/)
+caddy_data    → Named Docker volume persisting TLS certificates
 ```
+
+### caddy
+
+A lightweight reverse proxy ([Caddy 2](https://caddyserver.com/)) that terminates TLS on ports 80/443 and forwards traffic to the Rails app. It automatically provisions and renews Let's Encrypt certificates using the `DOMAIN` environment variable. TLS is required for browser PTT (microphone access needs a secure context).
 
 ### web
 

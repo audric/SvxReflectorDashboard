@@ -27,7 +27,9 @@ docker compose up -d
 docker compose run --rm web ./bin/rails db:prepare
 ```
 
-Open <http://localhost:3000>. Default admin: `ADM1N` / `changeme`.
+Set `DOMAIN=yourdomain.com` in `.env` for automatic HTTPS, or leave as `localhost` for local dev.
+
+Open <https://yourdomain.com> (or <http://localhost> locally). Default admin: `ADM1N` / `changeme`.
 
 See the wiki for [configuration details](https://github.com/audric/SvxReflectorDashboard/wiki/Configuration) and [production deployment](https://github.com/audric/SvxReflectorDashboard/wiki/Getting-Started#deploying-to-production).
 
@@ -35,6 +37,7 @@ See the wiki for [configuration details](https://github.com/audric/SvxReflectorD
 
 ```
 svxreflector  → SVXReflector daemon (reflector server)
+caddy         → Reverse proxy with automatic HTTPS (Let's Encrypt)
 web           → Rails app (Puma) on port 3000
 updater       → Background poller (ReflectorListener)
 audio_bridge  → Go binary, SVXReflector protocol V2

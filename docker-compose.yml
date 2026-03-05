@@ -2,6 +2,7 @@ x-rails-env: &rails-env
   RAILS_ENV: production
   REFLECTOR_STATUS_URL: ${REFLECTOR_STATUS_URL:-http://svxreflector:8080/status}
   REDIS_URL: redis://redis:6379/1
+  DOMAIN: ${DOMAIN:-localhost}
 
 services:
 
@@ -35,11 +36,25 @@ services:
       init-reflector-conf:
         condition: service_completed_successfully
 
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+    depends_on:
+      - web
+    restart: unless-stopped
+
   web:
     image: audric/svxreflectordashboard_web
     build: .
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     env_file: .env
     environment:
       <<: *rails-env
@@ -90,3 +105,4 @@ services:
 volumes:
   db_data:
   reflector_pki:
+  caddy_data:

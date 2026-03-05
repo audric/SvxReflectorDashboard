@@ -38,7 +38,7 @@ See `.env.example`. Copy to `.env` and set:
 - `REFLECTOR_STATUS_URL` — the SVXReflector HTTP status endpoint (e.g. `http://host:8080/status`)
 - `SECRET_KEY_BASE` — generate with `openssl rand -hex 64`
 
-Optional: `REDIS_URL` (defaults to `redis://redis:6379/1` in Docker), `ALLOWED_CABLE_ORIGINS` (comma-separated list of extra WebSocket origins, only needed behind a reverse proxy on a different domain)
+Optional: `REDIS_URL` (defaults to `redis://redis:6379/1` in Docker), `DOMAIN` (your public hostname — Caddy uses it for TLS and Rails derives ActionCable allowed origins from it)
 
 ## Architecture
 

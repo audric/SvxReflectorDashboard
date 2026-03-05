@@ -21,11 +21,14 @@ cp .env.example .env
 Edit `.env` and set the required values. See [[Configuration]] for the full list. At minimum you need:
 
 ```
+DOMAIN=dashboard.example.com
 BRAND_NAME=MyReflector
 REFLECTOR_STATUS_URL=http://your-reflector-ip:8080/status
 SECRET_KEY_BASE=<run: openssl rand -hex 64>
 REFLECTOR_HOST=your-reflector-ip
 ```
+
+Set `DOMAIN` to your public hostname for automatic HTTPS, or leave as `localhost` for local development.
 
 ## 3. Build and start services
 
@@ -34,7 +37,7 @@ docker compose build
 docker compose up -d
 ```
 
-This starts five services: `svxreflector`, `web`, `updater`, `audio_bridge`, and `redis`.
+This starts six services: `svxreflector`, `caddy`, `web`, `updater`, `audio_bridge`, and `redis`.
 
 ## 4. Initialize the database
 
@@ -52,7 +55,7 @@ This creates the database, runs migrations, and seeds a default admin account:
 
 ## 5. Access the dashboard
 
-Open <http://localhost:3000> in your browser.
+Open <https://yourdomain.com> (or <http://localhost> for local dev) in your browser.
 
 ## Useful commands
 
@@ -88,5 +91,6 @@ The `Dockerfile` uses a multi-stage build producing a minimal, non-root producti
 - Point `BRAND_NAME` and `REFLECTOR_STATUS_URL` at your live reflector
 - Set `REFLECTOR_HOST` for audio bridge connectivity
 - Mount a persistent volume for `/rails/storage` (SQLite database)
-- Expose port 3000 behind a reverse proxy with TLS
+- Set `DOMAIN` to your public hostname — Caddy handles TLS automatically via Let's Encrypt
+- Ensure DNS points to your VPS before starting (Caddy needs to reach Let's Encrypt)
 - **TLS is required** for browser PTT (microphone access needs a secure context)
