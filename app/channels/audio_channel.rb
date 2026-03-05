@@ -92,17 +92,12 @@ class AudioChannel < ApplicationCable::Channel
   private
 
   def broadcast_talker_hint(callsign, tg, talking)
-    patch = { "isTalker" => talking, "tg" => tg }
+    patch = { "callsign" => callsign, "isTalker" => talking, "tg" => tg }
     { "sw" => params[:sw].to_s, "swVer" => params[:sw_ver].to_s,
       "nodeLocation" => params[:node_location].to_s }.each do |k, v|
       patch[k] = v unless v.empty?
     end
-    ActionCable.server.broadcast("updates", {
-      nodes: { callsign => patch },
-      changed: [callsign],
-      removed: [],
-      _ts: Time.now.iso8601
-    })
+    ActionCable.server.broadcast("updates", patch)
   end
 
   def update_web_node_info(redis, callsign)
