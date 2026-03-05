@@ -271,7 +271,7 @@
           });
         });
 
-        if (rows.length <= 1) { alert('No exportable data (nodes need TX frequency and tone mappings).'); return; }
+        if (rows.length <= 1) { showToast('No exportable data (nodes need TX frequency and tone mappings).', 'warn'); return; }
 
         var blob = new Blob([rows.join('\r\n') + '\r\n'], { type: 'text/csv' });
         var a = document.createElement('a');

@@ -1,3 +1,43 @@
+-# ── Toast container ──────────────────────────────────────────────────
+#toast-container.fixed.top-4.right-4.z-50.flex.flex-col.gap-2{style: "pointer-events:none;"}
+
+:css
+  .toast-item {
+    pointer-events: auto;
+    padding: .6rem 1rem;
+    border-radius: .5rem;
+    font-size: .82rem;
+    font-weight: 500;
+    color: #c9d1d9;
+    border: 1px solid #30363d;
+    background: #161b22;
+    box-shadow: 0 4px 12px rgba(0,0,0,.4);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    animation: toast-in .3s ease;
+    max-width: 22rem;
+  }
+  .toast-item.toast-error { border-color: #f8514966; background: #1a0f0f; color: #f85149; }
+  .toast-item.toast-warn  { border-color: #d2992266; background: #1a1500; color: #d29922; }
+  @keyframes toast-in  { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes toast-out { from { opacity: 1; } to { opacity: 0; transform: translateY(-8px); } }
+
+:javascript
+  window.showToast = function(message, type) {
+    type = type || 'warn';
+    var icon = type === 'error' ? 'bi-exclamation-triangle-fill' : 'bi-info-circle-fill';
+    var container = document.getElementById('toast-container');
+    var el = document.createElement('div');
+    el.className = 'toast-item toast-' + type;
+    el.innerHTML = '<i class="bi ' + icon + '"></i><span>' + message.replace(/</g, '&lt;') + '</span>';
+    container.appendChild(el);
+    setTimeout(function() {
+      el.style.animation = 'toast-out .3s ease forwards';
+      setTimeout(function() { el.remove(); }, 300);
+    }, 4000);
+  };
+
 -# ── Mobile / tablet top bar (visible below lg) ──────────────────────
 %nav.sticky.top-0.z-50.bg-ghcard.border-b.border-ghborder.mb-4.py-2.lg:hidden
   .flex.items-center.justify-between.flex-wrap.px-4
@@ -660,7 +700,7 @@
       }).catch(function(e) {
         console.error('Mic access error:', e);
         pttStop();
-        alert('Mic error: ' + (e.name || '') + ' — ' + (e.message || e));
+        showToast('Mic error: ' + (e.name || '') + ' — ' + (e.message || e), 'error');
       });
     }
 
@@ -907,7 +947,7 @@
         var msg = envelope.message;
         if (msg.type === 'error') {
           stopAudio();
-          alert('Connection failed: ' + (msg.message || 'Unknown error'));
+          showToast('Connection failed: ' + (msg.message || 'Unknown error'), 'error');
           return;
         }
         if (msg.audio && decoder) {
