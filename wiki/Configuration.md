@@ -44,9 +44,12 @@ These are stored in the `settings` table and take effect on the next poll cycle 
 
 Users with the **reflector admin** role can configure the SVXReflector itself from `/admin/reflector`. This web UI edits the reflector's configuration file directly and provides sections for:
 
-- **Global settings** — listen port, HTTP port, codecs, callsign accept/reject filters, random QSY range
+- **Global settings** — listen port, HTTP port, codecs, callsign accept/reject filters, timeouts, PKI paths, random QSY range
+- **Certificates** — ROOT_CA, ISSUING_CA, and SERVER_CERT sections (common name, org, locality, country, etc.)
 - **Users** — callsign-to-password-group mappings
 - **Passwords** — password group definitions
-- **Talkgroup rules** — per-TG allow patterns (regex), auto QSY timeout, and activity visibility
+- **Talkgroup rules** — per-TG allow patterns (regex), allow monitor patterns, auto QSY timeout, and activity visibility
+
+All panels are collapsed by default. Each section includes inline help buttons linking to the official `svxreflector.conf(5)` documentation. Delete actions require confirmation via a styled modal dialog.
 
 After saving, the dashboard automatically restarts the SVXReflector Docker container (via the Docker socket) so changes take effect immediately.

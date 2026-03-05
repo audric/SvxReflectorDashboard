@@ -34,7 +34,7 @@ docker compose build
 docker compose up -d
 ```
 
-This starts four services: `web`, `updater`, `audio_bridge`, and `redis`.
+This starts five services: `svxreflector`, `web`, `updater`, `audio_bridge`, and `redis`.
 
 ## 4. Initialize the database
 

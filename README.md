@@ -12,8 +12,9 @@ A Rails web application for monitoring amateur radio [SVXReflector](https://www.
 - Web listener — tune in to any talkgroup (Opus audio via WebSocket)
 - S-meter and spectrum analyser showing real-time audio levels (RX and TX)
 - Push-to-Talk from the browser (requires HTTPS)
-- Web admin for SVXReflector configuration (global settings, users, passwords, TG rules)
-- User registration with callsign validation and admin approval
+- CTCSS tone-to-talkgroup matrix with CHIRP CSV export
+- Web admin for SVXReflector configuration (global settings, certificates, users, passwords, TG rules)
+- User management with callsign validation, admin approval, and role-based permissions
 
 ## Quick start
 
@@ -33,6 +34,7 @@ See the wiki for [configuration details](https://github.com/audric/SvxReflectorD
 ## Architecture
 
 ```
+svxreflector  → SVXReflector daemon (reflector server)
 web           → Rails app (Puma) on port 3000
 updater       → Background poller (ReflectorListener)
 audio_bridge  → Go binary, SVXReflector protocol V2

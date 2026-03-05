@@ -21,9 +21,9 @@ Callsigns are automatically uppercased and validated against the format `/\A[A-Z
 
 New registrations are held in a **pending** state until approved by an admin.
 
-## Admin panel
+## Web Users admin panel
 
-Admins manage users at `/admin/users`. Available actions:
+Admins manage web users at `/admin/users`. Available actions:
 
 - **Approve** pending registrations
 - **Grant/revoke monitor permission** — allows tuning in to talkgroups

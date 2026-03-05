@@ -24,11 +24,11 @@ Registered users can tune in to talkgroups and transmit audio directly from thei
 - **Live dashboard** — node grid with color-coded status, signal levels, squelch indicators, and a scrolling activity log
 - **Map** — interactive Leaflet.js map with per-node popups and multiple tile layers
 - **Stats** — historical analytics: top talkers, top talkgroups, node type distribution, signal strength
-- **TG Matrix** — CTCSS tone-to-talkgroup mapping table
+- **TG Matrix** — CTCSS tone-to-talkgroup mapping table with CHIRP CSV export
 - **Web listener** — tune in to any talkgroup and receive live Opus audio in the browser
 - **Push-to-Talk** — transmit from the browser microphone (requires HTTPS)
 - **User accounts** — registration with callsign validation, admin approval, per-user permissions
-- **Admin panel** — user management, registration approval, reflector settings
+- **Admin panel** — web user management, registration approval, reflector configuration (global settings, certificates, users, passwords, TG rules)
 
 ### Stack
 

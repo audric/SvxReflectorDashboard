@@ -107,6 +107,8 @@ Closes the current session.
 
 Changes the talkgroup on an active session. If no session exists, starts one. If the callsign changed, reconnects with the new identity.
 
+When a user switches TG from the browser, the client resubscribes to ActionCable on the same WebSocket (unsubscribe old TG, subscribe new TG) to ensure clean ref counting. The audio bridge receives the disconnect from the old subscription followed by a connect with the new TG.
+
 Commands published to `audio:tx`:
 
 ### ptt_start / ptt_stop

@@ -35,8 +35,9 @@
 | `app/views/dashboard/` | Dashboard index, map, stats, TG matrix |
 | `app/views/sessions/` | Login form |
 | `app/views/registrations/` | Registration form |
-| `app/views/admin/users/` | Admin user list and management |
+| `app/views/admin/users/` | Web user list and management |
 | `app/views/admin/settings/` | Admin settings form |
+| `app/views/admin/reflector/` | SVXReflector config editor (global, certs, users, passwords, TG rules) |
 | `app/views/shared/` | Navbar (includes audio player/PTT, S-meter, and spectrum analyser JavaScript) |
 | `app/views/layouts/` | Application layout |
 
@@ -62,7 +63,7 @@ All templates use **HAML** (not ERB).
 | File | Purpose |
 |---|---|
 | `Dockerfile` | Multi-stage Rails production image |
-| `docker-compose.yml` | Service definitions: web, updater, audio_bridge, redis |
+| `docker-compose.yml` | Service definitions: svxreflector, web, updater, audio_bridge, redis |
 | `.env.example` | Template for environment variables |
 | `config/routes.rb` | URL routing |
 | `config/cable.yml` | ActionCable Redis adapter config |
