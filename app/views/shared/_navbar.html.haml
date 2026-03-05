@@ -94,7 +94,7 @@
   -# ── Audio player (visible only to users with monitor permission + auth key) ──
   - if logged_in? && current_user.can_monitor? && current_user.reflector_auth_key.present?
     - audio_tgs = (@nodes || {}).values.flat_map { |n| [n['tg'].to_i] + Array(n['monitoredTGs']).map(&:to_i) }.select { |t| t > 0 }.uniq.sort
-    .border-t.border-ghborder.px-3.py-3#audio-player-sidebar{"data-initial-tgs" => audio_tgs.join(','), "data-callsign" => "#{current_user.callsign.upcase}-WEB", "data-auth-key" => current_user.reflector_auth_key.to_s, "data-sysop" => current_user.name.to_s, "data-cw-roger-beep" => current_user.cw_roger_beep? ? "1" : "0"}
+    .border-t.border-ghborder.px-3.py-3#audio-player-sidebar{"data-turbo-permanent" => "", "data-initial-tgs" => audio_tgs.join(','), "data-callsign" => "#{current_user.callsign.upcase}-WEB", "data-auth-key" => current_user.reflector_auth_key.to_s, "data-sysop" => current_user.name.to_s, "data-cw-roger-beep" => current_user.cw_roger_beep? ? "1" : "0"}
       .flex.items-center.gap-1.mb-2
         %i.bi.bi-headphones.text-ghdim.text-xs
         %span.text-xs.uppercase.tracking-wider.text-ghdim Tune In
@@ -131,7 +131,7 @@
 
 -# ── Mobile audio bar (fixed bottom, below lg) ──
 - if logged_in? && current_user.can_monitor? && current_user.reflector_auth_key.present?
-  #audio-bar-mobile.fixed.bottom-0.left-0.right-0.z-50.bg-ghcard.border-t.border-ghborder.px-4.py-2.lg:hidden.hidden
+  #audio-bar-mobile.fixed.bottom-0.left-0.right-0.z-50.bg-ghcard.border-t.border-ghborder.px-4.py-2.lg:hidden.hidden{"data-turbo-permanent" => ""}
     .flex.items-center.gap-3
       %button#audio-play-btn-mobile.flex.items-center.justify-center.w-8.h-8.rounded-full.bg-ghborder2.text-gray-300.hover:text-green-400.transition-colors.cursor-pointer{type: "button"}
         %i.bi.bi-play-fill
@@ -255,6 +255,9 @@
 
   /* ── Audio Player (Tune In) ─────────────────────────────────────── */
   (function() {
+    // Skip re-init if audio player is already alive (Turbo permanent element)
+    if (window._audioPlayerAlive) return;
+
     // Tear down any previous instance (Turbo re-executes scripts)
     if (window._audioStop) { window._audioStop(); }
 
@@ -946,7 +949,8 @@
     }
 
     // Expose stop so next script execution can tear down cleanly
-    window._audioStop = stopAudio;
+    window._audioStop = function() { window._audioPlayerAlive = false; stopAudio(); };
+    window._audioPlayerAlive = true;
 
     function toggleAudio() {
       if (playing) stopAudio();
