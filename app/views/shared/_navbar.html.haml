@@ -1025,14 +1025,24 @@
     document.addEventListener('touchend', pttUp);
     document.addEventListener('touchcancel', pttUp);
 
-    if (tgSelect) tgSelect.addEventListener('change', function() {
-      syncTgSelects(tgSelect);
-      if (playing) { stopAudio(); startAudio(); }
-    });
-    if (tgSelectMobile) tgSelectMobile.addEventListener('change', function() {
-      syncTgSelects(tgSelectMobile);
-      if (playing) { stopAudio(); startAudio(); }
-    });
+    function switchTg(source) {
+      syncTgSelects(source);
+      if (!playing) return;
+      var newTg = parseInt(source.value) || 0;
+      if (newTg <= 0) { stopAudio(); return; }
+      currentTG = newTg;
+      // Resubscribe on the same WebSocket so ActionCable handles
+      // unsubscribed (old TG) → subscribed (new TG) in order
+      if (audioWs && audioWs.readyState === WebSocket.OPEN && subscribedIdentifier) {
+        audioWs.send(JSON.stringify({ command: 'unsubscribe', identifier: subscribedIdentifier }));
+        subscribedIdentifier = buildIdentifier();
+        audioWs.send(JSON.stringify({ command: 'subscribe', identifier: subscribedIdentifier }));
+      }
+      pcmBuffer = [];
+      saveState();
+    }
+    if (tgSelect) tgSelect.addEventListener('change', function() { switchTg(tgSelect); });
+    if (tgSelectMobile) tgSelectMobile.addEventListener('change', function() { switchTg(tgSelectMobile); });
 
     function setVolume(val) {
       if (gainNode) gainNode.gain.value = val / 100;
