@@ -754,6 +754,8 @@
       for (var i = 0; i < barCount; i++) {
         var val = vals[i] / specPeak * 0.8;
         val = Math.min(val, 1);
+        // Raise floor: map 0-1 into 0.15-1 for more dynamic display
+        if (val > 0.001) val = 0.15 + val * 0.85;
 
         var barH = val * h;
         if (barH < 1) continue;
