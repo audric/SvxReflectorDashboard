@@ -525,8 +525,12 @@
 
           var end = Math.min(offset + chunkSize, cwSamples.length);
           var chunk = new Float32Array(chunkSize);
-          // Copy samples, pad with zeros if last chunk is short
           chunk.set(cwSamples.subarray(offset, end));
+
+          // Feed into local playback so the user hears the CW
+          for (var si = 0; si < end - offset; si++) {
+            if (pcmBuffer.length < bufferMaxSamples) pcmBuffer.push(chunk[si]);
+          }
 
           var ad = new AudioData({
             format: 'f32',
