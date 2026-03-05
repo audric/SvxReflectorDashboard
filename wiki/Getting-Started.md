@@ -46,7 +46,7 @@ This creates the database, runs migrations, and seeds a default admin account:
 
 | Callsign | Password   |
 | -------- | ---------- |
-| `ADMIN`  | `changeme` |
+| `ADM1N`  | `changeme` |
 
 **Change this password immediately** after first login at `/login`.
 

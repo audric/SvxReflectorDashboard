@@ -6,7 +6,7 @@ On first boot, `db:seed` creates a default admin:
 
 | Callsign | Password |
 |---|---|
-| `ADMIN` | `changeme` |
+| `ADM1N` | `changeme` |
 
 Log in at `/login` and change the password immediately.
 
