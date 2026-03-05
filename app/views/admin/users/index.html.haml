@@ -3,7 +3,7 @@
   %head
     %meta{charset: "UTF-8"}
     %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
-    %title SVXReflector · Admin Users
+    %title SVXReflector · Web Users
     %script{src: "https://cdn.tailwindcss.com"}
     :javascript
       tailwind.config = {
@@ -34,7 +34,7 @@
       .flex.justify-between.items-center.mb-4
         %h5.text-lg.font-semibold.text-gray-100
           %i.bi.bi-people.mr-2
-          Users
+          Web Users
         = link_to new_admin_user_path, class: "inline-block text-sm px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold" do
           %i.bi.bi-plus-lg.mr-1
           New User
