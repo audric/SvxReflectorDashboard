@@ -182,7 +182,7 @@
                 - qth     = node.dig('qth', 0) || {}
                 - tx_freq = qth['tx']&.values&.first&.dig('freq')
                 - rx_freq = qth['rx']&.values&.first&.dig('freq')
-                - offset  = (tx_freq && rx_freq && tx_freq.to_f > 0 && rx_freq.to_f > 0) ? ((tx_freq.to_f - rx_freq.to_f) * 1000).round : nil
+                - offset  = (tx_freq && rx_freq && tx_freq.to_f > 0 && rx_freq.to_f > 0) ? ((rx_freq.to_f - tx_freq.to_f) * 1000).round : nil
                 %tr
                   %td.col-node
                     .node-cs= cs
@@ -344,7 +344,7 @@
             var txFreq = qth && qth.tx && Object.values(qth.tx)[0] && Object.values(qth.tx)[0].freq;
             var rxFreq = qth && qth.rx && Object.values(qth.rx)[0] && Object.values(qth.rx)[0].freq;
             if (txFreq && txFreq > 0) {
-              var offset = (rxFreq && rxFreq > 0) ? Math.round((txFreq - rxFreq) * 1000) : null;
+              var offset = (rxFreq && rxFreq > 0) ? Math.round((rxFreq - txFreq) * 1000) : null;
               nodeHtml += '<div class="node-freq">TX <span class="freq-val">' + txFreq.toFixed(4) + '</span> MHz';
               if (offset && offset !== 0) nodeHtml += ' <span class="freq-offset">(' + (offset > 0 ? '+' : '') + offset + ' kHz)</span>';
               nodeHtml += '</div>';
