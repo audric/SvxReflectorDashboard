@@ -84,14 +84,14 @@
 
       = form_with url: admin_reflector_path, method: :patch, local: true do |f|
 
-        -# ── 1. Global Settings (expanded by default) ──
+        -# ── 1. Global Settings ──
         .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
           .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('global')"}
             %h5.text-lg.font-semibold.text-gray-100
               %i.bi.bi-globe.mr-2
               Global Settings
-            %i.bi.bi-chevron-down.accordion-chevron.open.text-gray-400{id: "chevron-global"}
-          .accordion-body.open.p-4{id: "body-global"}
+            %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-global"}
+          .accordion-body.p-4{id: "body-global"}
             %h6.text-sm.font-semibold.text-gray-400.mb-3.mt-1 Core
             .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
               - %w[LISTEN_PORT HTTP_SRV_PORT CODECS].each do |key|
