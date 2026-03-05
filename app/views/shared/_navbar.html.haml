@@ -94,7 +94,7 @@
   -# ── Audio player (visible only to users with monitor permission + auth key) ──
   - if logged_in? && current_user.can_monitor? && current_user.reflector_auth_key.present?
     - audio_tgs = (@nodes || {}).values.flat_map { |n| [n['tg'].to_i] + Array(n['monitoredTGs']).map(&:to_i) }.select { |t| t > 0 }.uniq.sort
-    .border-t.border-ghborder.px-3.py-3#audio-player-sidebar{"data-initial-tgs" => audio_tgs.join(','), "data-callsign" => "#{current_user.callsign.upcase}-WEB", "data-auth-key" => current_user.reflector_auth_key.to_s, "data-sysop" => current_user.name.to_s}
+    .border-t.border-ghborder.px-3.py-3#audio-player-sidebar{"data-initial-tgs" => audio_tgs.join(','), "data-callsign" => "#{current_user.callsign.upcase}-WEB", "data-auth-key" => current_user.reflector_auth_key.to_s, "data-sysop" => current_user.name.to_s, "data-cw-roger-beep" => current_user.cw_roger_beep? ? "1" : "0"}
       .flex.items-center.gap-1.mb-2
         %i.bi.bi-headphones.text-ghdim.text-xs
         %span.text-xs.uppercase.tracking-wider.text-ghdim Tune In
@@ -385,6 +385,10 @@
       var el = document.getElementById('audio-player-sidebar');
       return el ? (el.getAttribute('data-sysop') || '') : '';
     })();
+    var cwRogerBeep = (function() {
+      var el = document.getElementById('audio-player-sidebar');
+      return el ? el.getAttribute('data-cw-roger-beep') === '1' : false;
+    })();
 
     // Parse browser name + version from userAgent
     var browserSW = '', browserSWVer = '';
@@ -451,6 +455,99 @@
         identifier: subscribedIdentifier,
         data: JSON.stringify(msg)
       }));
+    }
+
+    // ── CW Roger Beep Generator ──
+    var MORSE = {
+      'A':'.-','B':'-...','C':'-.-.','D':'-..','E':'.','F':'..-.','G':'--.','H':'....',
+      'I':'..','J':'.---','K':'-.-','L':'.-..','M':'--','N':'-.','O':'---','P':'.--.',
+      'Q':'--.-','R':'.-.','S':'...','T':'-','U':'..-','V':'...-','W':'.--','X':'-..-',
+      'Y':'-.--','Z':'--..','0':'-----','1':'.----','2':'..---','3':'...--','4':'....-',
+      '5':'.....','6':'-....','7':'--...','8':'---..','9':'----.', '/': '-..-.'
+    };
+
+    // Generate CW PCM samples for a callsign at given WPM/frequency
+    function generateCW(callsign, wpm, freq, sr) {
+      var ditLen = Math.round(sr * 1.2 / wpm); // samples per dit
+      var dahLen = ditLen * 3;
+      var eleGap = ditLen;      // inter-element gap
+      var charGap = ditLen * 3; // inter-character gap
+      var samples = [];
+
+      // Strip "-WEB" suffix
+      var cs = callsign.replace(/-WEB$/i, '').toUpperCase();
+
+      for (var ci = 0; ci < cs.length; ci++) {
+        var ch = cs[ci];
+        var code = MORSE[ch];
+        if (!code) continue;
+
+        if (ci > 0) {
+          for (var g = 0; g < charGap; g++) samples.push(0);
+        }
+
+        for (var ei = 0; ei < code.length; ei++) {
+          if (ei > 0) {
+            // Inter-element gap
+            for (var g2 = 0; g2 < eleGap; g2++) samples.push(0);
+          }
+          var tonLen = code[ei] === '.' ? ditLen : dahLen;
+          for (var s = 0; s < tonLen; s++) {
+            samples.push(Math.sin(2 * Math.PI * freq * s / sr) * 0.8);
+          }
+        }
+      }
+
+      return new Float32Array(samples);
+    }
+
+    // Send CW roger beep through the TX encoder, returns a Promise that resolves when done
+    function sendCWRogerBeep() {
+      return new Promise(function(resolve) {
+        if (!cwRogerBeep || !txEncoder || txEncoder.state === 'closed') {
+          resolve();
+          return;
+        }
+
+        var cwSamples = generateCW(txCallsign, 30, 800, 48000);
+        if (cwSamples.length === 0) { resolve(); return; }
+
+        // Feed in chunks of 960 samples (20ms at 48kHz) to match Opus frame size
+        var chunkSize = 960;
+        var offset = 0;
+        var cwTimestamp = txTimestamp;
+
+        function sendNextChunk() {
+          if (offset >= cwSamples.length || !txEncoder || txEncoder.state === 'closed') {
+            resolve();
+            return;
+          }
+
+          var end = Math.min(offset + chunkSize, cwSamples.length);
+          var chunk = new Float32Array(chunkSize);
+          // Copy samples, pad with zeros if last chunk is short
+          chunk.set(cwSamples.subarray(offset, end));
+
+          var ad = new AudioData({
+            format: 'f32',
+            sampleRate: 48000,
+            numberOfFrames: chunkSize,
+            numberOfChannels: 1,
+            timestamp: cwTimestamp,
+            data: chunk
+          });
+          txEncoder.encode(ad);
+          ad.close();
+
+          cwTimestamp += 20000; // 20ms in microseconds
+          offset += chunkSize;
+
+          // Small delay to let the encoder process and send
+          setTimeout(sendNextChunk, 20);
+        }
+
+        sendNextChunk();
+      });
     }
 
     function pttStart() {
@@ -564,8 +661,8 @@
         btn.classList.remove('text-red-400', 'bg-red-900/40');
       });
 
+      // Stop mic capture but keep encoder alive for CW
       if (micReader) { try { micReader.cancel(); } catch(e) {} micReader = null; }
-      if (txEncoder) { try { txEncoder.close(); } catch(e) {} txEncoder = null; }
       if (micStream) { micStream.getTracks().forEach(function(t) { t.stop(); }); micStream = null; }
       micAnalyser = null;
 
@@ -574,7 +671,11 @@
       if (playing && analyser) startMeter(analyser);
       else stopMeter();
 
-      acSend('ptt_stop', { tg: currentTG, callsign: txCallsign });
+      // Send CW roger beep (if enabled), then finalize PTT
+      sendCWRogerBeep().then(function() {
+        if (txEncoder) { try { txEncoder.close(); } catch(e) {} txEncoder = null; }
+        acSend('ptt_stop', { tg: currentTG, callsign: txCallsign });
+      });
     }
 
     function showAudioDot(show) {

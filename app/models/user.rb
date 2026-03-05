@@ -33,6 +33,10 @@ class User < ApplicationRecord
     can_transmit
   end
 
+  def cw_roger_beep?
+    cw_roger_beep
+  end
+
   private
 
   def must_have_at_least_one_reflector_admin
