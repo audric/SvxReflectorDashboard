@@ -952,6 +952,14 @@
     window._audioStop = function() { window._audioPlayerAlive = false; stopAudio(); };
     window._audioPlayerAlive = true;
 
+    // Tear down audio when the player element disappears (e.g. logout)
+    document.addEventListener('turbo:before-render', function _audioTeardown(e) {
+      if (!e.detail.newBody.querySelector('#audio-player-sidebar')) {
+        document.removeEventListener('turbo:before-render', _audioTeardown);
+        if (window._audioStop) window._audioStop();
+      }
+    });
+
     function toggleAudio() {
       if (playing) stopAudio();
       else startAudio();
