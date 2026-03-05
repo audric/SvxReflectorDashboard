@@ -98,8 +98,6 @@
       .flex.items-center.gap-1.mb-2
         %i.bi.bi-headphones.text-ghdim.text-xs
         %span.text-xs.uppercase.tracking-wider.text-ghdim Tune In
-        %span#audio-dot-sidebar.hidden
-          %span.ws-dot.ws-connected{style: "width:6px;height:6px;animation:blink .8s ease-in-out infinite;margin-left:4px;"}
       .space-y-2
         %select#audio-tg-select.w-full.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-1.cursor-pointer{style: "outline:none;"}
           %option{value: ""} Select TG...
@@ -112,7 +110,7 @@
           %input#audio-volume{type: "range", min: "0", max: "100", value: "70", style: "accent-color:#3fb950;height:4px;cursor:pointer;flex:1 1 0;min-width:0;"}
         #s-meter.hidden{style: "height:4px;border-radius:2px;background:#21262d;overflow:hidden;"}
           #s-meter-fill{style: "height:100%;width:100%;border-radius:2px;background:linear-gradient(to right,#3fb950,#d29922,#f85149);transform:scaleX(0);transform-origin:left;transition:transform 50ms;"}
-        %canvas#spectrum.hidden{width: "200", height: "32", style: "width:100%;height:32px;border-radius:4px;display:block;"}
+        %canvas#spectrum.hidden{width: "200", height: "32", style: "width:100%;height:32px;border-radius:4px;"}
 
   .border-t.border-ghborder.px-3.py-3
     - if logged_in?
@@ -146,8 +144,7 @@
       #s-meter-mobile.hidden{style: "height:4px;border-radius:2px;background:#21262d;overflow:hidden;flex:1 1 40px;"}
         #s-meter-fill-mobile{style: "height:100%;width:100%;border-radius:2px;background:linear-gradient(to right,#3fb950,#d29922,#f85149);transform:scaleX(0);transform-origin:left;transition:transform 50ms;"}
       %canvas#spectrum-mobile.hidden{width: "120", height: "24", style: "height:24px;border-radius:3px;flex:1 1 50px;"}
-      %span#audio-dot-mobile.hidden
-        %span.ws-dot.ws-connected{style: "width:6px;height:6px;animation:blink .8s ease-in-out infinite;"}
+
 
 :css
   @media (min-width: 1024px) {
@@ -492,8 +489,17 @@
             for (var g2 = 0; g2 < eleGap; g2++) samples.push(0);
           }
           var tonLen = code[ei] === '.' ? ditLen : dahLen;
+          // Round to full wave period so tone ends at zero crossing
+          var period = Math.round(sr / freq);
+          tonLen = Math.round(tonLen / period) * period;
+          if (tonLen < period) tonLen = period;
+          // 5ms raised-cosine ramp to eliminate onset/offset clicks
+          var rampLen = Math.round(sr * 0.005);
           for (var s = 0; s < tonLen; s++) {
-            samples.push(Math.sin(2 * Math.PI * freq * s / sr) * 0.8);
+            var env = 1.0;
+            if (s < rampLen) env = 0.5 * (1 - Math.cos(Math.PI * s / rampLen));
+            else if (s >= tonLen - rampLen) env = 0.5 * (1 - Math.cos(Math.PI * (tonLen - 1 - s) / rampLen));
+            samples.push(Math.sin(2 * Math.PI * freq * s / sr) * 0.8 * env);
           }
         }
       }
@@ -671,7 +677,7 @@
       micAnalyser = null;
 
       // S-meter: switch back to RX analyser or stop
-      meterGain = 4;
+      meterGain = 10;
       if (playing && analyser) startMeter(analyser);
       else stopMeter();
 
@@ -691,7 +697,7 @@
     }
 
     // ── S-Meter + Spectrum ──
-    var meterGain = 4;
+    var meterGain = 10;
 
     function barColor(pct) {
       // green (#3fb950) → yellow (#d29922) → red (#f85149)
@@ -703,26 +709,50 @@
       return 'rgb(' + Math.round(210 + (248 - 210) * t2) + ',' + Math.round(153 + (81 - 153) * t2) + ',' + Math.round(34 + (73 - 34) * t2) + ')';
     }
 
+    // Autoscale: peak tracks the loudest bar, decays slowly
+    var specPeak = 0.01;
+
     function drawSpectrum(ctx, canvas, src) {
       src.getByteFrequencyData(freqData);
       var w = canvas.width, h = canvas.height;
       ctx.clearRect(0, 0, w, h);
 
-      // Use lower half of frequency bins (voice range)
-      var bins = Math.floor(freqData.length / 2);
-      var barCount = Math.min(bins, Math.floor(w / 3));
+      // Voice range: 500 Hz – 5 kHz (bin = freq / (sampleRate / fftSize))
+      var binHz = sampleRate / (freqData.length * 2); // 187.5 Hz per bin at 48k/256
+      var minBin = Math.round(500 / binHz);   // ~3
+      var maxBin = Math.round(5000 / binHz);  // ~27
+      var barCount = Math.min(maxBin - minBin, Math.floor(w / 3));
       var barW = w / barCount;
       var gap = Math.max(1, barW * 0.2);
       var bw = barW - gap;
 
+      // Logarithmic frequency mapping within voice range
+      var logMin = Math.log(minBin);
+      var logMax = Math.log(maxBin);
+
+      // First pass: compute raw values and find frame peak
+      var vals = [];
+      var framePeak = 0;
       for (var i = 0; i < barCount; i++) {
-        // Average a few bins per bar
-        var binStart = Math.floor(i * bins / barCount);
-        var binEnd = Math.floor((i + 1) * bins / barCount);
+        var binStart = Math.floor(Math.exp(logMin + (logMax - logMin) * i / barCount));
+        var binEnd = Math.floor(Math.exp(logMin + (logMax - logMin) * (i + 1) / barCount));
+        if (binEnd <= binStart) binEnd = binStart + 1;
+        if (binEnd > maxBin) binEnd = maxBin;
         var sum = 0;
         for (var b = binStart; b < binEnd; b++) sum += freqData[b];
-        var val = sum / (binEnd - binStart) / 255;
-        val = Math.pow(val, 0.7) * meterGain / 4;
+        var raw = sum / (binEnd - binStart) / 255;
+        vals.push(raw);
+        if (raw > framePeak) framePeak = raw;
+      }
+
+      // Autoscale: track peak with fast attack, slow decay
+      if (framePeak > specPeak) specPeak = specPeak * 0.3 + framePeak * 0.7;
+      else specPeak = specPeak * 0.995 + framePeak * 0.005;
+      if (specPeak < 0.01) specPeak = 0.01;
+
+      // Second pass: draw bars scaled to peak (~80% height for loudest)
+      for (var i = 0; i < barCount; i++) {
+        var val = vals[i] / specPeak * 0.8;
         val = Math.min(val, 1);
 
         var barH = val * h;
@@ -777,6 +807,9 @@
       meterData = new Uint8Array(src.fftSize);
       freqData = new Uint8Array(src.frequencyBinCount);
 
+      // Unhide first so clientWidth/clientHeight are valid for sizing
+      [sMeter, sMeterMobile, spectrumCanvas, spectrumMobile].forEach(function(el) { if (el) el.classList.remove('hidden'); });
+
       // Size canvases to actual pixel width for crisp rendering
       if (spectrumCanvas) {
         spectrumCanvas.width = spectrumCanvas.clientWidth * (window.devicePixelRatio || 1);
@@ -787,7 +820,6 @@
         spectrumMobile.height = spectrumMobile.clientHeight * (window.devicePixelRatio || 1);
       }
 
-      [sMeter, sMeterMobile, spectrumCanvas, spectrumMobile].forEach(function(el) { if (el) el.classList.remove('hidden'); });
       meterRaf = requestAnimationFrame(function() { updateMeter(src); });
     }
 
