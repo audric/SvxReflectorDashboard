@@ -20,6 +20,13 @@ Rails.application.routes.draw do
     resource :settings, only: %i[edit update]
     resource :reflector, only: %i[edit update], controller: "reflector" do
       get :backups, on: :collection
+      get :pending_csrs, on: :collection
+      get :inspect_csr, on: :collection
+      get :certificates, on: :collection
+      get :export_ca_bundle, on: :collection
+      post :sign_csr, on: :collection
+      post :reject_csr, on: :collection
+      post :reset_pki, on: :collection
     end
     resources :bridges, controller: "bridge" do
       member do

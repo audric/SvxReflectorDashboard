@@ -6,6 +6,7 @@
     %meta{charset: "UTF-8"}
     %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
     %title SVXReflector · Reflector Config
+    = csrf_meta_tags
     %script{src: "/vendor/tailwind/tailwind.js"}
     :javascript
       tailwind.config = {
@@ -82,6 +83,20 @@
             %i.bi.bi-trash3.mr-1
             Delete
 
+    -# Generic danger confirm modal
+    #danger-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
+      .bg-ghcard.border.border-gray-600.rounded-lg.p-5.max-w-sm.w-full.mx-4.shadow-xl
+        .flex.items-center.gap-3.mb-3
+          .w-10.h-10.rounded-full.flex.items-center.justify-center.shrink-0{class: "bg-red-500/15"}
+            %i.bi.bi-exclamation-triangle.text-red-400
+          %h6.text-base.font-semibold.text-gray-100#danger-title Action
+        %p.text-sm.text-gray-400.mb-4#danger-body Are you sure?
+        .flex.justify-end.gap-2
+          %button#danger-cancel.px-3.py-1.5.rounded-md.border.border-gray-600.text-sm.text-gray-300.hover:text-gray-100.cursor-pointer{type: "button"} Cancel
+          %button#danger-confirm.px-3.py-1.5.rounded-md.bg-red-600.hover:bg-red-700.text-sm.text-white.font-semibold.cursor-pointer{type: "button"}
+            %i.bi.bi-trash3.mr-1
+            %span#danger-confirm-label Confirm
+
     -# Backup browser modal
     #backup-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
       .bg-ghcard.border.border-gray-600.rounded-lg.max-w-3xl.w-full.mx-4.shadow-xl.flex.flex-col{style: "max-height: 85vh"}
@@ -100,6 +115,19 @@
           #backup-content.flex-1.overflow-y-auto.p-4
             %pre.text-xs.font-mono.text-gray-300.whitespace-pre-wrap#backup-content-pre
               %span.text-ghdim Select a backup to inspect
+
+    -# CSR inspect modal
+    #csr-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
+      .bg-ghcard.border.border-gray-600.rounded-lg.max-w-2xl.w-full.mx-4.shadow-xl.flex.flex-col{style: "max-height: 80vh"}
+        .flex.items-center.justify-between.px-5.py-4.border-b.border-ghborder.shrink-0
+          %h6.text-base.font-semibold.text-gray-100
+            %i.bi.bi-file-earmark-lock.mr-2
+            %span#csr-modal-title CSR Details
+          %button.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "closeCsrModal()"}
+            %i.bi.bi-x-lg
+        .flex-1.overflow-y-auto.p-5
+          %pre.text-xs.font-mono.text-gray-300.whitespace-pre-wrap#csr-modal-body
+            %span.text-ghdim Loading…
 
     -# Help popup modal
     #help-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
@@ -319,17 +347,53 @@
             Backups
           = link_to "Back", admin_users_path, class: "px-4 py-2 rounded-md border border-gray-600 text-gray-400 hover:text-gray-200"
 
+      -# ── 6. Pending Certificates (outside the form) ──
+      .rounded-lg.border.border-gray-600.bg-ghcard.mb-4.mt-6
+        .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('csrs')"}
+          %h5.text-lg.font-semibold.text-gray-100
+            %i.bi.bi-shield-check.mr-2
+            Pending Certificates
+            %span.text-sm.font-normal.text-ghmuted.ml-2#csr-count
+          .flex.items-center.gap-2
+            %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-600.cursor-not-allowed.opacity-50{type: "button", id: "btn-csrs", disabled: true, onclick: "event.stopPropagation(); loadCsrs()"}
+              %i.bi.bi-arrow-clockwise.mr-1
+              Refresh
+            %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-csrs"}
+        .accordion-body.px-4{id: "body-csrs"}
+          #csrs-content.text-sm.text-ghmuted
+            %span.text-ghdim Click Refresh to load pending certificate requests.
+
+      -# ── 7. Our Certificates ──
+      .rounded-lg.border.border-gray-600.bg-ghcard.mb-4.mt-4
+        .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('ourcerts')"}
+          %h5.text-lg.font-semibold.text-gray-100
+            %i.bi.bi-award.mr-2
+            Our Certificates
+          .flex.items-center.gap-2
+            %button.text-sm.px-3.py-1.rounded-md.border.border-red-800.text-gray-600.cursor-not-allowed.opacity-50{type: "button", id: "btn-reset-pki", disabled: true, onclick: "event.stopPropagation(); resetPki()"}
+              %i.bi.bi-trash3.mr-1
+              Reset PKI
+            %a.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-600.cursor-not-allowed.opacity-50{id: "btn-ourcerts", href: "#{export_ca_bundle_admin_reflector_path}", onclick: "event.stopPropagation()", style: "pointer-events:none"}
+              %i.bi.bi-download.mr-1
+              Export CA Bundle
+            %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-ourcerts"}
+        .accordion-body.px-4{id: "body-ourcerts"}
+          #ourcerts-content.text-sm.text-ghmuted
+            %span.text-ghdim Loading…
+
     :javascript
       var HELP_TEXTS = #{help.to_json};
 
+      function openModal(id) { var m = document.getElementById(id); m.classList.remove('hidden'); m.classList.add('flex'); }
+      function closeModal(id) { var m = document.getElementById(id); m.classList.add('hidden'); m.classList.remove('flex'); }
+
       function showHelp(key) {
-        var modal = document.getElementById('help-modal');
         document.getElementById('help-modal-title').textContent = key;
         document.getElementById('help-modal-body').textContent = HELP_TEXTS[key] || 'No description available.';
-        modal.style.display = 'flex';
+        openModal('help-modal');
       }
       function closeHelp() {
-        document.getElementById('help-modal').style.display = 'none';
+        closeModal('help-modal');
       }
       document.getElementById('help-modal').addEventListener('click', function(e) {
         if (e.target === this) closeHelp();
@@ -343,20 +407,20 @@
       var _confirmTarget = null;
       function confirmRemove(btn, selector) {
         _confirmTarget = btn.closest(selector);
-        document.getElementById('confirm-modal').style.display = 'flex';
+        openModal('confirm-modal');
       }
       document.getElementById('confirm-delete').addEventListener('click', function() {
         if (_confirmTarget) _confirmTarget.remove();
         _confirmTarget = null;
-        document.getElementById('confirm-modal').style.display = 'none';
+        closeModal('confirm-modal');
         syncGroupSelects();
       });
       document.getElementById('confirm-cancel').addEventListener('click', function() {
         _confirmTarget = null;
-        document.getElementById('confirm-modal').style.display = 'none';
+        closeModal('confirm-modal');
       });
       document.getElementById('confirm-modal').addEventListener('click', function(e) {
-        if (e.target === this) { _confirmTarget = null; this.style.display = 'none'; }
+        if (e.target === this) { _confirmTarget = null; closeModal('confirm-modal'); }
       });
 
       function toggleSection(id) {
@@ -374,6 +438,33 @@
           btn.classList.toggle('cursor-pointer', open);
           btn.classList.toggle('text-gray-400', open);
           btn.classList.toggle('hover:text-gray-200', open);
+        }
+        if (id === 'csrs' && body.classList.contains('open')) loadCsrs();
+        if (id === 'ourcerts' && body.classList.contains('open')) loadOurCerts();
+        if (id === 'ourcerts') {
+          var isOpen = body.classList.contains('open');
+          // Export button (link)
+          var exportBtn = document.getElementById('btn-ourcerts');
+          if (exportBtn) {
+            exportBtn.style.pointerEvents = isOpen ? 'auto' : 'none';
+            exportBtn.classList.toggle('opacity-50', !isOpen);
+            exportBtn.classList.toggle('cursor-not-allowed', !isOpen);
+            exportBtn.classList.toggle('text-gray-600', !isOpen);
+            exportBtn.classList.toggle('cursor-pointer', isOpen);
+            exportBtn.classList.toggle('text-gray-400', isOpen);
+            exportBtn.classList.toggle('hover:text-gray-200', isOpen);
+          }
+          // Reset PKI button
+          var resetBtn = document.getElementById('btn-reset-pki');
+          if (resetBtn) {
+            resetBtn.disabled = !isOpen;
+            resetBtn.classList.toggle('opacity-50', !isOpen);
+            resetBtn.classList.toggle('cursor-not-allowed', !isOpen);
+            resetBtn.classList.toggle('text-gray-600', !isOpen);
+            resetBtn.classList.toggle('cursor-pointer', isOpen);
+            resetBtn.classList.toggle('text-red-400', isOpen);
+            resetBtn.classList.toggle('hover:text-red-300', isOpen);
+          }
         }
       }
 
@@ -454,8 +545,7 @@
       // ── Backup browser ──
       var _backupData = null;
       function openBackups() {
-        var modal = document.getElementById('backup-modal');
-        modal.style.display = 'flex';
+        openModal('backup-modal');
         if (_backupData) { renderBackupList(_backupData); return; }
         fetch('/admin/reflector/backups')
           .then(function(r) { return r.json(); })
@@ -465,7 +555,7 @@
           });
       }
       function closeBackups() {
-        document.getElementById('backup-modal').style.display = 'none';
+        closeModal('backup-modal');
       }
       document.getElementById('backup-modal').addEventListener('click', function(e) {
         if (e.target === this) closeBackups();
@@ -487,4 +577,243 @@
           list.appendChild(btn);
           if (i === 0) btn.click();
         });
+      }
+
+      // ── Pending CSRs ──
+      function loadCsrs() {
+        var content = document.getElementById('csrs-content');
+        content.innerHTML = '<span class="text-ghdim">Loading…</span>';
+        fetch('#{pending_csrs_admin_reflector_path}')
+          .then(function(r) { return r.json(); })
+          .then(function(csrs) { renderCsrs(csrs); })
+          .catch(function() { content.innerHTML = '<span class="text-red-400">Failed to load CSRs</span>'; });
+      }
+      function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+      function renderCsrs(csrs) {
+        var content = document.getElementById('csrs-content');
+        var count = document.getElementById('csr-count');
+        count.textContent = csrs.length > 0 ? '(' + csrs.length + ' pending)' : '';
+        if (!csrs.length) {
+          content.innerHTML = '<div class="flex items-center gap-2 text-green-400 py-2"><i class="bi bi-check-circle"></i> No pending certificate requests.</div>';
+          return;
+        }
+        var html = '<div class="space-y-2">';
+        csrs.forEach(function(csr) {
+          var subjectHtml = csr.subject ? '<span class="text-ghmuted text-xs ml-2">' + esc(csr.subject) + '</span>' : '';
+          var dateHtml = csr.date ? '<span class="text-ghdim text-xs">' + esc(csr.date) + '</span>' : '';
+          html += '<div class="border border-gray-700 rounded-lg px-4 py-3" id="csr-row-' + esc(csr.callsign) + '">' +
+            '<div class="flex items-center justify-between">' +
+              '<div class="flex items-center gap-3 min-w-0">' +
+                '<i class="bi bi-file-earmark-lock text-yellow-400 shrink-0"></i>' +
+                '<div class="min-w-0">' +
+                  '<div class="flex items-center gap-2 flex-wrap">' +
+                    '<span class="font-mono font-semibold text-gray-200">' + esc(csr.callsign) + '</span>' +
+                    dateHtml +
+                  '</div>' +
+                  (csr.subject ? '<div class="text-xs text-ghmuted truncate mt-0.5">' + esc(csr.subject) + '</div>' : '') +
+                '</div>' +
+              '</div>' +
+              '<div class="flex items-center gap-2 shrink-0 ml-3">' +
+                '<button type="button" class="p-2 rounded-md text-gray-400 hover:text-gray-200 hover:bg-ghborder2 cursor-pointer" onclick="inspectCsr(\'' + esc(csr.callsign) + '\')" title="Inspect">' +
+                  '<i class="bi bi-eye"></i>' +
+                '</button>' +
+                '<button type="button" class="p-2 rounded-md text-green-400 hover:text-green-300 hover:bg-ghborder2 cursor-pointer" onclick="signCsr(\'' + esc(csr.callsign) + '\', this)" title="Sign">' +
+                  '<i class="bi bi-check-lg"></i>' +
+                '</button>' +
+                '<button type="button" class="p-2 rounded-md text-red-400 hover:text-red-300 hover:bg-ghborder2 cursor-pointer" onclick="rejectCsr(\'' + esc(csr.callsign) + '\', this)" title="Reject">' +
+                  '<i class="bi bi-trash3"></i>' +
+                '</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        });
+        html += '</div>';
+        content.innerHTML = html;
+      }
+
+      function inspectCsr(callsign) {
+        var modal = document.getElementById('csr-modal');
+        document.getElementById('csr-modal-title').textContent = callsign;
+        document.getElementById('csr-modal-body').innerHTML = '<span class="text-ghdim">Loading…</span>';
+        openModal('csr-modal');
+        fetch('#{inspect_csr_admin_reflector_path}?callsign=' + encodeURIComponent(callsign))
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.error) {
+              document.getElementById('csr-modal-body').innerHTML = '<span class="text-red-400">' + esc(data.error) + '</span>';
+              return;
+            }
+            var html = '<div class="space-y-3">';
+            if (data.subject) {
+              html += '<div><div class="text-ghmuted text-xs uppercase tracking-wide mb-1">Subject</div>' +
+                '<div class="text-gray-200 text-sm font-mono whitespace-pre">' + esc(data.subject) + '</div></div>';
+            }
+            if (data.key_info) {
+              html += '<div><div class="text-ghmuted text-xs uppercase tracking-wide mb-1">Public Key</div>' +
+                '<div class="text-gray-300 text-xs font-mono whitespace-pre">' + esc(data.key_info) + '</div></div>';
+            }
+            html += '</div>';
+            document.getElementById('csr-modal-body').innerHTML = html;
+          })
+          .catch(function() {
+            document.getElementById('csr-modal-body').innerHTML = '<span class="text-red-400">Failed to load CSR details</span>';
+          });
+      }
+      function closeCsrModal() {
+        closeModal('csr-modal');
+      }
+      document.getElementById('csr-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeCsrModal();
+      });
+
+      function csrAction(url, callsign, btn, successIcon, successLabel) {
+        btn.disabled = true;
+        var token = document.querySelector('meta[name="csrf-token"]');
+        fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token ? token.content : '' },
+          body: JSON.stringify({ callsign: callsign })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.ok) {
+            var row = document.getElementById('csr-row-' + callsign);
+            if (row) row.innerHTML =
+              '<div class="flex items-center gap-3"><i class="bi ' + successIcon + '"></i>' +
+              '<span class="font-mono font-semibold text-gray-200">' + data.callsign + '</span></div>' +
+              '<span class="text-sm">' + successLabel + '</span>';
+          } else {
+            btn.disabled = false;
+            alert('Error: ' + (data.error || 'Unknown error'));
+          }
+        })
+        .catch(function() { btn.disabled = false; alert('Operation failed'); });
+      }
+      function signCsr(callsign, btn) {
+        csrAction('#{sign_csr_admin_reflector_path}', callsign, btn, 'bi-check-circle text-green-400', '<i class="bi bi-check-lg mr-1 text-green-400"></i><span class="text-green-400">Signed</span>');
+      }
+      function rejectCsr(callsign, btn) {
+        showDanger(
+          'Reject CSR for "' + callsign + '"?',
+          'This will delete the pending certificate request. The node will need to reconnect to submit a new one.',
+          'Reject',
+          function() {
+            csrAction('#{reject_csr_admin_reflector_path}', callsign, btn, 'bi-x-circle text-red-400', '<i class="bi bi-x-lg mr-1 text-red-400"></i><span class="text-red-400">Rejected</span>');
+          }
+        );
+      }
+
+      // ── Danger confirm modal ──
+      var _dangerCallback = null;
+      function showDanger(title, body, confirmLabel, callback) {
+        document.getElementById('danger-title').textContent = title;
+        document.getElementById('danger-body').textContent = body;
+        document.getElementById('danger-confirm-label').textContent = confirmLabel;
+        _dangerCallback = callback;
+        document.getElementById('danger-modal').classList.remove('hidden');
+        document.getElementById('danger-modal').classList.add('flex');
+      }
+      function closeDanger() {
+        document.getElementById('danger-modal').classList.add('hidden');
+        document.getElementById('danger-modal').classList.remove('flex');
+        _dangerCallback = null;
+      }
+      document.getElementById('danger-confirm').addEventListener('click', function() {
+        if (_dangerCallback) _dangerCallback();
+        closeDanger();
+      });
+      document.getElementById('danger-cancel').addEventListener('click', closeDanger);
+      document.getElementById('danger-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeDanger();
+      });
+
+      // ── Reset PKI ──
+      function resetPki() {
+        showDanger(
+          'Reset all certificates?',
+          'This will delete all certificates and restart the reflector. All connected nodes will need to reconnect and have their CSRs re-signed.',
+          'Reset PKI',
+          function() {
+            var btn = document.getElementById('btn-reset-pki');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split mr-1"></i>Resetting…';
+            var token = document.querySelector('meta[name="csrf-token"]');
+            fetch('#{reset_pki_admin_reflector_path}', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token ? token.content : '' }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              if (data.ok) {
+                _ourCertsLoaded = false;
+                document.getElementById('ourcerts-content').innerHTML = '<div class="flex items-center gap-2 text-green-400 py-2"><i class="bi bi-check-circle"></i> PKI reset complete. Reflector is restarting with fresh certificates.</div>';
+              }
+              btn.innerHTML = '<i class="bi bi-trash3 mr-1"></i>Reset PKI';
+              btn.disabled = false;
+            })
+            .catch(function() { btn.innerHTML = '<i class="bi bi-trash3 mr-1"></i>Reset PKI'; btn.disabled = false; });
+          }
+        );
+      }
+
+      // ── Our Certificates ──
+      var _ourCertsLoaded = false;
+      function loadOurCerts() {
+        if (_ourCertsLoaded) return;
+        var content = document.getElementById('ourcerts-content');
+        content.innerHTML = '<span class="text-ghdim">Loading…</span>';
+        fetch('#{certificates_admin_reflector_path}')
+          .then(function(r) { return r.json(); })
+          .then(function(certs) { _ourCertsLoaded = true; renderOurCerts(certs); })
+          .catch(function() { content.innerHTML = '<span class="text-red-400">Failed to load certificates</span>'; });
+      }
+      function renderOurCerts(certs) {
+        var content = document.getElementById('ourcerts-content');
+        if (!certs.length) {
+          content.innerHTML = '<div class="text-ghdim py-2">No certificates found.</div>';
+          return;
+        }
+        var labels = {
+          'svxreflector_root_ca': { icon: 'bi-shield-lock', label: 'Root CA', color: 'text-yellow-400' },
+          'svxreflector_issuing_ca': { icon: 'bi-shield-check', label: 'Issuing CA', color: 'text-blue-400' }
+        };
+        var html = '<div class="space-y-3">';
+        certs.forEach(function(cert) {
+          var meta = labels[cert.name] || { icon: 'bi-file-earmark-lock', label: 'Server Certificate', color: 'text-green-400' };
+          var f = cert.fields;
+          var subject = (f.subject || '').replace(/^.*?=/, '');
+          var issuer = (f.issuer || '').replace(/^.*?=/, '');
+          var notBefore = f.notBefore || '';
+          var notAfter = f.notAfter || '';
+          var serial = f.serial || '';
+          var san = '';
+          Object.keys(f).forEach(function(k) {
+            if (k.indexOf('Subject Alternative') >= 0 || k.indexOf('subjectAltName') >= 0) san = f[k];
+          });
+          // Check if cert might be in the SAN fields value
+          if (!san) {
+            Object.keys(f).forEach(function(k) {
+              if (k.indexOf('DNS:') >= 0 || k.indexOf('IP Address:') >= 0) san = k + (f[k] ? ' ' + f[k] : '');
+            });
+          }
+
+          html += '<div class="border border-gray-700 rounded-lg p-4">' +
+            '<div class="flex items-center gap-2 mb-3">' +
+              '<i class="bi ' + meta.icon + ' ' + meta.color + '"></i>' +
+              '<span class="font-semibold text-gray-200">' + esc(meta.label) + '</span>' +
+              '<span class="text-xs text-ghdim font-mono">(' + esc(cert.name) + ')</span>' +
+            '</div>' +
+            '<div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-xs">' +
+              '<div><span class="text-ghmuted">Subject:</span> <span class="text-gray-300 font-mono">' + esc(subject) + '</span></div>' +
+              '<div><span class="text-ghmuted">Issuer:</span> <span class="text-gray-300 font-mono">' + esc(issuer) + '</span></div>' +
+              '<div><span class="text-ghmuted">Valid from:</span> <span class="text-gray-300">' + esc(notBefore) + '</span></div>' +
+              '<div><span class="text-ghmuted">Valid until:</span> <span class="text-gray-300">' + esc(notAfter) + '</span></div>' +
+              '<div class="md:col-span-2"><span class="text-ghmuted">Serial:</span> <span class="text-gray-300 font-mono text-xs">' + esc(serial) + '</span></div>' +
+              (san ? '<div class="md:col-span-2"><span class="text-ghmuted">SAN:</span> <span class="text-gray-300 font-mono text-xs">' + esc(san) + '</span></div>' : '') +
+            '</div>' +
+          '</div>';
+        });
+        html += '</div>';
+        content.innerHTML = html;
       }

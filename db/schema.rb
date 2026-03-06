@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_06_193350) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_06_210149) do
   create_table "bridge_tg_mappings", force: :cascade do |t|
     t.integer "bridge_id", null: false
     t.datetime "created_at", null: false
@@ -33,6 +33,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_06_193350) do
     t.integer "local_port"
     t.string "name"
     t.string "remote_auth_key"
+    t.text "remote_ca_bundle"
     t.string "remote_callsign"
     t.integer "remote_default_tg"
     t.string "remote_host"

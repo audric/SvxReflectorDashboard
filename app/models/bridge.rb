@@ -71,6 +71,81 @@ class Bridge < ApplicationRecord
 
     lines << ""
     File.write(config_path, lines.join("\n"))
+    write_ca_bundle
+  end
+
+  def ca_bundle_path
+    config_dir.join("ca-bundle.crt")
+  end
+
+  def write_ca_bundle
+    local_ca = fetch_local_ca_bundle
+    remote_ca = remote_ca_bundle.to_s.strip
+
+    if local_ca.blank? && remote_ca.blank?
+      File.delete(ca_bundle_path) if ca_bundle_path.exist?
+      return
+    end
+
+    parts = [local_ca, remote_ca].select(&:present?)
+    File.write(ca_bundle_path, parts.join("\n") + "\n")
+  end
+
+  def fetch_local_ca_bundle
+    # Read the local reflector's CA bundle from the reflector container
+    containers = docker_api_get("/containers/json")
+    container = containers.find { |c| c["Names"].any? { |n| n =~ /-svxreflector-\d+$/ } }
+    return nil unless container
+
+    result = docker_api_post_json("/containers/#{container["Id"]}/exec", {
+      Cmd: ["cat", "/var/lib/svxlink/pki/ca-bundle.crt"],
+      AttachStdout: true, AttachStderr: true
+    })
+    exec_id = result["Id"]
+    return nil unless exec_id
+
+    start_body = { Detach: false, Tty: false }.to_json
+    sock = UNIXSocket.new("/var/run/docker.sock")
+    sock.write("POST /exec/#{exec_id}/start HTTP/1.0\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: #{start_body.bytesize}\r\n\r\n#{start_body}")
+    response = sock.read
+    sock.close
+
+    raw = response.split("\r\n\r\n", 2).last
+    parse_exec_output(raw).presence
+  rescue => e
+    Rails.logger.warn "[Bridge] Could not fetch local CA bundle: #{e.message}"
+    nil
+  end
+
+  def docker_api_get(path)
+    sock = UNIXSocket.new("/var/run/docker.sock")
+    sock.write("GET #{path} HTTP/1.0\r\nHost: localhost\r\n\r\n")
+    response = sock.read
+    sock.close
+    body = response.split("\r\n\r\n", 2).last
+    JSON.parse(body)
+  end
+
+  def docker_api_post_json(path, data)
+    json = data.to_json
+    sock = UNIXSocket.new("/var/run/docker.sock")
+    sock.write("POST #{path} HTTP/1.0\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: #{json.bytesize}\r\n\r\n#{json}")
+    response = sock.read
+    sock.close
+    body = response.split("\r\n\r\n", 2).last
+    JSON.parse(body) rescue {}
+  end
+
+  def parse_exec_output(raw)
+    output = ""
+    pos = 0
+    while pos + 8 <= raw.bytesize
+      size = raw[pos + 4, 4].unpack1("N")
+      break if pos + 8 + size > raw.bytesize
+      output << raw[pos + 8, size]
+      pos += 8 + size
+    end
+    output
   end
 
   private

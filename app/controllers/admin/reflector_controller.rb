@@ -18,6 +18,192 @@ module Admin
       render json: @backups
     end
 
+    def pending_csrs
+      container = find_reflector_container
+      unless container
+        render json: []
+        return
+      end
+
+      # Single exec: get filename, mtime, and subject for each CSR
+      script = <<~SH
+        for f in /var/lib/svxlink/pki/pending_csrs/*.csr; do
+          [ -f "$f" ] || continue
+          subj=$(openssl req -in "$f" -noout -subject 2>/dev/null | sed 's/^subject=//')
+          echo "$(basename "$f" .csr)\t$(stat -c %Y "$f")\t${subj}"
+        done
+      SH
+      output = docker_exec(container["Id"], ["sh", "-c", script])
+      csrs = output.strip.split("\n").select(&:present?).map do |line|
+        parts = line.split("\t", 3)
+        {
+          callsign: parts[0],
+          date: parts[1] ? Time.at(parts[1].to_i).strftime("%Y-%m-%d %H:%M") : nil,
+          subject: parts[2].to_s.strip.presence
+        }
+      end
+      render json: csrs
+    rescue => e
+      Rails.logger.error "[ReflectorConfig] Failed to list pending CSRs: #{e.class} #{e.message}"
+      render json: []
+    end
+
+    def inspect_csr
+      callsign = params[:callsign].to_s.strip.gsub(/[^A-Za-z0-9\-_]/, "")
+      container = find_reflector_container
+      unless container
+        render json: { error: "Reflector container not found" }, status: :not_found
+        return
+      end
+
+      output = docker_exec(container["Id"], [
+        "openssl", "req", "-in", "/var/lib/svxlink/pki/pending_csrs/#{callsign}.csr", "-noout",
+        "-subject", "-nameopt", "multiline"
+      ])
+      key_info = docker_exec(container["Id"], [
+        "openssl", "req", "-in", "/var/lib/svxlink/pki/pending_csrs/#{callsign}.csr", "-noout", "-text"
+      ])
+      # Extract just the public key info section
+      key_lines = []
+      in_key = false
+      key_info.each_line do |line|
+        if line =~ /Public Key Algorithm|Public-Key/
+          in_key = true
+        elsif in_key && line =~ /\A\s{8,}/
+          # continuation of key block
+        elsif in_key
+          in_key = false
+        end
+        key_lines << line.rstrip if in_key
+      end
+
+      render json: {
+        callsign: callsign,
+        subject: output.strip,
+        key_info: key_lines.join("\n")
+      }
+    rescue => e
+      Rails.logger.error "[ReflectorConfig] Failed to inspect CSR: #{e.class} #{e.message}"
+      render json: { error: e.message }, status: :internal_server_error
+    end
+
+    def sign_csr
+      callsign = params[:callsign].to_s.strip
+      if callsign.blank?
+        render json: { error: "Callsign required" }, status: :bad_request
+        return
+      end
+
+      container = find_reflector_container
+      unless container
+        render json: { error: "Reflector container not found" }, status: :not_found
+        return
+      end
+
+      # Sanitize callsign to prevent command injection
+      safe_callsign = callsign.gsub(/[^A-Za-z0-9\-_]/, "")
+      docker_exec(container["Id"], ["sh", "-c", "echo 'CA SIGN #{safe_callsign}' > /dev/shm/reflector_ctrl"])
+      render json: { ok: true, callsign: safe_callsign }
+    rescue => e
+      Rails.logger.error "[ReflectorConfig] Failed to sign CSR: #{e.class} #{e.message}"
+      render json: { error: e.message }, status: :internal_server_error
+    end
+
+    def reject_csr
+      callsign = params[:callsign].to_s.strip.gsub(/[^A-Za-z0-9\-_]/, "")
+      if callsign.blank?
+        render json: { error: "Callsign required" }, status: :bad_request
+        return
+      end
+
+      container = find_reflector_container
+      unless container
+        render json: { error: "Reflector container not found" }, status: :not_found
+        return
+      end
+
+      docker_exec(container["Id"], ["rm", "-f", "/var/lib/svxlink/pki/pending_csrs/#{callsign}.csr"])
+      render json: { ok: true, callsign: callsign }
+    rescue => e
+      Rails.logger.error "[ReflectorConfig] Failed to reject CSR: #{e.class} #{e.message}"
+      render json: { error: e.message }, status: :internal_server_error
+    end
+
+    def certificates
+      container = find_reflector_container
+      unless container
+        render json: { error: "Reflector container not found" }, status: :not_found
+        return
+      end
+
+      script = <<~SH
+        for name in svxreflector_root_ca svxreflector_issuing_ca; do
+          f="/var/lib/svxlink/pki/certs/${name}.crt"
+          [ -f "$f" ] && echo "CERT:${name}" && openssl x509 -in "$f" -noout -subject -issuer -dates -serial -ext subjectAltName 2>/dev/null && echo "---"
+        done
+        for f in /var/lib/svxlink/pki/certs/*.crt; do
+          bn=$(basename "$f" .crt)
+          [ "$bn" = "svxreflector_root_ca" ] && continue
+          [ "$bn" = "svxreflector_issuing_ca" ] && continue
+          echo "CERT:${bn}" && openssl x509 -in "$f" -noout -subject -issuer -dates -serial -ext subjectAltName 2>/dev/null && echo "---"
+        done
+      SH
+      output = docker_exec(container["Id"], ["sh", "-c", script])
+
+      certs = []
+      current = nil
+      output.each_line do |line|
+        line = line.strip
+        if line.start_with?("CERT:")
+          current = { name: line.sub("CERT:", ""), fields: {} }
+          certs << current
+        elsif line == "---"
+          current = nil
+        elsif current && line.include?("=")
+          key, val = line.split("=", 2)
+          current[:fields][key.strip] = val.to_s.strip
+        elsif current && line.present?
+          # Multi-line field continuation (e.g. SAN)
+          last_key = current[:fields].keys.last
+          current[:fields][last_key] = "#{current[:fields][last_key]} #{line}".strip if last_key
+        end
+      end
+
+      render json: certs
+    rescue => e
+      Rails.logger.error "[ReflectorConfig] Failed to list certificates: #{e.class} #{e.message}"
+      render json: []
+    end
+
+    def export_ca_bundle
+      container = find_reflector_container
+      unless container
+        head :not_found
+        return
+      end
+
+      bundle = docker_exec(container["Id"], ["cat", "/var/lib/svxlink/pki/ca-bundle.crt"])
+      send_data bundle, filename: "ca-bundle.crt", type: "application/x-pem-file", disposition: "attachment"
+    rescue => e
+      Rails.logger.error "[ReflectorConfig] Failed to export CA bundle: #{e.class} #{e.message}"
+      head :internal_server_error
+    end
+
+    def reset_pki
+      container = find_reflector_container
+      unless container
+        render json: { error: "Reflector container not found" }, status: :not_found
+        return
+      end
+
+      docker_exec(container["Id"], ["sh", "-c", "rm -rf /var/lib/svxlink/pki/*"])
+      docker_api_post("/containers/#{container["Id"]}/restart?t=5")
+      render json: { ok: true }
+    rescue => e
+      Rails.logger.error "[ReflectorConfig] Failed to reset PKI: #{e.class} #{e.message}"
+      render json: { error: e.message }, status: :internal_server_error
+    end
+
     def update
       config = ReflectorConfig.new
 
@@ -115,6 +301,50 @@ module Admin
       response = sock.read
       sock.close
       Rails.logger.info "[ReflectorConfig] Docker API response: #{response.split("\r\n").first}"
+    end
+
+    def docker_api_post_json(path, data)
+      json = data.to_json
+      sock = UNIXSocket.new("/var/run/docker.sock")
+      sock.write("POST #{path} HTTP/1.0\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: #{json.bytesize}\r\n\r\n#{json}")
+      response = sock.read
+      sock.close
+      body = response.split("\r\n\r\n", 2).last
+      JSON.parse(body) rescue {}
+    end
+
+    def find_reflector_container
+      containers = docker_api_get("/containers/json")
+      containers.find { |c| c["Names"].any? { |n| n =~ /-svxreflector-\d+$/ } }
+    end
+
+    def docker_exec(container_id, cmd)
+      result = docker_api_post_json("/containers/#{container_id}/exec", {
+        Cmd: cmd, AttachStdout: true, AttachStderr: true
+      })
+      exec_id = result["Id"]
+      return "" unless exec_id
+
+      start_body = { Detach: false, Tty: false }.to_json
+      sock = UNIXSocket.new("/var/run/docker.sock")
+      sock.write("POST /exec/#{exec_id}/start HTTP/1.0\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: #{start_body.bytesize}\r\n\r\n#{start_body}")
+      response = sock.read
+      sock.close
+
+      raw = response.split("\r\n\r\n", 2).last
+      parse_exec_output(raw)
+    end
+
+    def parse_exec_output(raw)
+      output = ""
+      pos = 0
+      while pos + 8 <= raw.bytesize
+        size = raw[pos + 4, 4].unpack1("N")
+        break if pos + 8 + size > raw.bytesize
+        output << raw[pos + 8, size]
+        pos += 8 + size
+      end
+      output
     end
   end
 end

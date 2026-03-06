@@ -130,6 +130,7 @@
       .node-freq { font-size: .68rem; color: #8b949e; font-family: monospace; margin-top: .1rem; }
       .node-freq .freq-val { color: #c9d1d9; }
       .node-freq .freq-offset { color: #6e7681; }
+      .node-desc { font-size: .65rem; color: #6e7681; font-style: italic; margin-top: .1rem; max-width: 180px; white-space: normal; line-height: 1.2; }
 
       /* ── Tone cell ───────────────────────────────────────────────────────── */
       .tone-pill {
@@ -234,6 +235,8 @@
                   %td.col-node
                     .node-cs= tg_rec.tg
                     .node-loc= tg_rec.name
+                    - if tg_rec.description.present?
+                      .node-desc= tg_rec.description
                   - if @visible_nodes.empty?
                     %td.text-gray-500.text-sm.text-center
                       %span.empty-cell ·
@@ -253,7 +256,7 @@
                           %span.empty-cell ·
 
     - nodes_json = @nodes.to_json.html_safe
-    - tgs_db_json = @tgs_db.map { |t| { tg: t.tg.to_i, name: t.name } }.to_json.html_safe
+    - tgs_db_json = @tgs_db.map { |t| { tg: t.tg.to_i, name: t.name, description: t.description.to_s } }.to_json.html_safe
     :javascript
       var _tgNodes = #{nodes_json};
       var _tgsDb   = #{tgs_db_json};
@@ -451,7 +454,8 @@
             var nodeTd = document.createElement('td');
             nodeTd.className = 'col-node';
             nodeTd.innerHTML = '<div class="node-cs">' + esc(tgRec.tg) + '</div>' +
-              '<div class="node-loc">' + esc(tgRec.name) + '</div>';
+              '<div class="node-loc">' + esc(tgRec.name) + '</div>' +
+              (tgRec.description ? '<div class="node-desc">' + esc(tgRec.description) + '</div>' : '');
             tr.appendChild(nodeTd);
 
             if (visibleNodes.length === 0) {

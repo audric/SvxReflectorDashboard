@@ -90,7 +90,8 @@ module Admin
       params.require(:bridge).permit(
         :name, :local_host, :local_port, :local_callsign, :local_auth_key,
         :local_default_tg, :remote_host, :remote_port, :remote_callsign,
-        :remote_auth_key, :remote_default_tg, :timeout, :enabled
+        :remote_auth_key, :remote_default_tg, :timeout, :enabled,
+        :remote_ca_bundle
       )
     end
 
@@ -143,6 +144,12 @@ module Admin
       network = docker_network
       config_host_path = File.join(bridge_host_dir, bridge.id.to_s, "svxlink.conf")
 
+      binds = ["#{config_host_path}:/etc/svxlink/svxlink.conf"]
+      ca_bundle_host_path = File.join(bridge_host_dir, bridge.id.to_s, "ca-bundle.crt")
+      if bridge.ca_bundle_path.exist?
+        binds << "#{ca_bundle_host_path}:/var/lib/svxlink/pki/ca-bundle.crt:ro"
+      end
+
       body = {
         Image: "audric/svxlink",
         Labels: {
@@ -159,7 +166,7 @@ module Admin
           "LANG=C"
         ],
         HostConfig: {
-          Binds: ["#{config_host_path}:/etc/svxlink/svxlink.conf"],
+          Binds: binds,
           RestartPolicy: { Name: "unless-stopped" }
         }
       }
