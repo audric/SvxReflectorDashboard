@@ -87,14 +87,16 @@
                     %td.px-4.py-2.text-ghmuted.font-medium Used
                     %td.px-4.py-2.text-gray-200.font-mono= "#{@memory[:used]} (#{@memory[:used_pct]}%)"
                   %tr.border-b.border-ghborder2
-                    %td.px-4.py-2.text-ghmuted.font-medium Buff / Cache
-                    %td.px-4.py-2.text-gray-200.font-mono= "#{@memory[:buffers]} / #{@memory[:cached]}"
-                  %tr.border-b.border-ghborder2
-                    %td.px-4.py-2.text-ghmuted.font-medium Available
-                    %td.px-4.py-2.text-gray-200.font-mono= @memory[:available]
-                  %tr.border-b.border-ghborder2
-                    %td.px-4.py-2.text-ghmuted.font-medium Free
-                    %td.px-4.py-2.text-gray-200.font-mono= @memory[:free]
+                    %td.px-4.py-2.text-ghmuted.font-medium
+                    %td.px-4.py-2.text-gray-200.font-mono.text-xs
+                      %span.text-ghmuted Buff/Cache
+                      = @memory[:buffers]
+                      \/
+                      = @memory[:cached]
+                      %span.text-ghmuted.ml-3 Avail
+                      = @memory[:available]
+                      %span.text-ghmuted.ml-3 Free
+                      = @memory[:free]
                   - if @memory[:has_swap]
                     %tr.border-b.border-ghborder2
                       %td.px-4.py-2.text-ghmuted.font-medium Swap
