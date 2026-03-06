@@ -564,13 +564,14 @@
 
         // ── Activity log ───────────────────────────────────────────────────────────
         function addLog(msg) {
+          var log  = document.getElementById('activity-log');
+          if (!log) return;
+
           var placeholder = document.getElementById('log-placeholder');
           if (placeholder) placeholder.remove();
 
           logCount++;
           setText('log-count', logCount);
-
-          var log  = document.getElementById('activity-log');
           var item = document.createElement('div');
           item.className = 'activity-item px-3 py-2 border-b';
 
