@@ -91,7 +91,7 @@
             %th.pb-2.pr-2 Timeout (s)
             %th.pb-2.w-10
         %tbody#mappings-tbody
-          - mappings = @bridge.persisted? ? @bridge.bridge_tg_mappings : [OpenStruct.new(local_tg: 1, remote_tg: 1, timeout: 0)]
+          - mappings = @bridge.persisted? ? @bridge.bridge_tg_mappings : [Struct.new(:local_tg, :remote_tg, :timeout).new(1, 1, 0)]
           - mappings.each do |mapping|
             %tr.border-t.border-gray-700
               %td.py-2.pr-2
