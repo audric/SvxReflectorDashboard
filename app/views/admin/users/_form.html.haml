@@ -66,13 +66,13 @@
     %label.flex.items-center.gap-2.cursor-pointer
       = f.check_box :can_monitor, class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500 cursor-pointer"
       %span.text-sm.text-gray-300 Can monitor audio
-    %small.text-gray-500.block.mt-1 Allow this user to listen to live talkgroup audio via the Tune In player.
+    %small.text-gray-500.block.mt-1 Allow this user to listen to live talkgroup audio via the Tune In player. Needs {CALLSIGN}-WEB user conf in SvxReflector.
 
   .mb-4
     %label.flex.items-center.gap-2.cursor-pointer
       = f.check_box :can_transmit, class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500 cursor-pointer"
       %span.text-sm.text-gray-300 Can transmit audio
-    %small.text-gray-500.block.mt-1 Allow this user to transmit audio via Push-to-Talk (PTT).
+    %small.text-gray-500.block.mt-1 Allow this user to transmit audio via Push-to-Talk (PTT). Needs {CALLSIGN}-WEB user conf in SvxReflector.
 
   .mb-4
     %label.flex.items-center.gap-2.cursor-pointer

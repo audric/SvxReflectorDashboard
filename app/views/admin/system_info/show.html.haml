@@ -1,0 +1,78 @@
+!!!
+%html{lang: "en"}
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title SVXReflector · System Info
+    %script{src: "https://cdn.tailwindcss.com"}
+    :javascript
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ghbg: '#0d1117',
+              ghcard: '#161b22',
+              ghborder: '#30363d',
+              ghborder2: '#21262d',
+              ghtext: '#c9d1d9',
+              ghmuted: '#8b949e',
+              ghdim: '#6e7681',
+            }
+          }
+        }
+      }
+    %link{rel: "stylesheet", href: "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"}
+    :css
+      body { background: #0d1117; }
+
+  %body.text-ghtext
+    = render 'shared/navbar', active: 'admin'
+
+    .max-w-3xl.mx-auto.px-4.pb-12
+      .flex.items-center.gap-2.mb-6
+        %i.bi.bi-cpu.text-lg.text-ghmuted
+        %h2.text-xl.font-semibold.text-gray-100 System Info
+
+      - if @services.present?
+        .flex.items-center.gap-2.mb-3
+          %i.bi.bi-boxes.text-ghmuted
+          %h3.text-base.font-semibold.text-gray-100 Docker Services
+        .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden.mb-8
+          %table.w-full.text-sm
+            %thead
+              %tr.border-b.border-ghborder
+                %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Service
+                %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Image
+                %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim State
+                %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Status
+            %tbody
+              - @services.each do |svc|
+                %tr.border-b.border-ghborder2
+                  %td.px-4.py-3.font-mono.font-semibold.text-gray-200= svc[:service]
+                  %td.px-4.py-3.font-mono.text-ghmuted.text-xs= svc[:image]
+                  %td.px-4.py-3
+                    - case svc[:state]
+                    - when "running"
+                      %span.inline-flex.items-center.gap-1.5.text-green-400.text-xs.font-medium
+                        %span.w-2.h-2.rounded-full.bg-green-400
+                        running
+                    - when "exited"
+                      %span.inline-flex.items-center.gap-1.5.text-red-400.text-xs.font-medium
+                        %span.w-2.h-2.rounded-full.bg-red-400
+                        exited
+                    - else
+                      %span.inline-flex.items-center.gap-1.5.text-yellow-400.text-xs.font-medium
+                        %span.w-2.h-2.rounded-full.bg-yellow-400
+                        = svc[:state]
+                  %td.px-4.py-3.text-ghmuted.text-xs= svc[:status]
+
+      .flex.items-center.gap-2.mb-3
+        %i.bi.bi-info-circle.text-ghmuted
+        %h3.text-base.font-semibold.text-gray-100 Application
+      .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden
+        %table.w-full.text-sm
+          %tbody
+            - @info.each do |label, value|
+              %tr.border-b.border-ghborder2
+                %td.px-4.py-3.text-ghmuted.font-medium.whitespace-nowrap{style: "width: 180px"}= label
+                %td.px-4.py-3.text-gray-200.font-mono= value

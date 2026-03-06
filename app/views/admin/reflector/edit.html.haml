@@ -24,8 +24,8 @@
     %link{rel: "stylesheet", href: "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"}
     :css
       body { background: #0d1117; }
-      .accordion-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
-      .accordion-body.open { max-height: 5000px; }
+      .accordion-body { max-height: 0; overflow: hidden; padding-top: 0; padding-bottom: 0; transition: max-height 0.3s ease, padding 0.3s ease; }
+      .accordion-body.open { max-height: 5000px; padding-top: 1rem; padding-bottom: 1rem; }
       .accordion-chevron { transition: transform 0.3s ease; }
       .accordion-chevron.open { transform: rotate(180deg); }
 
@@ -105,7 +105,7 @@
               %i.bi.bi-globe.mr-2
               Global Settings
             %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-global"}
-          .accordion-body.p-4{id: "body-global"}
+          .accordion-body.px-4{id: "body-global"}
             %h6.text-sm.font-semibold.text-gray-400.mb-3.mt-1 Core
             .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
               - %w[LISTEN_PORT HTTP_SRV_PORT CODECS].each do |key|
@@ -168,7 +168,7 @@
               %i.bi.bi-shield-lock.mr-2
               Certificates
             %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-certs"}
-          .accordion-body.p-4{id: "body-certs"}
+          .accordion-body.px-4{id: "body-certs"}
             - cert_fields = %w[COMMON_NAME ORG_UNIT ORG LOCALITY STATE COUNTRY EMAIL_ADDRESS SUBJECT_ALT_NAME]
             - [["ROOT_CA", :root_ca, @config.root_ca], ["ISSUING_CA", :issuing_ca, @config.issuing_ca], ["SERVER_CERT", :server_cert, @config.server_cert]].each do |label, param_key, data|
               %h6.text-sm.font-semibold.text-gray-400.mb-3.mt-4= label
@@ -189,11 +189,11 @@
               %i.bi.bi-people.mr-2
               Users
             .flex.items-center.gap-2
-              %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "event.stopPropagation(); addUserRow()"}
+              %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-600.cursor-not-allowed.opacity-50{type: "button", id: "btn-users", disabled: true, onclick: "event.stopPropagation(); addUserRow()"}
                 %i.bi.bi-plus.mr-1
                 Add
               %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-users"}
-          .accordion-body.p-4{id: "body-users"}
+          .accordion-body.px-4{id: "body-users"}
             %table.w-full.text-sm
               %thead
                 %tr.text-gray-500.text-left
@@ -206,7 +206,7 @@
                     %td.py-2.pr-2
                       %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[user_callsigns][]", value: callsign}
                     %td.py-2.pr-2
-                      %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[user_groups][]", value: group}
+                      %select.user-group-select.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", name: "config[user_groups][]", data: { selected: group }}
                     %td.py-2.text-center
                       %button.text-red-400.hover:text-red-300.cursor-pointer{type: "button", onclick: "confirmRemove(this, 'tr')"}
                         %i.bi.bi-x-lg
@@ -218,11 +218,11 @@
               %i.bi.bi-key.mr-2
               Passwords
             .flex.items-center.gap-2
-              %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "event.stopPropagation(); addPasswordRow()"}
+              %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-600.cursor-not-allowed.opacity-50{type: "button", id: "btn-passwords", disabled: true, onclick: "event.stopPropagation(); addPasswordRow()"}
                 %i.bi.bi-plus.mr-1
                 Add
               %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-passwords"}
-          .accordion-body.p-4{id: "body-passwords"}
+          .accordion-body.px-4{id: "body-passwords"}
             %table.w-full.text-sm
               %thead
                 %tr.text-gray-500.text-left
@@ -247,11 +247,11 @@
               %i.bi.bi-collection.mr-2
               Talkgroup Rules
             .flex.items-center.gap-2
-              %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "event.stopPropagation(); addTgRule()"}
+              %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-600.cursor-not-allowed.opacity-50{type: "button", id: "btn-tg", disabled: true, onclick: "event.stopPropagation(); addTgRule()"}
                 %i.bi.bi-plus.mr-1
                 Add TG Rule
               %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-tg"}
-          .accordion-body.p-4{id: "body-tg"}
+          .accordion-body.px-4{id: "body-tg"}
             #tg-rules.space-y-4
               - @config.tg_rules.keys.sort.each do |tg_num|
                 - rules = @config.tg_rules[tg_num]
@@ -292,7 +292,7 @@
 
         -# ── Save ──
         .flex.gap-2
-          = f.submit "Save Configuration", class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
+          = f.submit "Save configuration & Restart SvxReflector", class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
           = link_to "Back", admin_users_path, class: "px-4 py-2 rounded-md border border-gray-600 text-gray-400 hover:text-gray-200"
 
     :javascript
@@ -325,6 +325,7 @@
         if (_confirmTarget) _confirmTarget.remove();
         _confirmTarget = null;
         document.getElementById('confirm-modal').style.display = 'none';
+        syncGroupSelects();
       });
       document.getElementById('confirm-cancel').addEventListener('click', function() {
         _confirmTarget = null;
@@ -339,16 +340,59 @@
         var chevron = document.getElementById('chevron-' + id);
         body.classList.toggle('open');
         chevron.classList.toggle('open');
+        var btn = document.getElementById('btn-' + id);
+        if (btn) {
+          var open = body.classList.contains('open');
+          btn.disabled = !open;
+          btn.classList.toggle('opacity-50', !open);
+          btn.classList.toggle('cursor-not-allowed', !open);
+          btn.classList.toggle('text-gray-600', !open);
+          btn.classList.toggle('cursor-pointer', open);
+          btn.classList.toggle('text-gray-400', open);
+          btn.classList.toggle('hover:text-gray-200', open);
+        }
       }
+
+      function getPasswordGroups() {
+        var groups = [];
+        document.querySelectorAll('#passwords-tbody input[name="config[password_names][]"]').forEach(function(el) {
+          var v = el.value.trim();
+          if (v) groups.push(v);
+        });
+        return groups;
+      }
+
+      function syncGroupSelects() {
+        var groups = getPasswordGroups();
+        document.querySelectorAll('.user-group-select').forEach(function(sel) {
+          var current = sel.value || sel.dataset.selected || '';
+          sel.innerHTML = '';
+          groups.forEach(function(g) {
+            var opt = document.createElement('option');
+            opt.value = g;
+            opt.textContent = g;
+            if (g === current) opt.selected = true;
+            sel.appendChild(opt);
+          });
+          delete sel.dataset.selected;
+        });
+      }
+
+      document.getElementById('passwords-tbody').addEventListener('input', function(e) {
+        if (e.target.name === 'config[password_names][]') syncGroupSelects();
+      });
+
+      syncGroupSelects();
 
       function addUserRow() {
         var tbody = document.getElementById('users-tbody');
         var tr = document.createElement('tr');
         tr.className = 'border-t border-gray-700';
         tr.innerHTML = '<td class="py-2 pr-2"><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[user_callsigns][]" placeholder="CALLSIGN"></td>' +
-          '<td class="py-2 pr-2"><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[user_groups][]" placeholder="default"></td>' +
+          '<td class="py-2 pr-2"><select class="user-group-select w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" name="config[user_groups][]"></select></td>' +
           '<td class="py-2 text-center"><button type="button" class="text-red-400 hover:text-red-300 cursor-pointer" onclick="confirmRemove(this,\'tr\')"><i class="bi bi-x-lg"></i></button></td>';
         tbody.appendChild(tr);
+        syncGroupSelects();
         var body = document.getElementById('body-users');
         if (!body.classList.contains('open')) toggleSection('users');
       }
@@ -361,6 +405,7 @@
           '<td class="py-2 pr-2"><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[password_values][]" placeholder="password"></td>' +
           '<td class="py-2 text-center"><button type="button" class="text-red-400 hover:text-red-300 cursor-pointer" onclick="confirmRemove(this,\'tr\')"><i class="bi bi-x-lg"></i></button></td>';
         tbody.appendChild(tr);
+        syncGroupSelects();
         var body = document.getElementById('body-passwords');
         if (!body.classList.contains('open')) toggleSection('passwords');
       }

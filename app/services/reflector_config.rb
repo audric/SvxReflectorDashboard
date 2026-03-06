@@ -59,6 +59,8 @@ class ReflectorConfig
       end
     end
 
+    config.users = config.users.sort.to_h
+    config.passwords = config.passwords.sort.to_h
     config
   end
 

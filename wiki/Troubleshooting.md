@@ -73,6 +73,36 @@ PTT requires all of these:
 - The marker appears after the next poll cycle (up to 4 seconds)
 - If geolocation is denied, the node card still works but no map marker is placed
 
+### Caddy cannot bind to port 80/443 (rootless Docker)
+
+If you see an error like:
+
+```
+cannot expose privileged port 80 … listen tcp4 0.0.0.0:80: bind: permission denied
+```
+
+Rootless Docker cannot bind to ports below 1024 by default. Allow it:
+
+```bash
+# Apply immediately
+sudo sysctl -w net.ipv4.ip_unprivileged_port_start=80
+
+# Make it permanent
+echo 'net.ipv4.ip_unprivileged_port_start=80' | sudo tee -a /etc/sysctl.conf
+```
+
+This lets unprivileged containers bind to ports 80 and 443 for HTTP/HTTPS.
+
+### System Info page shows no Docker services (rootless Docker)
+
+The Docker socket path differs on rootless setups. Set `DOCKER_SOCK` in your `.env`:
+
+```
+DOCKER_SOCK=/run/user/1000/docker.sock
+```
+
+On standard (rootful) Docker this is not needed — the default `/var/run/docker.sock` is used.
+
 ## Viewing logs
 
 ```bash
