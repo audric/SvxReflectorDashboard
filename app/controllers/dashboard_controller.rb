@@ -26,6 +26,10 @@ class DashboardController < ApplicationController
 
     @all_tgs   = all_tg_set.uniq.sort
     @node_rows = raw_rows.select { |_, _, tg_tone| tg_tone.any? }
+
+    # TG map: database-defined TGs as rows, all visible nodes as columns
+    @tgs_db = Tg.ordered
+    @visible_nodes = visible.sort_by { |cs, _| cs }
   end
 
   def stats

@@ -117,6 +117,32 @@ func main() {
 		}
 	}()
 
+	// Periodic cleanup: disconnect sessions whose Redis ref key has expired
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			reg.mu.Lock()
+			callsigns := make([]string, 0, len(reg.sessions))
+			for cs := range reg.sessions {
+				callsigns = append(callsigns, cs)
+			}
+			reg.mu.Unlock()
+
+			for _, cs := range callsigns {
+				exists, err := rdb.Exists(ctx, "web_node_refs:"+cs).Result()
+				if err != nil {
+					log.Printf("[cleanup] Redis error checking %s: %v", cs, err)
+					continue
+				}
+				if exists == 0 {
+					log.Printf("[cleanup] Ref key expired for %s, force disconnecting", cs)
+					reg.forceDisconnect(cs)
+				}
+			}
+		}
+	}()
+
 	log.Println("Waiting for tune-in commands...")
 	<-sigCh
 	log.Println("Shutting down...")
@@ -254,6 +280,22 @@ func (r *registry) disconnect(callsign string) {
 	}
 
 	log.Printf("Session stopped: callsign=%s", callsign)
+	e.client.Close()
+	r.removePublisher(callsign, e.tg)
+	delete(r.sessions, callsign)
+}
+
+// forceDisconnect closes a session regardless of refCount (used by stale cleanup).
+func (r *registry) forceDisconnect(callsign string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	e, ok := r.sessions[callsign]
+	if !ok {
+		return
+	}
+
+	log.Printf("Force disconnect: callsign=%s (refCount was %d)", callsign, e.refCount)
 	e.client.Close()
 	r.removePublisher(callsign, e.tg)
 	delete(r.sessions, callsign)

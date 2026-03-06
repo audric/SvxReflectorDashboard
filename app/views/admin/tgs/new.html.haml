@@ -1,0 +1,40 @@
+!!!
+%html{lang: "en"}
+  :javascript
+    (function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.classList.add('light-theme');})();
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title SVXReflector · New Talkgroup
+    %script{src: "/vendor/tailwind/tailwind.js"}
+    :javascript
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ghbg: '#0d1117',
+              ghcard: '#161b22',
+              ghborder: '#30363d',
+              ghborder2: '#21262d',
+              ghtext: '#c9d1d9',
+              ghmuted: '#8b949e',
+              ghdim: '#6e7681',
+            }
+          }
+        }
+      }
+    %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
+    :css
+      body { background: #0d1117; }
+
+  %body.text-ghtext
+    = render 'shared/navbar', active: 'admin'
+
+    .max-w-lg.mx-auto.px-4
+      .rounded-lg.border.border-gray-600.bg-ghcard
+        .px-4.py-3.border-b.border-gray-600
+          %h5.text-lg.font-semibold.text-gray-100
+            %i.bi.bi-plus-lg.mr-2
+            New Talkgroup
+        .p-4
+          = render 'form', tg: @tg

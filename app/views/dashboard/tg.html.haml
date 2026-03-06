@@ -72,6 +72,11 @@
         border-right: 2px solid #30363d;
         min-width: 180px;
       }
+      #tg-map-table { width: auto; }
+      #tg-map-table .col-node {
+        min-width: 150px;
+        max-width: 150px;
+      }
 
       /* ── Sticky header row ───────────────────────────────────────────────── */
       .matrix-table thead th {
@@ -206,9 +211,49 @@
                           %span.tone-unit  Hz
                       - else
                         %span.empty-cell ·
+
+      - if @tgs_db.any?
+        .page-header.mt-6
+          %i.bi.bi-diagram-3.mr-1
+          TG Map
+          %span.ml-1.font-normal
+            = "#{@tgs_db.size} talkgroup#{'s' unless @tgs_db.size == 1} · #{@visible_nodes.size} node#{'s' unless @visible_nodes.size == 1}"
+
+        .matrix-wrap#tg-map-wrap
+          %table.matrix-table#tg-map-table
+            %thead
+              %tr
+                %th.col-node TG
+                - @visible_nodes.each do |cs, node|
+                  %th
+                    .node-cs{style: "font-size:.75rem;"}= cs
+            %tbody
+              - @tgs_db.each do |tg_rec|
+                - tg_num = tg_rec.tg.to_i
+                %tr
+                  %td.col-node
+                    .node-cs= tg_rec.tg
+                    .node-loc= tg_rec.name
+                  - if @visible_nodes.empty?
+                    %td.text-gray-500.text-sm.text-center
+                      %span.empty-cell ·
+                  - else
+                    - @visible_nodes.each do |cs, node|
+                      - ttg = node['toneToTalkgroup'] || {}
+                      - tone = ttg.find { |t, tg| tg == tg_num }&.first&.to_f
+                      %td
+                        - if tone
+                          %span.tone-pill
+                            = "%.1f" % tone
+                            %span.tone-unit  Hz
+                        - else
+                          %span.empty-cell ·
+
     - nodes_json = @nodes.to_json.html_safe
+    - tgs_db_json = @tgs_db.map { |t| { tg: t.tg.to_i, name: t.name } }.to_json.html_safe
     :javascript
       var _tgNodes = #{nodes_json};
+      var _tgsDb   = #{tgs_db_json};
 
       function exportChirp() {
         var header = 'Location,Name,Frequency,Duplex,Offset,Tone,rToneFreq,cToneFreq,DtcsCode,DtcsPolarity,Mode,TStep,Skip,Comment,URCALL,RPT1CALL,RPT2CALL';
@@ -291,8 +336,10 @@
         }
 
         function rebuildMatrix(allNodes) {
-          var thead = document.querySelector('.matrix-table thead tr');
-          var tbody = document.querySelector('.matrix-table tbody');
+          var table = document.querySelector('.matrix-table:not(#tg-map-table)');
+          if (!table) return;
+          var thead = table.querySelector('thead tr');
+          var tbody = table.querySelector('tbody');
           if (!thead || !tbody) return;
 
           var allTgSet = {};
@@ -370,6 +417,67 @@
           });
         }
 
+        function rebuildTgMap(allNodes) {
+          var table = document.getElementById('tg-map-table');
+          if (!table || !_tgsDb || _tgsDb.length === 0) return;
+          var thead = table.querySelector('thead tr');
+          var tbody = table.querySelector('tbody');
+          if (!thead || !tbody) return;
+
+          // Build all visible nodes
+          var visibleNodes = [];
+          Object.keys(allNodes).sort().forEach(function (cs) {
+            var node = allNodes[cs];
+            if (node.hidden) return;
+            visibleNodes.push({ cs: cs, node: node });
+          });
+
+          // Rebuild thead: TG column + one per visible node
+          while (thead.children.length > 1) thead.removeChild(thead.lastChild);
+          visibleNodes.forEach(function (row) {
+            var th = document.createElement('th');
+            th.innerHTML = '<div class="node-cs" style="font-size:.75rem;">' + esc(row.cs) + '</div>';
+            thead.appendChild(th);
+          });
+
+          // Rebuild tbody: one row per DB talkgroup
+          tbody.innerHTML = '';
+
+          _tgsDb.forEach(function (tgRec) {
+            var tr = document.createElement('tr');
+            var nodeTd = document.createElement('td');
+            nodeTd.className = 'col-node';
+            nodeTd.innerHTML = '<div class="node-cs">' + esc(tgRec.tg) + '</div>' +
+              '<div class="node-loc">' + esc(tgRec.name) + '</div>';
+            tr.appendChild(nodeTd);
+
+            if (visibleNodes.length === 0) {
+              var td = document.createElement('td');
+              td.innerHTML = '<span class="empty-cell">\u00B7</span>';
+              tr.appendChild(td);
+            } else {
+              visibleNodes.forEach(function (row) {
+                var td = document.createElement('td');
+                var ttg = row.node.toneToTalkgroup || {};
+                var tone;
+                Object.keys(ttg).forEach(function (toneStr) {
+                  if (ttg[toneStr] === tgRec.tg) tone = parseFloat(toneStr);
+                });
+                if (tone !== undefined) {
+                  var pill = document.createElement('span');
+                  pill.className = 'tone-pill';
+                  pill.innerHTML = tone.toFixed(1) + '<span class="tone-unit"> Hz</span>';
+                  td.appendChild(pill);
+                } else {
+                  td.innerHTML = '<span class="empty-cell">\u00B7</span>';
+                }
+                tr.appendChild(td);
+              });
+            }
+            tbody.appendChild(tr);
+          });
+        }
+
         function setWs(state) {
           document.querySelectorAll('.js-ws-dot').forEach(function(el) {
             el.className = 'js-ws-dot ws-dot ws-' + state;
@@ -400,6 +508,7 @@
             if (!msg || !msg.nodes) return;
             _tgNodes = msg.nodes;
             rebuildMatrix(msg.nodes);
+            rebuildTgMap(msg.nodes);
             if (window.audioPlayerUpdateTgs) window.audioPlayerUpdateTgs(msg.nodes);
           };
           ws.onclose = function () { setWs('disconnected'); setTimeout(connectTgWs, 5000); };

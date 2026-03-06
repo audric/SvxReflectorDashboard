@@ -42,9 +42,9 @@
           New User
 
       - if flash[:notice]
-        %div.p-2.rounded.border.border-green-700.text-green-400.text-sm.mb-4{class: "bg-green-900/30"}= flash[:notice]
+        %div.p-2.rounded.border.border-green-700.text-green-400.text-sm.mb-4{class: "bg-green-900/30", id: "flash-notice"}= flash[:notice]
       - if flash[:alert]
-        %div.p-2.rounded.border.border-red-700.text-red-400.text-sm.mb-4{class: "bg-red-900/30"}= flash[:alert]
+        %div.p-2.rounded.border.border-red-700.text-red-400.text-sm.mb-4{class: "bg-red-900/30", id: "flash-alert"}= flash[:alert]
 
       .overflow-x-auto
         %table.w-full.text-left.admin-table

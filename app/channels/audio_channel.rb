@@ -9,7 +9,9 @@ class AudioChannel < ApplicationCable::Channel
       @web_callsign = callsign
       @web_tg = tg
       redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
-      ref = redis.incr("web_node_refs:#{callsign}")
+      ref_key = "web_node_refs:#{callsign}"
+      ref = redis.incr(ref_key)
+      redis.expire(ref_key, 120) # auto-expire stale refs after 2 minutes
       if ref == 1
         # First browser session for this callsign — open reflector connection
         redis.publish("audio:commands", {
@@ -20,6 +22,7 @@ class AudioChannel < ApplicationCable::Channel
         }.to_json)
       end
       update_web_node_info(redis, callsign)
+      @ref_key = ref_key
       redis.close
     else
       reject

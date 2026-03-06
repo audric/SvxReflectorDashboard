@@ -24,6 +24,16 @@
   @keyframes toast-out { from { opacity: 1; } to { opacity: 0; transform: translateY(-8px); } }
 
 :javascript
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[id^="flash-"]').forEach(function(el) {
+      setTimeout(function() {
+        el.style.transition = 'opacity .4s';
+        el.style.opacity = '0';
+        setTimeout(function() { el.remove(); }, 400);
+      }, 4000);
+    });
+  });
+
   window.showToast = function(message, type) {
     type = type || 'warn';
     var icon = type === 'error' ? 'bi-exclamation-triangle-fill' : 'bi-info-circle-fill';
@@ -84,6 +94,9 @@
                 = link_to admin_users_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-ghborder2" do
                   %i.bi.bi-people
                   Web Users
+                = link_to admin_tgs_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-ghborder2" do
+                  %i.bi.bi-collection
+                  Talkgroups
                 = link_to edit_admin_settings_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-ghborder2" do
                   %i.bi.bi-gear
                   Settings
@@ -130,7 +143,7 @@
       .mt-6.pt-4.border-t.border-ghborder
         .text-xs.uppercase.tracking-wider.text-ghdim.px-3.mb-2 Admin
         .space-y-1
-          - admin_links = [['bi-people', 'Web Users', admin_users_path], ['bi-gear', 'Settings', edit_admin_settings_path]]
+          - admin_links = [['bi-people', 'Web Users', admin_users_path], ['bi-collection', 'Talkgroups', admin_tgs_path], ['bi-gear', 'Settings', edit_admin_settings_path]]
           - admin_links << ['bi-broadcast', 'Reflector', edit_admin_reflector_path] if current_user.reflector_admin?
           - admin_links << ['bi-cpu', 'System Info', admin_system_info_path]
           - admin_links.each do |icon, label, path|
@@ -1042,6 +1055,11 @@
         document.removeEventListener('turbo:before-render', _audioTeardown);
         if (window._audioStop) window._audioStop();
       }
+    });
+
+    // Ensure disconnect on page unload / tab close
+    window.addEventListener('beforeunload', function() {
+      if (playing && window._audioStop) window._audioStop();
     });
 
     function toggleAudio() {

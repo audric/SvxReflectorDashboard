@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_05_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_06_132024) do
   create_table "ctcss_tones", force: :cascade do |t|
     t.string "code", null: false
     t.datetime "created_at", null: false
@@ -103,6 +103,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_05_000000) do
     t.integer "number", null: false
     t.datetime "updated_at", null: false
     t.index ["number"], name: "index_talkgroups_on_number", unique: true
+  end
+
+  create_table "tgs", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.string "name"
+    t.string "tg"
+    t.datetime "updated_at", null: false
   end
 
   create_table "users", force: :cascade do |t|

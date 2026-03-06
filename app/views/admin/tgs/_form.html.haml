@@ -1,0 +1,22 @@
+= form_with model: [:admin, tg], local: true do |f|
+  - if tg.errors.any?
+    %div.p-2.rounded.border.border-red-700.text-red-400.text-sm.mb-4{class: "bg-red-900/30"}
+      %ul.mb-0.list-disc.pl-4
+        - tg.errors.full_messages.each do |msg|
+          %li= msg
+
+  .mb-4
+    = f.label :tg, "TG Number", class: "block text-sm text-gray-500 mb-1"
+    = f.text_field :tg, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 font-mono focus:outline-none focus:border-blue-500", placeholder: "e.g. 240"
+
+  .mb-4
+    = f.label :name, "Name", class: "block text-sm text-gray-500 mb-1"
+    = f.text_field :name, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", placeholder: "e.g. Italy"
+
+  .mb-4
+    = f.label :description, "Description", class: "block text-sm text-gray-500 mb-1"
+    = f.text_area :description, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", rows: 3, placeholder: "Optional description"
+
+  .flex.gap-2
+    = f.submit (tg.persisted? ? "Update TG" : "Create TG"), class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
+    = link_to "Cancel", admin_tgs_path, class: "px-4 py-2 rounded-md border border-gray-600 text-gray-400 hover:text-gray-200"
