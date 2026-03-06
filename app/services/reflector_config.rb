@@ -64,7 +64,10 @@ class ReflectorConfig
     config
   end
 
+  MAX_BACKUPS = 10
+
   def save(path = self.class.config_path)
+    backup(path) if File.exist?(path)
     lines = []
 
     # GLOBAL
@@ -111,5 +114,18 @@ class ReflectorConfig
 
     lines << ""
     File.write(path, lines.join("\n"))
+  end
+
+  private
+
+  def backup(path)
+    dir = File.dirname(path)
+    base = File.basename(path)
+    stamp = Time.current.strftime("%Y%m%d_%H%M%S")
+    FileUtils.cp(path, File.join(dir, "#{base}.#{stamp}.bak"))
+
+    backups = Dir.glob(File.join(dir, "#{base}.*.bak")).sort
+    excess = backups.size - MAX_BACKUPS
+    backups.first(excess).each { |f| File.delete(f) } if excess > 0
   end
 end
