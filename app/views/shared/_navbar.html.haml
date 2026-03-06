@@ -107,6 +107,9 @@
                 = link_to admin_system_info_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-ghborder2" do
                   %i.bi.bi-cpu
                   System Info
+                = link_to admin_debug_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-ghborder2" do
+                  %i.bi.bi-bug
+                  Debug
                 .border-t.border-ghborder2.my-1
               = button_to logout_path, method: :delete, class: "flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-ghborder2 w-full" do
                 %i.bi.bi-box-arrow-right
@@ -146,6 +149,7 @@
           - admin_links = [['bi-people', 'Web Users', admin_users_path], ['bi-collection', 'Talkgroups', admin_tgs_path], ['bi-gear', 'Settings', edit_admin_settings_path]]
           - admin_links << ['bi-broadcast', 'Reflector', edit_admin_reflector_path] if current_user.reflector_admin?
           - admin_links << ['bi-cpu', 'System Info', admin_system_info_path]
+          - admin_links << ['bi-bug', 'Debug', admin_debug_path]
           - admin_links.each do |icon, label, path|
             %a.flex.items-center.gap-3.px-3.py-2.rounded-md.text-sm.transition-colors{class: (request.path.start_with?(path) ? 'bg-ghborder2 text-gray-100' : 'text-ghmuted hover:bg-ghborder2 hover:text-gray-300'), href: path}
               %i.bi{class: icon}

@@ -22,6 +22,7 @@ Rails.application.routes.draw do
       get :backups, on: :collection
     end
     resource :system_info, only: :show, controller: "system_info"
+    resource :debug, only: :show, controller: "debug"
   end
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.

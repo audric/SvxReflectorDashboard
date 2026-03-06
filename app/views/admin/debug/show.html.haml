@@ -1,0 +1,130 @@
+!!!
+%html{lang: "en"}
+  :javascript
+    (function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.classList.add('light-theme');})();
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title SVXReflector · Redis Debug
+    %script{src: "/vendor/tailwind/tailwind.js"}
+    :javascript
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ghbg: '#0d1117',
+              ghcard: '#161b22',
+              ghborder: '#30363d',
+              ghborder2: '#21262d',
+              ghtext: '#c9d1d9',
+              ghmuted: '#8b949e',
+              ghdim: '#6e7681',
+            }
+          }
+        }
+      }
+    %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
+    :css
+      body { background: #0d1117; }
+      .debug-table th { font-size: .73rem; text-transform: uppercase; letter-spacing: .05em; color: #6e7681; border-color: #21262d; }
+      .debug-table td { font-size: .85rem; border-color: #21262d; vertical-align: top; }
+      .val-cell { max-width: 600px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+
+  %body.text-ghtext
+    = render 'shared/navbar', active: 'admin'
+
+    .max-w-6xl.mx-auto.px-4.pb-12
+
+      .flex.items-center.justify-between.mb-4
+        %h5.text-lg.font-semibold.text-gray-100
+          %i.bi.bi-bug.mr-2
+          Redis Debug
+        %a.text-sm.px-3.py-1.5.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200{href: admin_debug_path}
+          %i.bi.bi-arrow-clockwise.mr-1
+          Refresh
+
+      - if @error
+        %div.p-2.rounded.border.border-red-700.text-red-400.text-sm.mb-4{class: "bg-red-900/30"}= @error
+
+      - if @redis_info
+        .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-6
+
+          .rounded-lg.border.border-ghborder.bg-ghcard
+            .px-4.py-3.border-b.border-ghborder
+              %h6.text-sm.font-semibold.text-gray-100
+                %i.bi.bi-server.mr-2
+                Server Info
+            %table.w-full.debug-table
+              %tbody
+                - @redis_info.each do |key, val|
+                  %tr.border-b.border-ghborder2
+                    %td.px-4.py-2.text-ghmuted.font-medium.whitespace-nowrap= key
+                    %td.px-4.py-2.text-gray-200.font-mono
+                      - if key == "uptime_in_seconds"
+                        - secs = val.to_i
+                        - days = secs / 86400
+                        - hours = (secs % 86400) / 3600
+                        - mins = (secs % 3600) / 60
+                        = "#{days}d #{hours}h #{mins}m"
+                      - else
+                        = val
+
+          .rounded-lg.border.border-ghborder.bg-ghcard
+            .px-4.py-3.border-b.border-ghborder
+              %h6.text-sm.font-semibold.text-gray-100
+                %i.bi.bi-broadcast.mr-2
+                Pub/Sub Channels
+                %span.text-ghmuted.font-normal.ml-2= "(#{@pubsub_channels.size})"
+            .p-4
+              - if @pubsub_channels.empty?
+                .text-ghmuted.text-sm No active channels
+              - else
+                .flex.flex-wrap.gap-2
+                  - @pubsub_channels.sort.each do |ch|
+                    %span.inline-block.px-2.py-1.text-xs.font-mono.rounded.border.border-ghborder2.text-gray-300.bg-ghbg= ch
+
+      .rounded-lg.border.border-ghborder.bg-ghcard
+        .px-4.py-3.border-b.border-ghborder
+          %h6.text-sm.font-semibold.text-gray-100
+            %i.bi.bi-key.mr-2
+            Keys
+            %span.text-ghmuted.font-normal.ml-2= "(#{@keys&.size || 0})"
+        - if @keys.blank?
+          .p-4.text-ghmuted.text-sm No keys found
+        - else
+          .overflow-x-auto
+            %table.w-full.debug-table
+              %thead
+                %tr.border-b.border-ghborder2
+                  %th.py-2.px-3 Key
+                  %th.py-2 Type
+                  %th.py-2 TTL
+                  %th.py-2 Size
+                  %th.py-2 Value
+              %tbody
+                - @keys.each do |entry|
+                  %tr.border-b.border-ghborder2.hover:bg-ghcard
+                    %td.py-2.px-3.font-mono.font-bold.text-cyan-400.whitespace-nowrap= entry[:key]
+                    %td.py-2
+                      %span.inline-block.px-2.py-0.5.text-xs.rounded-full.border.border-ghborder2.text-ghmuted= entry[:type]
+                    %td.py-2.font-mono.text-sm
+                      - if entry[:ttl] == -1
+                        %span.text-ghmuted \u221e
+                      - elsif entry[:ttl] == -2
+                        %span.text-red-400 expired
+                      - else
+                        %span.text-yellow-400= "#{entry[:ttl]}s"
+                    %td.py-2.font-mono.text-sm.text-ghmuted
+                      - if entry[:size]
+                        - if entry[:type] == "string"
+                          = "#{entry[:size]} B"
+                        - else
+                          = entry[:size]
+                    %td.py-2.font-mono.text-xs.text-gray-300.val-cell
+                      - val = entry[:value].to_s
+                      - if val.length > 500
+                        %details
+                          %summary.cursor-pointer.text-ghmuted= "#{val[0..200]}..."
+                          .mt-2= val
+                      - else
+                        = val
