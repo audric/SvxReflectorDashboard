@@ -1061,9 +1061,11 @@
       }
     });
 
-    // Ensure disconnect on page unload / tab close
+    // On page unload (tab close or navigation), just close the WebSocket
+    // without clearing saved state — so auto-resume works on next page load.
+    // The server-side unsubscribed callback handles bridge cleanup.
     window.addEventListener('beforeunload', function() {
-      if (playing && window._audioStop) window._audioStop();
+      if (audioWs) { audioWs.onclose = null; audioWs.close(); }
     });
 
     function toggleAudio() {
