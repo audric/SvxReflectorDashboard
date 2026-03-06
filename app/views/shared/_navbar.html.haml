@@ -137,6 +137,18 @@
               %i.bi{class: icon}
               = label
 
+    -# ── Activity log (admin only, dashboard only) ──
+    - if logged_in? && current_user.admin? && local_assigns.fetch(:activity_log, false)
+      .mt-4.pt-3.border-t.border-ghborder
+        .flex.items-center.gap-1.mb-2.px-3
+          %i.bi.bi-activity.text-ghdim.text-xs
+          %span.text-xs.uppercase.tracking-wider.text-ghdim Activity
+          %span.inline-block.px-1.5.py-0.5.text-xs.rounded-full.bg-gray-600.text-gray-200.ml-auto#log-count 0
+        #activity-log.overflow-y-auto{style: "scrollbar-width:thin;max-height:120px;"}
+          #log-placeholder.text-center.text-ghdim.py-3.text-xs
+            %i.bi.bi-hourglass-split.block.mb-1
+            Waiting for updates…
+
   -# ── Audio player (visible only to users with monitor permission + auth key) ──
   - if logged_in? && current_user.can_monitor? && current_user.reflector_auth_key.present?
     - audio_tgs = ((@nodes || {}).values.flat_map { |n| [n['tg'].to_i] + Array(n['monitoredTGs']).map(&:to_i) }.select { |t| t > 0 } + [999]).uniq.sort
@@ -804,9 +816,6 @@
       return 'rgb(' + Math.round(210 + (248 - 210) * t2) + ',' + Math.round(153 + (81 - 153) * t2) + ',' + Math.round(34 + (73 - 34) * t2) + ')';
     }
 
-    // Autoscale: peak tracks the loudest bar, decays slowly
-    var specPeak = 0.01;
-
     function drawSpectrum(ctx, canvas, src) {
       src.getByteFrequencyData(freqData);
       var w = canvas.width, h = canvas.height;
@@ -825,9 +834,6 @@
       var logMin = Math.log(minBin);
       var logMax = Math.log(maxBin);
 
-      // First pass: compute raw values and find frame peak
-      var vals = [];
-      var framePeak = 0;
       for (var i = 0; i < barCount; i++) {
         var binStart = Math.floor(Math.exp(logMin + (logMax - logMin) * i / barCount));
         var binEnd = Math.floor(Math.exp(logMin + (logMax - logMin) * (i + 1) / barCount));
@@ -835,22 +841,7 @@
         if (binEnd > maxBin) binEnd = maxBin;
         var sum = 0;
         for (var b = binStart; b < binEnd; b++) sum += freqData[b];
-        var raw = sum / (binEnd - binStart) / 255;
-        vals.push(raw);
-        if (raw > framePeak) framePeak = raw;
-      }
-
-      // Autoscale: track peak with fast attack, slow decay
-      if (framePeak > specPeak) specPeak = specPeak * 0.3 + framePeak * 0.7;
-      else specPeak = specPeak * 0.995 + framePeak * 0.005;
-      if (specPeak < 0.01) specPeak = 0.01;
-
-      // Second pass: draw bars scaled to peak (~80% height for loudest)
-      for (var i = 0; i < barCount; i++) {
-        var val = vals[i] / specPeak * 0.8;
-        val = Math.min(val, 1);
-        // Raise floor: map 0-1 into 0.15-1 for more dynamic display
-        if (val > 0.001) val = 0.15 + val * 0.85;
+        var val = sum / (binEnd - binStart) / 255;
 
         var barH = val * h;
         if (barH < 1) continue;
@@ -960,7 +951,7 @@
 
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.8;
+      analyser.smoothingTimeConstant = 0.4;
       scriptNode.connect(analyser);
       startMeter(analyser);
 

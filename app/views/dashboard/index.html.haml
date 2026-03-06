@@ -83,8 +83,7 @@
         transition: width .5s ease, background-color .3s;
       }
 
-      #activity-log { max-height: 540px; overflow-y: auto; scrollbar-width: thin; }
-      .activity-item { font-size: .82rem; border-color: #21262d !important; }
+      .activity-item { font-size: .72rem; border-color: #21262d !important; }
       .activity-item:hover { background: #161b22 !important; }
 
       .ws-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; vertical-align: middle; }
@@ -127,7 +126,7 @@
       }
       .flash { animation: flash-update .8s ease-out; }
   %body.text-ghtext.pb-8
-    = render 'shared/navbar', active: 'dashboard', ws_indicator: true
+    = render 'shared/navbar', active: 'dashboard', ws_indicator: true, activity_log: true
 
     .px-3.md:px-4
 
@@ -143,157 +142,139 @@
       - stats << {id: 'stat-active',  icon: 'bi-wifi',         color: 'text-blue-500',  label: 'Active',       val: @nodes.count { |_, n| n['tg'].to_i != 0 }}
       - stats << {id: 'stat-talking', icon: 'bi-mic-fill',     color: 'text-green-500', label: 'Talking',      val: @nodes.count { |_, n| n['isTalker'] }}
       - stats << {id: 'stat-updates', icon: 'bi-arrow-repeat', color: 'text-yellow-500', label: 'Live Updates', val: 0}
-      .grid.grid-cols-2.md:grid-cols-4.gap-3.mb-4
+      .flex.flex-wrap.gap-2.mb-4
         - stats.each do |s|
-          .rounded-lg.border.border-ghborder.h-full
-            .text-center.py-3
-              .text-4xl.font-bold{class: s[:color], id: s[:id]}= s[:val]
-              .text-gray-500.text-sm.mt-1
-                %i.bi{class: s[:icon]}
-                = s[:label]
+          .rounded-lg.border.border-ghborder.flex.items-center.gap-2.px-3.py-1.5
+            %i.bi.text-xs{class: "#{s[:icon]} #{s[:color]}"}
+            %span.text-gray-500.text-xs= s[:label]
+            %span.font-bold.text-sm{class: s[:color], id: s[:id]}= s[:val]
 
-      -# ── Main: node grid + activity log ───────────────────────────────────
-      .grid.grid-cols-1.gap-4{class: (logged_in? && current_user.admin? ? 'xl:grid-cols-3' : nil)}
+      -# ── Node grid ──────────────────────────────────────────────────────────
+      .flex.items-center.mb-3.gap-2
+        %span.text-gray-500.uppercase.font-semibold.text-sm
+          %i.bi.bi-hdd-network.mr-1
+          Connected Nodes
+        %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-gray-600.text-gray-200#nodes-count
+          = @nodes.reject { |_, n| n['hidden'] }.size
 
-        -# Node grid
-        %div{class: (logged_in? && current_user.admin? ? 'xl:col-span-2' : nil)}
-          .flex.items-center.mb-3.gap-2
-            %span.text-gray-500.uppercase.font-semibold.text-sm
-              %i.bi.bi-hdd-network.mr-1
-              Connected Nodes
-            %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-gray-600.text-gray-200#nodes-count
-              = @nodes.reject { |_, n| n['hidden'] }.size
+      .grid.grid-cols-1.sm:grid-cols-2.xl:grid-cols-3.2xl:grid-cols-5.gap-3#nodes-grid
+        - visible = @nodes.reject { |_, n| n['hidden'] }
+        - sorted = visible.sort_by { |cs, n| [n['isTalker'] ? 0 : (n['tg'].to_i != 0 ? 1 : 2), cs] }
+        - sorted.each do |callsign, node|
+          - tg        = node['tg'].to_i
+          - is_talker = node['isTalker']
+          - st_cls    = is_talker ? 'node-talking' : (tg != 0 ? 'node-active' : 'node-idle')
+          - st_txt    = is_talker ? "TALKING \u00B7 TG #{tg}" : (tg != 0 ? "TG #{tg}" : 'IDLE')
+          - st_col    = is_talker ? 'green' : (tg != 0 ? 'blue' : 'gray')
+          - qth       = node.dig('qth', 0) || {}
+          - rx_freq   = qth['rx']&.values&.first&.dig('freq')
+          - tx_freq   = qth['tx']&.values&.first&.dig('freq')
+          - locator   = qth.dig('pos', 'loc')
+          - node_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'simplex' => 'bi-broadcast' }.fetch(node['nodeClass'].to_s, 'bi-broadcast')
+          - rx_ports  = (node['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }
 
-          .grid.grid-cols-1.sm:grid-cols-2.2xl:grid-cols-3.gap-3#nodes-grid
-            - visible = @nodes.reject { |_, n| n['hidden'] }
-            - sorted = visible.sort_by { |cs, n| [n['isTalker'] ? 0 : (n['tg'].to_i != 0 ? 1 : 2), cs] }
-            - sorted.each do |callsign, node|
-              - tg        = node['tg'].to_i
-              - is_talker = node['isTalker']
-              - st_cls    = is_talker ? 'node-talking' : (tg != 0 ? 'node-active' : 'node-idle')
-              - st_txt    = is_talker ? "TALKING \u00B7 TG #{tg}" : (tg != 0 ? "TG #{tg}" : 'IDLE')
-              - st_col    = is_talker ? 'green' : (tg != 0 ? 'blue' : 'gray')
-              - qth       = node.dig('qth', 0) || {}
-              - rx_freq   = qth['rx']&.values&.first&.dig('freq')
-              - tx_freq   = qth['tx']&.values&.first&.dig('freq')
-              - locator   = qth.dig('pos', 'loc')
-              - node_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'simplex' => 'bi-broadcast' }.fetch(node['nodeClass'].to_s, 'bi-broadcast')
-              - rx_ports  = (node['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }
+          %div{id: "node-col-#{callsign}"}
+            .rounded-lg.node-card.h-full{class: st_cls, id: "node-#{callsign}", "data-callsign" => callsign}
 
-              %div{id: "node-col-#{callsign}"}
-                .rounded-lg.node-card.h-full{class: st_cls, id: "node-#{callsign}", "data-callsign" => callsign}
+              -# ── Card header: callsign + mic + status badge ──
+              .card-header.flex.items-center.justify-between.py-2.px-3
+                %span.font-bold.font-mono.text-base.text-gray-100
+                  %i.bi.bi-mic-fill.mr-1{class: (is_talker ? 'text-green-500 mic-active' : 'text-gray-500 opacity-25'), id: "node-#{callsign}-mic"}
+                  = callsign
+                %span.inline-block.px-2.py-0.5.text-xs.rounded.font-semibold.text-white{class: "bg-#{st_col}-600", id: "node-#{callsign}-status"}
+                  = st_txt
 
-                  -# ── Card header: callsign + mic + status badge ──
-                  .card-header.flex.items-center.justify-between.py-2.px-3
-                    %span.font-bold.font-mono.text-base.text-gray-100
-                      %i.bi.bi-mic-fill.mr-1{class: (is_talker ? 'text-green-500 mic-active' : 'text-gray-500 opacity-25'), id: "node-#{callsign}-mic"}
-                      = callsign
-                    %span.inline-block.px-2.py-0.5.text-xs.rounded.font-semibold.text-white{class: "bg-#{st_col}-600", id: "node-#{callsign}-status"}
-                      = st_txt
+              -# ── LIVE banner (visible only when transmitting) ──
+              .live-banner{class: (is_talker ? nil : 'hidden'), id: "node-#{callsign}-live-banner"}
+                %i.bi.bi-broadcast-pin
+                %span= is_talker ? "TRANSMITTING \u00B7 TG #{tg}" : 'TRANSMITTING'
 
-                  -# ── LIVE banner (visible only when transmitting) ──
-                  .live-banner{class: (is_talker ? nil : 'hidden'), id: "node-#{callsign}-live-banner"}
-                    %i.bi.bi-broadcast-pin
-                    %span= is_talker ? "TRANSMITTING \u00B7 TG #{tg}" : 'TRANSMITTING'
+              .py-2.px-3.text-sm.text-gray-500
 
-                  .py-2.px-3.text-sm.text-gray-500
+                -# Class + Location + Locator
+                .mb-2.flex.flex-wrap.items-center.gap-2
+                  %span.capitalize
+                    %i.bi{class: node_icon}
+                    = node['nodeClass']
+                  - if node['nodeLocation'].present?
+                    %span.truncate{title: node['nodeLocation']}
+                      %i.bi.bi-geo-alt.mr-1
+                      = node['nodeLocation']
+                  - if locator.present?
+                    %span.inline-block.px-1.5.py-0.5.text-xs.rounded.border.border-gray-600.text-gray-500{class: "bg-[#0d1117]", title: "Maidenhead locator"}
+                      = locator
 
-                    -# Class + Location + Locator
-                    .mb-2.flex.flex-wrap.items-center.gap-2
-                      %span.capitalize
-                        %i.bi{class: node_icon}
-                        = node['nodeClass']
-                      - if node['nodeLocation'].present?
-                        %span.truncate{title: node['nodeLocation']}
-                          %i.bi.bi-geo-alt.mr-1
-                          = node['nodeLocation']
-                      - if locator.present?
-                        %span.inline-block.px-1.5.py-0.5.text-xs.rounded.border.border-gray-600.text-gray-500{class: "bg-[#0d1117]", title: "Maidenhead locator"}
-                          = locator
+                -# Frequencies
+                - if rx_freq.to_f > 0 || tx_freq.to_f > 0
+                  .mb-2.flex.gap-3
+                    - if rx_freq.to_f > 0
+                      %span.freq-label
+                        %span.text-gray-500 RX
+                        %span.text-gray-100.ml-1= "%.4f" % rx_freq
+                        MHz
+                    - if tx_freq.to_f > 0
+                      %span.freq-label
+                        %span.text-gray-500 TX
+                        %span.text-gray-100.ml-1= "%.4f" % tx_freq
+                        MHz
 
-                    -# Frequencies
-                    - if rx_freq.to_f > 0 || tx_freq.to_f > 0
-                      .mb-2.flex.gap-3
-                        - if rx_freq.to_f > 0
-                          %span.freq-label
-                            %span.text-gray-500 RX
-                            %span.text-gray-100.ml-1= "%.4f" % rx_freq
-                            MHz
-                        - if tx_freq.to_f > 0
-                          %span.freq-label
-                            %span.text-gray-500 TX
-                            %span.text-gray-100.ml-1= "%.4f" % tx_freq
-                            MHz
+                -# Signal strength (one bar per RX port)
+                - if rx_ports.any?
+                  .mb-2{id: "node-#{callsign}-rx-section"}
+                    - rx_ports.each do |port, rx|
+                      - siglev   = rx['siglev']
+                      - sql_open = rx['sql_open']
+                      - pct      = siglev.nil? ? 0 : (siglev < 0 ? [[((siglev + 120) / 100.0 * 100).round, 0].max, 100].min : [[siglev.to_i, 0].max, 100].min)
+                      - bar_col  = pct > 66 ? 'green' : (pct > 33 ? 'yellow' : 'red')
+                      %div{id: "node-#{callsign}-rx-#{port}"}
+                        .flex.justify-between.items-center
+                          %span
+                            %i.bi.bi-reception-4.mr-1
+                            = "RX-#{port}"
+                            - if rx['name'].present?
+                              %span.text-gray-100.ml-1= rx['name']
+                            - unless sql_open.nil?
+                              %span.inline-block.px-1.5.py-0.5.text-xs.rounded.font-semibold.text-white.ml-1{class: (sql_open ? 'bg-green-600' : 'bg-gray-600'), id: "node-#{callsign}-squelch-#{port}"}
+                                = sql_open ? 'OPEN' : 'SQ'
+                          %span.font-mono{id: "node-#{callsign}-siglev-#{port}"}
+                            = siglev ? "#{siglev.round}#{siglev < 0 ? ' dBm' : '%'}" : '—'
+                        .siglev-bar.mb-1
+                          .siglev-fill{class: "bg-#{bar_col}-500", id: "node-#{callsign}-sigbar-#{port}", style: "width: #{pct}%"}
 
-                    -# Signal strength (one bar per RX port)
-                    - if rx_ports.any?
-                      .mb-2{id: "node-#{callsign}-rx-section"}
-                        - rx_ports.each do |port, rx|
-                          - siglev   = rx['siglev']
-                          - sql_open = rx['sql_open']
-                          - pct      = siglev.nil? ? 0 : (siglev < 0 ? [[((siglev + 120) / 100.0 * 100).round, 0].max, 100].min : [[siglev.to_i, 0].max, 100].min)
-                          - bar_col  = pct > 66 ? 'green' : (pct > 33 ? 'yellow' : 'red')
-                          %div{id: "node-#{callsign}-rx-#{port}"}
-                            .flex.justify-between.items-center
-                              %span
-                                %i.bi.bi-reception-4.mr-1
-                                = "RX-#{port}"
-                                - if rx['name'].present?
-                                  %span.text-gray-100.ml-1= rx['name']
-                                - unless sql_open.nil?
-                                  %span.inline-block.px-1.5.py-0.5.text-xs.rounded.font-semibold.text-white.ml-1{class: (sql_open ? 'bg-green-600' : 'bg-gray-600'), id: "node-#{callsign}-squelch-#{port}"}
-                                    = sql_open ? 'OPEN' : 'SQ'
-                              %span.font-mono{id: "node-#{callsign}-siglev-#{port}"}
-                                = siglev ? "#{siglev.round}#{siglev < 0 ? ' dBm' : '%'}" : '—'
-                            .siglev-bar.mb-1
-                              .siglev-fill{class: "bg-#{bar_col}-500", id: "node-#{callsign}-sigbar-#{port}", style: "width: #{pct}%"}
+                -# Monitored TGs
+                - if node['monitoredTGs']&.any?
+                  .mb-2.flex.flex-wrap.gap-1.items-center
+                    %span.mr-1 TGs:
+                    - node['monitoredTGs'].each do |tg_num|
+                      %span.tg-pill{class: (tg_num == tg && tg != 0 ? 'active' : nil), id: "node-#{callsign}-tgpill-#{tg_num}"}
+                        = tg_num
 
-                    -# Monitored TGs
-                    - if node['monitoredTGs']&.any?
-                      .mb-2.flex.flex-wrap.gap-1.items-center
-                        %span.mr-1 TGs:
-                        - node['monitoredTGs'].each do |tg_num|
-                          %span.tg-pill{class: (tg_num == tg && tg != 0 ? 'active' : nil), id: "node-#{callsign}-tgpill-#{tg_num}"}
-                            = tg_num
+                -# Tone → Talkgroup
+                - if node['toneToTalkgroup']&.any?
+                  .mb-2.tone-table
+                    .text-gray-500.mb-1{style: "font-size:.68rem;text-transform:uppercase;letter-spacing:.06em"}
+                      %i.bi.bi-soundwave.mr-1
+                      CTCSS → TG
+                    - node['toneToTalkgroup'].sort_by { |tone, _| tone.to_f }.each do |tone, tg_num|
+                      .tone-row{class: (tg_num == tg && tg != 0 ? 'active' : nil), id: "node-#{callsign}-tone-#{tone}"}
+                        %span.t-freq= "#{tone} Hz"
+                        %span.t-tg= tg_num == 0 ? '— local' : tg_num
 
-                    -# Tone → Talkgroup
-                    - if node['toneToTalkgroup']&.any?
-                      .mb-2.tone-table
-                        .text-gray-500.mb-1{style: "font-size:.68rem;text-transform:uppercase;letter-spacing:.06em"}
-                          %i.bi.bi-soundwave.mr-1
-                          CTCSS → TG
-                        - node['toneToTalkgroup'].sort_by { |tone, _| tone.to_f }.each do |tone, tg_num|
-                          .tone-row{class: (tg_num == tg && tg != 0 ? 'active' : nil), id: "node-#{callsign}-tone-#{tone}"}
-                            %span.t-freq= "#{tone} Hz"
-                            %span.t-tg= tg_num == 0 ? '— local' : tg_num
+                -# Sysop
+                - if node['sysop'].present?
+                  %div
+                    %i.bi.bi-person.mr-1
+                    = node['sysop']
 
-                    -# Sysop
-                    - if node['sysop'].present?
-                      %div
-                        %i.bi.bi-person.mr-1
-                        = node['sysop']
+              .card-footer.flex.justify-between.px-3.py-1
+                %span.text-gray-500{id: "node-#{callsign}-sw"}= [node['sw'], node['swVer'].to_s.sub(/(\.0)+$/, '')].reject(&:blank?).join(' ')
+                %span.text-gray-500{id: "node-#{callsign}-updated"}
 
-                  .card-footer.flex.justify-between.px-3.py-1
-                    %span.text-gray-500{id: "node-#{callsign}-sw"}= [node['sw'], node['swVer'].to_s.sub(/(\.0)+$/, '')].reject(&:blank?).join(' ')
-                    %span.text-gray-500{id: "node-#{callsign}-updated"}
+        - if visible.empty?
+          .text-center.text-gray-500.py-5
+            %i.bi.bi-hdd-network.text-6xl.block.mb-2
+            No nodes currently connected.
 
-            - if visible.empty?
-              .text-center.text-gray-500.py-5
-                %i.bi.bi-hdd-network.text-6xl.block.mb-2
-                No nodes currently connected.
-
-        -# Activity log (admin only)
-        - if logged_in? && current_user.admin?
-          %div
-            .flex.items-center.mb-3.gap-2
-              %span.text-gray-500.uppercase.font-semibold.text-sm
-                %i.bi.bi-activity.mr-1
-                Activity Log
-              %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-gray-600.text-gray-200#log-count 0
-            #activity-log.border.border-ghborder.rounded-lg
-              #log-placeholder.text-center.text-gray-500.py-5.text-sm
-                %i.bi.bi-hourglass-split.block.mb-2.text-xl
-                Waiting for live updates…
 
     - nodes_json = @nodes.to_json.html_safe
     :javascript
