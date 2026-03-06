@@ -241,11 +241,14 @@
                     - @visible_nodes.each do |cs, node|
                       - ttg = node['toneToTalkgroup'] || {}
                       - tone = ttg.find { |t, tg| tg == tg_num }&.first&.to_f
+                      - on_tg = node['tg'].to_i == tg_num
                       %td
                         - if tone
                           %span.tone-pill
                             = "%.1f" % tone
                             %span.tone-unit  Hz
+                        - elsif on_tg
+                          %i.bi.bi-link-45deg.text-green-500.text-lg{title: "Connected to TG #{tg_num}"}
                         - else
                           %span.empty-cell ·
 
@@ -463,11 +466,14 @@
                 Object.keys(ttg).forEach(function (toneStr) {
                   if (ttg[toneStr] === tgRec.tg) tone = parseFloat(toneStr);
                 });
+                var onTg = (row.node.tg || 0) === tgRec.tg;
                 if (tone !== undefined) {
                   var pill = document.createElement('span');
                   pill.className = 'tone-pill';
                   pill.innerHTML = tone.toFixed(1) + '<span class="tone-unit"> Hz</span>';
                   td.appendChild(pill);
+                } else if (onTg) {
+                  td.innerHTML = '<i class="bi bi-link-45deg text-green-500 text-lg" title="Connected to TG ' + tgRec.tg + '"></i>';
                 } else {
                   td.innerHTML = '<span class="empty-cell">\u00B7</span>';
                 }
