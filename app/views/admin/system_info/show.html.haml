@@ -1,5 +1,7 @@
 !!!
 %html{lang: "en"}
+  :javascript
+    (function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.classList.add('light-theme');})();
   %head
     %meta{charset: "UTF-8"}
     %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
@@ -22,57 +24,156 @@
         }
       }
     %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
+    %script{src: "/vendor/mermaid/mermaid.min.js"}
     :css
       body { background: #0d1117; }
 
   %body.text-ghtext
     = render 'shared/navbar', active: 'admin'
 
-    .max-w-3xl.mx-auto.px-4.pb-12
+    .max-w-7xl.mx-auto.px-4.pb-12
       .flex.items-center.gap-2.mb-6
         %i.bi.bi-cpu.text-lg.text-ghmuted
         %h2.text-xl.font-semibold.text-gray-100 System Info
 
-      - if @services.present?
-        .flex.items-center.gap-2.mb-3
-          %i.bi.bi-boxes.text-ghmuted
-          %h3.text-base.font-semibold.text-gray-100 Docker Services
-        .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden.mb-8
-          %table.w-full.text-sm
-            %thead
-              %tr.border-b.border-ghborder
-                %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Service
-                %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Image
-                %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim State
-                %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Status
-            %tbody
-              - @services.each do |svc|
-                %tr.border-b.border-ghborder2
-                  %td.px-4.py-3.font-mono.font-semibold.text-gray-200= svc[:service]
-                  %td.px-4.py-3.font-mono.text-ghmuted.text-xs= svc[:image]
-                  %td.px-4.py-3
-                    - case svc[:state]
-                    - when "running"
-                      %span.inline-flex.items-center.gap-1.5.text-green-400.text-xs.font-medium
-                        %span.w-2.h-2.rounded-full.bg-green-400
-                        running
-                    - when "exited"
-                      %span.inline-flex.items-center.gap-1.5.text-red-400.text-xs.font-medium
-                        %span.w-2.h-2.rounded-full.bg-red-400
-                        exited
-                    - else
-                      %span.inline-flex.items-center.gap-1.5.text-yellow-400.text-xs.font-medium
-                        %span.w-2.h-2.rounded-full.bg-yellow-400
-                        = svc[:state]
-                  %td.px-4.py-3.text-ghmuted.text-xs= svc[:status]
+      -# ── Top row: Host + Application side by side on desktop ──
+      .grid.grid-cols-1.lg:grid-cols-2.gap-6.mb-6
+        - if @host.present?
+          %div
+            .flex.items-center.gap-2.mb-3
+              %i.bi.bi-pc-display.text-ghmuted
+              %h3.text-base.font-semibold.text-gray-100 Host
+            .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden
+              %table.w-full.text-sm
+                %tbody
+                  - @host.each do |label, value|
+                    %tr.border-b.border-ghborder2
+                      %td.px-4.py-2.text-ghmuted.font-medium.whitespace-nowrap{style: "width: 140px"}= label
+                      %td.px-4.py-2.text-gray-200.font-mono= value
 
-      .flex.items-center.gap-2.mb-3
-        %i.bi.bi-info-circle.text-ghmuted
-        %h3.text-base.font-semibold.text-gray-100 Application
-      .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden
-        %table.w-full.text-sm
-          %tbody
-            - @info.each do |label, value|
-              %tr.border-b.border-ghborder2
-                %td.px-4.py-3.text-ghmuted.font-medium.whitespace-nowrap{style: "width: 180px"}= label
-                %td.px-4.py-3.text-gray-200.font-mono= value
+        %div
+          .flex.items-center.gap-2.mb-3
+            %i.bi.bi-info-circle.text-ghmuted
+            %h3.text-base.font-semibold.text-gray-100 Application
+          .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden
+            %table.w-full.text-sm
+              %tbody
+                - @info.each do |label, value|
+                  %tr.border-b.border-ghborder2
+                    %td.px-4.py-2.text-ghmuted.font-medium.whitespace-nowrap{style: "width: 140px"}= label
+                    %td.px-4.py-2.text-gray-200.font-mono= value
+
+      -# ── Second row: Memory + Disks side by side on desktop ──
+      .grid.grid-cols-1.lg:grid-cols-2.gap-6.mb-6
+        - if @memory
+          %div
+            .flex.items-center.gap-2.mb-3
+              %i.bi.bi-memory.text-ghmuted
+              %h3.text-base.font-semibold.text-gray-100 Memory
+            .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden
+              %table.w-full.text-sm
+                %tbody
+                  %tr.border-b.border-ghborder2
+                    %td.px-4.py-2.text-ghmuted.font-medium.whitespace-nowrap{style: "width: 140px"} RAM
+                    %td.px-4.py-2
+                      .flex.items-center.gap-3
+                        .flex-1{style: "height:12px;border-radius:6px;background:#21262d;overflow:hidden;"}
+                          .flex{style: "height:100%;"}
+                            .bg-blue-500{style: "width:#{@memory[:used_pct]}%;"}
+                            .bg-blue-300{style: "width:#{@memory[:bufcache_pct]}%;opacity:0.5;"}
+                        %span.text-xs.text-gray-300.font-mono.whitespace-nowrap
+                          = "#{@memory[:used]} / #{@memory[:total]}"
+                  %tr.border-b.border-ghborder2
+                    %td.px-4.py-2.text-ghmuted.font-medium Used
+                    %td.px-4.py-2.text-gray-200.font-mono= "#{@memory[:used]} (#{@memory[:used_pct]}%)"
+                  %tr.border-b.border-ghborder2
+                    %td.px-4.py-2.text-ghmuted.font-medium Buff / Cache
+                    %td.px-4.py-2.text-gray-200.font-mono= "#{@memory[:buffers]} / #{@memory[:cached]}"
+                  %tr.border-b.border-ghborder2
+                    %td.px-4.py-2.text-ghmuted.font-medium Available
+                    %td.px-4.py-2.text-gray-200.font-mono= @memory[:available]
+                  %tr.border-b.border-ghborder2
+                    %td.px-4.py-2.text-ghmuted.font-medium Free
+                    %td.px-4.py-2.text-gray-200.font-mono= @memory[:free]
+                  - if @memory[:has_swap]
+                    %tr.border-b.border-ghborder2
+                      %td.px-4.py-2.text-ghmuted.font-medium Swap
+                      %td.px-4.py-2
+                        .flex.items-center.gap-3
+                          .flex-1{style: "height:12px;border-radius:6px;background:#21262d;overflow:hidden;"}
+                            .bg-yellow-500{style: "width:#{@memory[:swap_pct]}%;height:100%;"}
+                          %span.text-xs.text-gray-300.font-mono.whitespace-nowrap
+                            = "#{@memory[:swap_used]} / #{@memory[:swap_total]}"
+
+        - if @disks.present?
+          %div
+            .flex.items-center.gap-2.mb-3
+              %i.bi.bi-device-hdd.text-ghmuted
+              %h3.text-base.font-semibold.text-gray-100 Disks
+            .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden
+              %table.w-full.text-sm
+                %thead
+                  %tr.border-b.border-ghborder
+                    %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Device
+                    %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Type
+                    %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Mount
+                    %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Usage
+                %tbody
+                  - @disks.each do |disk|
+                    - bar_color = disk[:used_pct] >= 90 ? "#f85149" : disk[:used_pct] >= 70 ? "#d29922" : "#3fb950"
+                    %tr.border-b.border-ghborder2
+                      %td.px-4.py-2.font-mono.text-gray-200.text-xs= disk[:device]
+                      %td.px-4.py-2.text-ghmuted.text-xs= disk[:fstype]
+                      %td.px-4.py-2.font-mono.text-gray-200.text-xs= disk[:mount]
+                      %td.px-4.py-2{style: "min-width:200px;"}
+                        .flex.items-center.gap-3
+                          .flex-1{style: "height:12px;border-radius:6px;background:#21262d;overflow:hidden;"}
+                            %div{style: "width:#{disk[:used_pct]}%;height:100%;background:#{bar_color};border-radius:6px;"}
+                          %span.text-xs.text-gray-300.font-mono.whitespace-nowrap
+                            = "#{disk[:used]} / #{disk[:total]} (#{disk[:used_pct]}%)"
+
+      -# ── Docker Services: full width ──
+      - if @services.present?
+        .mb-6
+          .flex.items-center.gap-2.mb-3
+            %i.bi.bi-boxes.text-ghmuted
+            %h3.text-base.font-semibold.text-gray-100 Docker Services
+          .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden
+            %table.w-full.text-sm
+              %thead
+                %tr.border-b.border-ghborder
+                  %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Service
+                  %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Image
+                  %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim State
+                  %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Status
+              %tbody
+                - @services.each do |svc|
+                  %tr.border-b.border-ghborder2
+                    %td.px-4.py-2.font-mono.font-semibold.text-gray-200= svc[:service]
+                    %td.px-4.py-2.font-mono.text-ghmuted.text-xs= svc[:image]
+                    %td.px-4.py-2
+                      - case svc[:state]
+                      - when "running"
+                        %span.inline-flex.items-center.gap-1.5.text-green-400.text-xs.font-medium
+                          %span.w-2.h-2.rounded-full.bg-green-400
+                          running
+                      - when "exited"
+                        %span.inline-flex.items-center.gap-1.5.text-red-400.text-xs.font-medium
+                          %span.w-2.h-2.rounded-full.bg-red-400
+                          exited
+                      - else
+                        %span.inline-flex.items-center.gap-1.5.text-yellow-400.text-xs.font-medium
+                          %span.w-2.h-2.rounded-full.bg-yellow-400
+                          = svc[:state]
+                    %td.px-4.py-2.text-ghmuted.text-xs= svc[:status]
+
+      -# ── Service Dependencies graph: full width ──
+      - if @service_graph.present?
+        .mb-6
+          .flex.items-center.gap-2.mb-3
+            %i.bi.bi-diagram-3.text-ghmuted
+            %h3.text-base.font-semibold.text-gray-100 Service Dependencies
+          .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden.p-4
+            .mermaid= @service_graph
+          :javascript
+            mermaid.initialize({ startOnLoad: true, theme: 'dark', themeVariables: { primaryColor: '#161b22', primaryTextColor: '#c9d1d9', lineColor: '#30363d', primaryBorderColor: '#30363d' } });

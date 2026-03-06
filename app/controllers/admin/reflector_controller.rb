@@ -7,6 +7,17 @@ module Admin
       @config = ReflectorConfig.load
     end
 
+    def backups
+      dir = File.dirname(ReflectorConfig.config_path)
+      base = File.basename(ReflectorConfig.config_path)
+      @backups = Dir.glob(File.join(dir, "#{base}.*.bak")).sort.reverse.map do |path|
+        stamp = File.basename(path).match(/\.(\d{8}_\d{6})\.bak$/)&.[](1)
+        label = stamp ? Time.strptime(stamp, "%Y%m%d_%H%M%S").strftime("%Y-%m-%d %H:%M:%S") : File.basename(path)
+        { filename: File.basename(path), label: label, content: File.read(path) }
+      end
+      render json: @backups
+    end
+
     def update
       config = ReflectorConfig.new
 

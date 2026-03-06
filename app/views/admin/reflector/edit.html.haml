@@ -1,5 +1,7 @@
 !!!
 %html{lang: "en"}
+  :javascript
+    (function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.classList.add('light-theme');})();
   %head
     %meta{charset: "UTF-8"}
     %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
@@ -79,6 +81,25 @@
           %button#confirm-delete.px-3.py-1.5.rounded-md.bg-red-600.hover:bg-red-700.text-sm.text-white.font-semibold.cursor-pointer{type: "button"}
             %i.bi.bi-trash3.mr-1
             Delete
+
+    -# Backup browser modal
+    #backup-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
+      .bg-ghcard.border.border-gray-600.rounded-lg.max-w-3xl.w-full.mx-4.shadow-xl.flex.flex-col{style: "max-height: 85vh"}
+        .flex.items-center.justify-between.px-5.py-4.border-b.border-ghborder.shrink-0
+          %h6.text-base.font-semibold.text-gray-100
+            %i.bi.bi-clock-history.mr-2
+            Configuration Backups
+          %button.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "closeBackups()"}
+            %i.bi.bi-x-lg
+        .flex.flex-1.overflow-hidden
+          -# Backup list (left panel)
+          #backup-list.border-r.border-ghborder.overflow-y-auto.shrink-0{style: "width: 220px"}
+            .px-3.py-3.text-sm.text-ghmuted#backup-list-inner
+              %span.text-ghdim Loading…
+          -# Backup content (right panel)
+          #backup-content.flex-1.overflow-y-auto.p-4
+            %pre.text-xs.font-mono.text-gray-300.whitespace-pre-wrap#backup-content-pre
+              %span.text-ghdim Select a backup to inspect
 
     -# Help popup modal
     #help-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
@@ -293,6 +314,9 @@
         -# ── Save ──
         .flex.gap-2
           = f.submit "Save configuration & Restart SvxReflector", class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
+          %button.px-4.py-2.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "openBackups()"}
+            %i.bi.bi-clock-history.mr-1
+            Backups
           = link_to "Back", admin_users_path, class: "px-4 py-2 rounded-md border border-gray-600 text-gray-400 hover:text-gray-200"
 
     :javascript
@@ -425,4 +449,42 @@
         container.appendChild(div);
         var body = document.getElementById('body-tg');
         if (!body.classList.contains('open')) toggleSection('tg');
+      }
+
+      // ── Backup browser ──
+      var _backupData = null;
+      function openBackups() {
+        var modal = document.getElementById('backup-modal');
+        modal.style.display = 'flex';
+        if (_backupData) { renderBackupList(_backupData); return; }
+        fetch('/admin/reflector/backups')
+          .then(function(r) { return r.json(); })
+          .then(function(data) { _backupData = data; renderBackupList(data); })
+          .catch(function() {
+            document.getElementById('backup-list-inner').innerHTML = '<span class="text-red-400">Failed to load backups</span>';
+          });
+      }
+      function closeBackups() {
+        document.getElementById('backup-modal').style.display = 'none';
+      }
+      document.getElementById('backup-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeBackups();
+      });
+      function renderBackupList(backups) {
+        var list = document.getElementById('backup-list-inner');
+        if (!backups.length) { list.innerHTML = '<span class="text-ghdim">No backups available</span>'; return; }
+        list.innerHTML = '';
+        backups.forEach(function(b, i) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'w-full text-left px-3 py-2 rounded-md text-sm hover:bg-ghborder2 cursor-pointer transition-colors text-gray-300 backup-item';
+          btn.innerHTML = '<div class="font-mono text-xs">' + b.label + '</div>';
+          btn.addEventListener('click', function() {
+            document.querySelectorAll('.backup-item').forEach(function(el) { el.classList.remove('bg-ghborder2', 'text-gray-100'); });
+            btn.classList.add('bg-ghborder2', 'text-gray-100');
+            document.getElementById('backup-content-pre').textContent = b.content;
+          });
+          list.appendChild(btn);
+          if (i === 0) btn.click();
+        });
       }

@@ -4,6 +4,16 @@ module Admin
     before_action :require_admin
 
     DOCKER_SOCKET = "/var/run/docker.sock"
+    BOOT_ORDER = %w[init-reflector-conf redis svxreflector web updater audio_bridge caddy].freeze
+    SERVICE_DEPS = {
+      "init-reflector-conf" => [],
+      "redis" => [],
+      "svxreflector" => %w[init-reflector-conf],
+      "web" => %w[init-reflector-conf redis svxreflector],
+      "updater" => %w[web redis svxreflector],
+      "audio_bridge" => %w[redis svxreflector],
+      "caddy" => %w[web],
+    }.freeze
 
     def show
       @info = {
@@ -19,7 +29,11 @@ module Admin
         "Registered users" => User.count,
         "Server time" => Time.current.strftime("%Y-%m-%d %H:%M:%S %Z"),
       }
+      @host = fetch_host_info
+      @memory = fetch_memory_info
+      @disks = fetch_disk_info
       @services = fetch_docker_services
+      @service_graph = build_mermaid_graph
     end
 
     private
@@ -43,19 +57,108 @@ module Admin
       "%.1f %s" % [bytes.to_f / 1024**exp, units[exp]]
     end
 
-    def fetch_docker_services
-      return [] unless File.exist?(DOCKER_SOCKET)
-
+    def docker_api_get(path)
       require "socket"
       require "json"
+      return nil unless File.exist?(DOCKER_SOCKET)
 
       sock = UNIXSocket.new(DOCKER_SOCKET)
-      sock.write("GET /containers/json?all=true HTTP/1.0\r\nHost: localhost\r\n\r\n")
+      sock.write("GET #{path} HTTP/1.0\r\nHost: localhost\r\n\r\n")
       response = sock.read
       sock.close
+      JSON.parse(response.split("\r\n\r\n", 2).last)
+    end
 
-      body = response.split("\r\n\r\n", 2).last
-      containers = JSON.parse(body)
+    def fetch_host_info
+      info = docker_api_get("/info")
+      return {} unless info
+
+      uptime_secs = File.read("/proc/uptime").split.first.to_f rescue 0
+      days = (uptime_secs / 86400).to_i
+      hours = ((uptime_secs % 86400) / 3600).to_i
+      mins = ((uptime_secs % 3600) / 60).to_i
+      uptime_str = [("#{"#{days}d" if days > 0}"), "#{"#{hours}h" if hours > 0}", "#{mins}m"].compact_blank.join(" ")
+
+      {
+        "Hostname" => info["Name"],
+        "OS" => info["OperatingSystem"],
+        "Kernel" => info["KernelVersion"],
+        "Architecture" => info["Architecture"],
+        "CPUs" => info["NCPU"],
+        "Docker" => info["ServerVersion"],
+        "Host uptime" => uptime_str,
+        "Containers" => "#{info["ContainersRunning"]} running / #{info["Containers"]} total",
+        "Images" => info["Images"],
+      }
+    rescue => e
+      Rails.logger.warn("Docker host info failed: #{e.message}")
+      {}
+    end
+
+    def fetch_memory_info
+      meminfo = {}
+      File.readlines("/proc/meminfo").each do |line|
+        key, val = line.split(":")
+        meminfo[key.strip] = val.strip.split.first.to_i * 1024 # kB → bytes
+      end
+
+      total = meminfo["MemTotal"]
+      free = meminfo["MemFree"]
+      available = meminfo["MemAvailable"]
+      buffers = meminfo["Buffers"]
+      cached = meminfo["Cached"]
+      used = total - free - buffers - cached
+      swap_total = meminfo["SwapTotal"]
+      swap_free = meminfo["SwapFree"]
+      swap_used = swap_total - swap_free
+
+      used_pct = (used.to_f / total * 100).round(1)
+      bufcache_pct = ((buffers + cached).to_f / total * 100).round(1)
+      swap_pct = swap_total > 0 ? (swap_used.to_f / swap_total * 100).round(1) : 0
+
+      {
+        used_pct: used_pct, bufcache_pct: bufcache_pct, swap_pct: swap_pct,
+        used: format_bytes(used), total: format_bytes(total),
+        buffers: format_bytes(buffers), cached: format_bytes(cached),
+        available: format_bytes(available), free: format_bytes(free),
+        swap_total: format_bytes(swap_total), swap_used: format_bytes(swap_used),
+        has_swap: swap_total > 0,
+      }
+    rescue => e
+      Rails.logger.warn("Memory info failed: #{e.message}")
+      nil
+    end
+
+    def fetch_disk_info
+      vfs = %w[tmpfs devtmpfs squashfs overlay proc sysfs cgroup cgroup2 devpts mqueue hugetlbfs autofs securityfs pstore debugfs tracefs fusectl configfs binfmt_misc nsfs]
+      lines = `df -T -B1 2>/dev/null`.lines.drop(1)
+      seen = Set.new
+      lines.filter_map { |line|
+        cols = line.split
+        next if cols.size < 7
+        device, fstype, total, used, avail, _pct, mount = cols
+        next if vfs.include?(fstype)
+        next if seen.include?(device)
+        seen << device
+
+        total_b = total.to_i
+        used_b = used.to_i
+        used_pct = total_b > 0 ? (used_b.to_f / total_b * 100).round(1) : 0
+
+        {
+          device: device, fstype: fstype, mount: mount,
+          total: format_bytes(total_b), used: format_bytes(used_b),
+          available: format_bytes(avail.to_i), used_pct: used_pct,
+        }
+      }
+    rescue => e
+      Rails.logger.warn("Disk info failed: #{e.message}")
+      []
+    end
+
+    def fetch_docker_services
+      containers = docker_api_get("/containers/json?all=true")
+      return [] unless containers
 
       # Find our compose project by matching the project label from any container that has one
       project = containers.filter_map { |c| c.dig("Labels", "com.docker.compose.project") }.first
@@ -64,11 +167,38 @@ module Admin
       containers
         .select { |c| c.dig("Labels", "com.docker.compose.project") == project }
         .reject { |c| c.dig("Labels", "com.docker.compose.oneoff") == "True" }
-        .sort_by { |c| c.dig("Labels", "com.docker.compose.service") || "" }
+        .sort_by { |c| BOOT_ORDER.index(c.dig("Labels", "com.docker.compose.service")) || 999 }
         .map { |c| parse_container(c) }
     rescue => e
       Rails.logger.warn("Docker socket query failed: #{e.message}")
       []
+    end
+
+    def build_mermaid_graph
+      state_map = @services.each_with_object({}) { |s, h| h[s[:service]] = s[:state] }
+      lines = ["graph LR"]
+      SERVICE_DEPS.each do |svc, deps|
+        id = svc.tr("-", "_")
+        label = svc
+        lines << "  #{id}[\"#{label}\"]"
+        deps.each do |dep|
+          dep_id = dep.tr("-", "_")
+          lines << "  #{dep_id} --> #{id}"
+        end
+      end
+      # Style nodes by state
+      SERVICE_DEPS.each_key do |svc|
+        id = svc.tr("-", "_")
+        case state_map[svc]
+        when "running"
+          lines << "  style #{id} fill:#238636,stroke:#3fb950,color:#fff"
+        when "exited"
+          lines << "  style #{id} fill:#6e2b2b,stroke:#f85149,color:#fff"
+        else
+          lines << "  style #{id} fill:#30363d,stroke:#6e7681,color:#8b949e" unless state_map[svc]
+        end
+      end
+      lines.join("\n")
     end
 
     def parse_container(c)

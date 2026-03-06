@@ -69,6 +69,8 @@
           Map
 
       .flex.items-center.gap-3
+        %button#theme-toggle-mobile.text-gray-400.cursor-pointer{type: "button", title: "Toggle theme"}
+          %i.bi.bi-moon-fill#theme-icon-mobile
         - if logged_in?
           .relative
             %button.flex.items-center.gap-2.px-2.py-1.rounded.cursor-pointer.hover:bg-ghborder2{type: "button", onclick: "document.getElementById('userMenu').classList.toggle('hidden')"}
@@ -137,7 +139,7 @@
 
   -# ── Audio player (visible only to users with monitor permission + auth key) ──
   - if logged_in? && current_user.can_monitor? && current_user.reflector_auth_key.present?
-    - audio_tgs = (@nodes || {}).values.flat_map { |n| [n['tg'].to_i] + Array(n['monitoredTGs']).map(&:to_i) }.select { |t| t > 0 }.uniq.sort
+    - audio_tgs = ((@nodes || {}).values.flat_map { |n| [n['tg'].to_i] + Array(n['monitoredTGs']).map(&:to_i) }.select { |t| t > 0 } + [999]).uniq.sort
     .border-t.border-ghborder.px-3.py-3#audio-player-sidebar{"data-turbo-permanent" => "", "data-initial-tgs" => audio_tgs.join(','), "data-callsign" => "#{current_user.callsign.upcase}-WEB", "data-auth-key" => current_user.reflector_auth_key.to_s, "data-sysop" => current_user.name.to_s, "data-cw-roger-beep" => current_user.cw_roger_beep? ? "1" : "0"}
       .flex.items-center.gap-1.mb-2
         %i.bi.bi-headphones.text-ghdim.text-xs
@@ -155,6 +157,11 @@
         #s-meter.hidden{style: "height:4px;border-radius:2px;background:#21262d;overflow:hidden;"}
           #s-meter-fill{style: "height:100%;width:100%;border-radius:2px;background:linear-gradient(to right,#3fb950,#d29922,#f85149);transform:scaleX(0);transform-origin:left;transition:transform 50ms;"}
         %canvas#spectrum.hidden{width: "200", height: "32", style: "width:100%;height:32px;border-radius:4px;"}
+
+  .border-t.border-ghborder.px-3.py-2
+    %button#theme-toggle-desktop.flex.items-center.gap-3.px-2.py-2.rounded-md.text-sm.text-ghmuted.hover:bg-ghborder2.hover:text-gray-300.w-full.cursor-pointer{type: "button"}
+      %i.bi.bi-moon-fill#theme-icon-desktop.text-sm
+      %span#theme-label-desktop Dark
 
   .border-t.border-ghborder.px-3.py-3
     - if logged_in?
@@ -194,7 +201,47 @@
   @media (min-width: 1024px) {
     body { padding-left: 14rem; padding-top: 1rem; }
   }
+  html.light-theme {
+    filter: invert(1) hue-rotate(180deg);
+  }
+  html.light-theme img,
+  html.light-theme video,
+  html.light-theme canvas,
+  html.light-theme .leaflet-container,
+  html.light-theme .mermaid svg {
+    filter: invert(1) hue-rotate(180deg);
+  }
 :javascript
+  // ── Theme toggle (light/dark) ──
+  (function() {
+    function applyTheme(theme) {
+      document.documentElement.classList.toggle('light-theme', theme === 'light');
+      var isLight = theme === 'light';
+      ['desktop', 'mobile'].forEach(function(variant) {
+        var icon = document.getElementById('theme-icon-' + variant);
+        if (icon) {
+          icon.classList.toggle('bi-moon-fill', !isLight);
+          icon.classList.toggle('bi-sun-fill', isLight);
+        }
+      });
+      var label = document.getElementById('theme-label-desktop');
+      if (label) label.textContent = isLight ? 'Light' : 'Dark';
+    }
+
+    var saved = localStorage.getItem('theme') || 'dark';
+    applyTheme(saved);
+
+    function toggle() {
+      var next = document.documentElement.classList.contains('light-theme') ? 'dark' : 'light';
+      localStorage.setItem('theme', next);
+      applyTheme(next);
+    }
+
+    document.addEventListener('click', function(e) {
+      if (e.target.closest('#theme-toggle-desktop, #theme-toggle-mobile')) toggle();
+    });
+  })();
+
   document.addEventListener('click', function(e) {
     var menu = document.getElementById('userMenu');
     if (menu && !menu.parentElement.contains(e.target)) menu.classList.add('hidden');
@@ -384,6 +431,7 @@
           if (mt > 0) tgs[mt] = true;
         }
       }
+      tgs[999] = true;
       var sorted = Object.keys(tgs).map(Number).sort(function(a,b){ return a-b; });
       setTgOptions(sorted);
     }

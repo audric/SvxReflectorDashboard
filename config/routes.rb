@@ -17,7 +17,9 @@ Rails.application.routes.draw do
       end
     end
     resource :settings, only: %i[edit update]
-    resource :reflector, only: %i[edit update], controller: "reflector"
+    resource :reflector, only: %i[edit update], controller: "reflector" do
+      get :backups, on: :collection
+    end
     resource :system_info, only: :show, controller: "system_info"
   end
 
