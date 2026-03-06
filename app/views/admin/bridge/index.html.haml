@@ -1,0 +1,150 @@
+!!!
+%html{lang: "en"}
+  :javascript
+    (function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.classList.add('light-theme');})();
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title SVXReflector · Bridges
+    = csrf_meta_tags
+    %script{src: "/vendor/tailwind/tailwind.js"}
+    :javascript
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ghbg: '#0d1117',
+              ghcard: '#161b22',
+              ghborder: '#30363d',
+              ghborder2: '#21262d',
+              ghtext: '#c9d1d9',
+              ghmuted: '#8b949e',
+              ghdim: '#6e7681',
+            }
+          }
+        }
+      }
+    %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
+    :css
+      body { background: #0d1117; }
+
+  %body.text-ghtext
+    = render 'shared/navbar', active: 'admin'
+
+    -# Confirm delete modal
+    #confirm-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
+      .bg-ghcard.border.border-gray-600.rounded-lg.p-5.max-w-sm.w-full.mx-4.shadow-xl
+        .flex.items-center.gap-3.mb-3
+          .w-10.h-10.rounded-full.flex.items-center.justify-center.shrink-0{class: "bg-red-500/15"}
+            %i.bi.bi-exclamation-triangle.text-red-400
+          %h6.text-base.font-semibold.text-gray-100#confirm-title Delete this bridge?
+        %p.text-sm.text-gray-400.mb-4 This will stop the container and remove all configuration. This can't be undone.
+        .flex.justify-end.gap-2
+          %button#confirm-cancel.px-3.py-1.5.rounded-md.border.border-gray-600.text-sm.text-gray-300.hover:text-gray-100.cursor-pointer{type: "button"} Cancel
+          %button#confirm-delete.px-3.py-1.5.rounded-md.bg-red-600.hover:bg-red-700.text-sm.text-white.font-semibold.cursor-pointer{type: "button"}
+            %i.bi.bi-trash3.mr-1
+            Delete
+
+    .max-w-4xl.mx-auto.px-4.pb-12
+      - if flash[:notice]
+        %div.p-2.rounded.border.border-green-700.text-green-400.text-sm.mb-4.flex.items-center.justify-between{class: "bg-green-900/30", id: "flash-notice"}
+          %span= flash[:notice]
+          %button.text-green-400.hover:text-green-200.cursor-pointer{type: "button", onclick: "this.parentElement.remove()"}
+            %i.bi.bi-x
+
+      .flex.items-center.justify-between.mb-6
+        %h4.text-xl.font-semibold.text-gray-100
+          %i.bi.bi-diagram-3.mr-2
+          Bridges
+        = link_to new_admin_bridge_path, class: "px-3 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold" do
+          %i.bi.bi-plus.mr-1
+          New Bridge
+
+      - if @bridges.empty?
+        .rounded-lg.border.border-gray-600.bg-ghcard.p-8.text-center
+          %i.bi.bi-diagram-3.text-3xl.text-ghdim.block.mb-2
+          %p.text-ghmuted No bridges configured yet.
+          %p.text-sm.text-ghdim.mt-1 Create a bridge to connect this reflector to another.
+
+      - else
+        .space-y-3
+          - @bridges.each do |bridge|
+            - status = @container_statuses[bridge.id]
+            - running = status == "running"
+            .rounded-lg.border.border-gray-600.bg-ghcard.p-4
+              .flex.items-start.justify-between
+                .flex-1
+                  .flex.items-center.gap-3.mb-2
+                    %h5.text-base.font-semibold.text-gray-100= bridge.name
+                    - if bridge.enabled?
+                      - if running
+                        %span.inline-flex.items-center.gap-1.px-2.py-0.5.rounded-full.text-xs.font-medium.bg-green-900.text-green-400.border.border-green-700
+                          %i.bi.bi-circle-fill{style: "font-size: 0.4rem"}
+                          Running
+                      - else
+                        %span.inline-flex.items-center.gap-1.px-2.py-0.5.rounded-full.text-xs.font-medium.bg-yellow-900.text-yellow-400.border.border-yellow-700
+                          %i.bi.bi-circle-fill{style: "font-size: 0.4rem"}
+                          Starting
+                    - else
+                      %span.inline-flex.items-center.gap-1.px-2.py-0.5.rounded-full.text-xs.font-medium.bg-gray-800.text-gray-500.border.border-gray-700
+                        %i.bi.bi-circle-fill{style: "font-size: 0.4rem"}
+                        Stopped
+
+                  .grid.grid-cols-1.md:grid-cols-2.gap-x-8.gap-y-1.text-sm
+                    .flex.items-center.gap-2
+                      %span.text-ghmuted Local:
+                      %span.text-gray-300.font-mono= "#{bridge.local_callsign}@#{bridge.local_host}:#{bridge.local_port}"
+                      %span.text-ghdim TG #{bridge.bridge_local_tg}
+                    .flex.items-center.gap-2
+                      %span.text-ghmuted Remote:
+                      %span.text-gray-300.font-mono= "#{bridge.remote_callsign}@#{bridge.remote_host}:#{bridge.remote_port}"
+                      %span.text-ghdim TG #{bridge.bridge_remote_tg}
+
+                .flex.items-center.gap-2.ml-4
+                  = link_to edit_admin_bridge_path(bridge), class: "p-2 rounded-md text-gray-400 hover:text-gray-200 hover:bg-ghborder2", title: "Edit" do
+                    %i.bi.bi-pencil
+                  = button_to toggle_admin_bridge_path(bridge), method: :patch, class: "p-2 rounded-md hover:bg-ghborder2 cursor-pointer #{bridge.enabled? ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}", title: bridge.enabled? ? "Stop" : "Start" do
+                    %i.bi{class: bridge.enabled? ? "bi-stop-fill" : "bi-play-fill"}
+                  %button.p-2.rounded-md.text-red-400.hover:text-red-300.hover:bg-ghborder2.cursor-pointer{type: "button", title: "Delete", onclick: "confirmDelete('#{j bridge.name}', '#{admin_bridge_path(bridge)}')"}
+                    %i.bi.bi-trash3
+
+    :javascript
+      (function() {
+        var flash = document.getElementById('flash-notice');
+        if (flash) setTimeout(function() { flash.style.transition = 'opacity 0.5s'; flash.style.opacity = '0'; setTimeout(function() { flash.remove(); }, 500); }, 5000);
+      })();
+
+      var _deleteUrl = null;
+      function confirmDelete(name, url) {
+        _deleteUrl = url;
+        document.getElementById('confirm-title').textContent = 'Delete bridge "' + name + '"?';
+        document.getElementById('confirm-modal').style.display = 'flex';
+      }
+      document.getElementById('confirm-delete').addEventListener('click', function() {
+        if (!_deleteUrl) return;
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = _deleteUrl;
+        var method = document.createElement('input');
+        method.type = 'hidden';
+        method.name = '_method';
+        method.value = 'delete';
+        form.appendChild(method);
+        var token = document.querySelector('meta[name="csrf-token"]');
+        if (token) {
+          var csrf = document.createElement('input');
+          csrf.type = 'hidden';
+          csrf.name = 'authenticity_token';
+          csrf.value = token.content;
+          form.appendChild(csrf);
+        }
+        document.body.appendChild(form);
+        form.submit();
+      });
+      document.getElementById('confirm-cancel').addEventListener('click', function() {
+        _deleteUrl = null;
+        document.getElementById('confirm-modal').style.display = 'none';
+      });
+      document.getElementById('confirm-modal').addEventListener('click', function(e) {
+        if (e.target === this) { _deleteUrl = null; this.style.display = 'none'; }
+      });

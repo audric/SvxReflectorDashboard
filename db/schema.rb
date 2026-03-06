@@ -10,7 +10,27 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_06_132024) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_06_163430) do
+  create_table "bridges", force: :cascade do |t|
+    t.integer "bridge_local_tg"
+    t.integer "bridge_remote_tg"
+    t.datetime "created_at", null: false
+    t.boolean "enabled", default: false
+    t.string "local_auth_key"
+    t.string "local_callsign"
+    t.integer "local_default_tg"
+    t.string "local_host"
+    t.integer "local_port"
+    t.string "name"
+    t.string "remote_auth_key"
+    t.string "remote_callsign"
+    t.integer "remote_default_tg"
+    t.string "remote_host"
+    t.integer "remote_port"
+    t.integer "timeout"
+    t.datetime "updated_at", null: false
+  end
+
   create_table "ctcss_tones", force: :cascade do |t|
     t.string "code", null: false
     t.datetime "created_at", null: false

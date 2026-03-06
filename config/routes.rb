@@ -21,8 +21,16 @@ Rails.application.routes.draw do
     resource :reflector, only: %i[edit update], controller: "reflector" do
       get :backups, on: :collection
     end
+    resources :bridges, controller: "bridge" do
+      member do
+        patch :toggle
+      end
+    end
     resource :system_info, only: :show, controller: "system_info"
     resource :debug, only: :show, controller: "debug"
+    resource :logs, only: :show, controller: "logs" do
+      get :fetch, on: :collection
+    end
   end
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.

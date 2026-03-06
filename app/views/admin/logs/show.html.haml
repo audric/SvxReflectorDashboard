@@ -1,0 +1,144 @@
+!!!
+%html{lang: "en"}
+  :javascript
+    (function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.classList.add('light-theme');})();
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title SVXReflector · Container Logs
+    %script{src: "/vendor/tailwind/tailwind.js"}
+    :javascript
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ghbg: '#0d1117',
+              ghcard: '#161b22',
+              ghborder: '#30363d',
+              ghborder2: '#21262d',
+              ghtext: '#c9d1d9',
+              ghmuted: '#8b949e',
+              ghdim: '#6e7681',
+            }
+          }
+        }
+      }
+    %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
+    :css
+      body { background: #0d1117; }
+
+  %body.text-ghtext
+    = render 'shared/navbar', active: 'admin'
+
+    .max-w-6xl.mx-auto.px-4.pb-12
+
+      .flex.items-center.justify-between.mb-4
+        %h5.text-lg.font-semibold.text-gray-100
+          %i.bi.bi-terminal.mr-2
+          Container Logs
+        .flex.items-center.gap-2
+          %select#log-container.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-1.cursor-pointer{style: "outline:none;"}
+            %option{value: ""} Select container…
+            - @containers.each do |c|
+              %option{value: c[:id], data: { state: c[:state] }}
+                = "#{c[:name]} (#{c[:state]})"
+          %select#log-tail.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-1.cursor-pointer{style: "outline:none;"}
+            %option{value: "50"} 50 lines
+            %option{value: "200", selected: true} 200 lines
+            %option{value: "500"} 500 lines
+            %option{value: "1000"} 1000 lines
+          %button#log-refresh.text-xs.px-2.py-1.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.cursor-pointer{type: "button", title: "Refresh"}
+            %i.bi.bi-arrow-clockwise
+          %label.flex.items-center.gap-1.text-xs.text-ghmuted.cursor-pointer
+            %input#log-auto{type: "checkbox"}
+            Auto
+
+      .rounded-lg.border.border-ghborder.bg-ghcard
+        #log-output{style: "max-height: calc(100vh - 160px); overflow-y: auto;"}
+          %pre.text-xs.font-mono.text-gray-400.px-4.py-3.m-0.whitespace-pre-wrap#log-pre
+            %span.text-ghdim Select a container to view its logs
+
+    :javascript
+      (function() {
+        var logSelect = document.getElementById('log-container');
+        var logTail = document.getElementById('log-tail');
+        var logPre = document.getElementById('log-pre');
+        var logOutput = document.getElementById('log-output');
+        var logRefresh = document.getElementById('log-refresh');
+        var logAuto = document.getElementById('log-auto');
+        var autoTimeout = null;
+        var lastTimestamp = null;
+        var fetching = false;
+
+        function fetchLogs(incremental) {
+          var cid = logSelect.value;
+          if (!cid || fetching) return;
+          fetching = true;
+
+          var url = '/admin/logs/fetch?container=' + encodeURIComponent(cid);
+          if (incremental && lastTimestamp) {
+            url += '&since=' + encodeURIComponent(lastTimestamp);
+          } else {
+            url += '&tail=' + logTail.value;
+          }
+
+          fetch(url)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              var logs = data.logs || '';
+              if (incremental && lastTimestamp && logs.length > 0) {
+                logPre.textContent += logs;
+              } else {
+                logPre.textContent = logs || '(empty)';
+              }
+              // Extract last timestamp for next incremental fetch
+              if (logs.length > 0) {
+                var lines = logs.trimEnd().split('\n');
+                var lastLine = lines[lines.length - 1];
+                // Docker timestamps: 2026-03-06T16:45:42.123456789Z
+                var match = lastLine.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?)/);
+                if (match) {
+                  // Convert to unix timestamp, add a nanosecond to avoid duplicating the last line
+                  var d = new Date(match[1]);
+                  if (!isNaN(d.getTime())) {
+                    lastTimestamp = String(d.getTime() / 1000 + 0.000001);
+                  }
+                }
+              }
+              if (logAuto.checked) logOutput.scrollTop = logOutput.scrollHeight;
+            })
+            .catch(function(err) {
+              logPre.textContent = 'Error: ' + err.message;
+            })
+            .finally(function() {
+              fetching = false;
+              scheduleNext();
+            });
+        }
+
+        function scheduleNext() {
+          if (autoTimeout) { clearTimeout(autoTimeout); autoTimeout = null; }
+          if (logAuto.checked && logSelect.value) {
+            autoTimeout = setTimeout(function() { fetchLogs(true); }, 1500);
+          }
+        }
+
+        function stopAuto() {
+          if (autoTimeout) { clearTimeout(autoTimeout); autoTimeout = null; }
+        }
+
+        function fullRefresh() {
+          lastTimestamp = null;
+          fetchLogs(false);
+        }
+
+        logSelect.addEventListener('change', function() {
+          if (this.value) { lastTimestamp = null; fetchLogs(false); }
+          else { logPre.innerHTML = '<span class="text-ghdim">Select a container to view its logs</span>'; stopAuto(); lastTimestamp = null; }
+        });
+        logTail.addEventListener('change', fullRefresh);
+        logRefresh.addEventListener('click', fullRefresh);
+        logAuto.addEventListener('change', function() {
+          if (this.checked) scheduleNext(); else stopAuto();
+        });
+      })();

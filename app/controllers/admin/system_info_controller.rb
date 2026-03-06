@@ -161,14 +161,35 @@ module Admin
       return [] unless containers
 
       # Find our compose project by matching the project label from any container that has one
-      project = containers.filter_map { |c| c.dig("Labels", "com.docker.compose.project") }.first
+      project = containers.filter_map { |c| c.dig("Labels", "com.docker.compose.project").presence }.first
       return [] unless project
 
-      containers
+      bridge_ids = Set.new(
+        containers
+          .select { |c| c["Names"]&.any? { |n| n =~ /\A\/svxlink-bridge-\d+\z/ } }
+          .map { |c| c["Id"] }
+      )
+
+      compose_services = containers
         .select { |c| c.dig("Labels", "com.docker.compose.project") == project }
         .reject { |c| c.dig("Labels", "com.docker.compose.oneoff") == "True" }
+        .reject { |c| bridge_ids.include?(c["Id"]) }
         .sort_by { |c| BOOT_ORDER.index(c.dig("Labels", "com.docker.compose.service")) || 999 }
         .map { |c| parse_container(c) }
+
+      # Include dynamically-created bridge containers with friendly names
+      bridge_names = Bridge.pluck(:id, :name).to_h
+      bridge_containers = containers
+        .select { |c| c["Names"]&.any? { |n| n =~ /\A\/svxlink-bridge-\d+\z/ } }
+        .map { |c|
+          container_name = c["Names"].find { |n| n =~ /svxlink-bridge/ }&.delete_prefix("/")
+          bridge_id = container_name&.match(/(\d+)\z/)&.[](1)&.to_i
+          label = bridge_names[bridge_id] ? "bridge: #{bridge_names[bridge_id]}" : container_name
+          { service: label, image: c["Image"], state: c["State"], status: c["Status"],
+            created: (Time.at(c["Created"]).strftime("%Y-%m-%d %H:%M") rescue nil) }
+        }
+
+      compose_services + bridge_containers
     rescue => e
       Rails.logger.warn("Docker socket query failed: #{e.message}")
       []
@@ -179,15 +200,23 @@ module Admin
       lines = ["graph LR"]
       SERVICE_DEPS.each do |svc, deps|
         id = svc.tr("-", "_")
-        label = svc
-        lines << "  #{id}[\"#{label}\"]"
+        lines << "  #{id}[\"#{svc}\"]"
         deps.each do |dep|
           dep_id = dep.tr("-", "_")
           lines << "  #{dep_id} --> #{id}"
         end
       end
-      # Style nodes by state
-      SERVICE_DEPS.each_key do |svc|
+
+      # Add dynamic bridge nodes from database
+      Bridge.find_each do |bridge|
+        id = bridge.container_name.tr("-", "_")
+        lines << "  #{id}[\"#{bridge.name}\"]"
+        lines << "  svxreflector --> #{id}"
+      end
+
+      # Style all nodes by state
+      all_services = SERVICE_DEPS.keys + Bridge.pluck(:id).map { |bid| "svxlink-bridge-#{bid}" }
+      all_services.each do |svc|
         id = svc.tr("-", "_")
         case state_map[svc]
         when "running"

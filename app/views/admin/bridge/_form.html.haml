@@ -1,0 +1,84 @@
+- if @bridge.errors.any?
+  .p-3.rounded.border.border-red-700.text-red-400.text-sm.mb-4{class: "bg-red-900/30"}
+    %p.font-semibold.mb-1= "#{@bridge.errors.count} error(s):"
+    %ul.list-disc.ml-4
+      - @bridge.errors.full_messages.each do |msg|
+        %li= msg
+
+= form_with model: [:admin, @bridge], local: true do |f|
+
+  -# ── Name ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4.p-4
+    %label.block.text-sm.font-semibold.text-gray-400.mb-2 Bridge Name
+    = f.text_field :name, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. Link to SM reflector"
+
+  -# ── Local Reflector ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-broadcast.mr-2
+        Local Reflector
+    .px-4.py-4
+      .grid.grid-cols-1.md:grid-cols-2.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 HOST
+          = f.text_field :local_host, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "svxreflector"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 PORT
+          = f.number_field :local_port, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 CALLSIGN
+          = f.text_field :local_callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "BRIDGE-1"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 AUTH_KEY
+          = f.text_field :local_auth_key, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 DEFAULT_TG
+          = f.number_field :local_default_tg, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1
+
+  -# ── Remote Reflector ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-cloud.mr-2
+        Remote Reflector
+    .px-4.py-4
+      .grid.grid-cols-1.md:grid-cols-2.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 HOST
+          = f.text_field :remote_host, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "reflector.example.com"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 PORT
+          = f.number_field :remote_port, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 CALLSIGN
+          = f.text_field :remote_callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "BRIDGE-1"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 AUTH_KEY
+          = f.text_field :remote_auth_key, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 DEFAULT_TG
+          = f.number_field :remote_default_tg, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1
+
+  -# ── Bridge Link ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-diagram-3.mr-2
+        Bridge Link
+    .px-4.py-4
+      .grid.grid-cols-1.md:grid-cols-3.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 Local TG
+          = f.number_field :bridge_local_tg, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 Remote TG
+          = f.number_field :bridge_remote_tg, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 TIMEOUT (0 = disabled)
+          = f.number_field :timeout, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 0
+
+  -# ── Save ──
+  .flex.gap-2
+    = f.submit class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
+    = link_to "Cancel", admin_bridges_path, class: "px-4 py-2 rounded-md border border-gray-600 text-gray-400 hover:text-gray-200"
