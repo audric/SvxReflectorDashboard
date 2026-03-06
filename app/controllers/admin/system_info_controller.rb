@@ -130,7 +130,7 @@ module Admin
     end
 
     def fetch_disk_info
-      vfs = %w[tmpfs devtmpfs squashfs overlay proc sysfs cgroup cgroup2 devpts mqueue hugetlbfs autofs securityfs pstore debugfs tracefs fusectl configfs binfmt_misc nsfs]
+      vfs = %w[tmpfs devtmpfs squashfs proc sysfs cgroup cgroup2 devpts mqueue hugetlbfs autofs securityfs pstore debugfs tracefs fusectl configfs binfmt_misc nsfs]
       lines = `df -T -B1 2>/dev/null`.lines.drop(1)
       seen = Set.new
       lines.filter_map { |line|
