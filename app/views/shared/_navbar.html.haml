@@ -30,7 +30,8 @@
     var container = document.getElementById('toast-container');
     var el = document.createElement('div');
     el.className = 'toast-item toast-' + type;
-    el.innerHTML = '<i class="bi ' + icon + '"></i><span>' + message.replace(/</g, '&lt;') + '</span>';
+    var safe = String(message).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    el.innerHTML = '<i class="bi ' + icon + '"></i><span>' + safe + '</span>';
     container.appendChild(el);
     setTimeout(function() {
       el.style.animation = 'toast-out .3s ease forwards';
