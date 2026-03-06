@@ -102,6 +102,7 @@
       .freq-label { font-size: .78rem; font-family: monospace; }
 
       .tone-table { font-size: .73rem; font-family: monospace; }
+      .compact-nodes .node-detail { display: none !important; }
       .tone-row {
         display: flex;
         justify-content: space-between;
@@ -156,6 +157,9 @@
           Connected Nodes
         %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-gray-600.text-gray-200#nodes-count
           = @nodes.reject { |_, n| n['hidden'] }.size
+        %button#toggle-detail.ml-2.px-2.py-0.5.text-xs.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.hover:border-gray-500.cursor-pointer.transition-colors{type: "button", title: "Toggle node details"}
+          %i.bi.bi-eye-fill#toggle-detail-icon
+          %span#toggle-detail-label Detailed
 
       .grid.grid-cols-1.sm:grid-cols-2.xl:grid-cols-3.2xl:grid-cols-5.gap-3#nodes-grid
         - visible = @nodes.reject { |_, n| n['hidden'] }
@@ -251,7 +255,7 @@
 
                 -# Tone → Talkgroup
                 - if node['toneToTalkgroup']&.any?
-                  .mb-2.tone-table
+                  .mb-2.tone-table.node-detail
                     .text-gray-500.mb-1{style: "font-size:.68rem;text-transform:uppercase;letter-spacing:.06em"}
                       %i.bi.bi-soundwave.mr-1
                       CTCSS → TG
@@ -266,7 +270,7 @@
                     %i.bi.bi-person.mr-1
                     = node['sysop']
 
-              .card-footer.flex.justify-between.px-3.py-1
+              .card-footer.flex.justify-between.px-3.py-1.node-detail
                 %span.text-gray-500{id: "node-#{callsign}-sw"}= [node['sw'], node['swVer'].to_s.sub(/(\.0)+$/, '')].reject(&:blank?).join(' ')
                 %span.text-gray-500{id: "node-#{callsign}-updated"}
 
@@ -517,7 +521,7 @@
           // Tone → TG
           var ttg = n.toneToTalkgroup;
           if (ttg && Object.keys(ttg).length > 0) {
-            h += '<div class="mb-2 tone-table"><div class="text-gray-500 mb-1" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em"><i class="bi bi-soundwave mr-1"></i>CTCSS \u2192 TG</div>';
+            h += '<div class="mb-2 tone-table node-detail"><div class="text-gray-500 mb-1" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em"><i class="bi bi-soundwave mr-1"></i>CTCSS \u2192 TG</div>';
             Object.keys(ttg).sort(function (a, b) { return parseFloat(a) - parseFloat(b); }).forEach(function (tone) {
               var tgNum = ttg[tone];
               h += '<div class="tone-row' + (tgNum === tg && tg !== 0 ? ' active' : '') + '" id="node-' + cs + '-tone-' + tone + '">' +
@@ -534,7 +538,7 @@
           h += '</div>'; // end card-body
 
           // Footer
-          h += '<div class="card-footer flex justify-between px-3 py-1">' +
+          h += '<div class="card-footer node-detail flex justify-between px-3 py-1">' +
                '<span class="text-gray-500" id="node-' + cs + '-sw">' + esc([n.sw, (n.swVer||'').replace(/(\.0)+$/, '')].filter(Boolean).join(' ')) + '</span>' +
                '<span class="text-gray-500" id="node-' + cs + '-updated"></span>' +
                '</div>';
@@ -671,4 +675,22 @@
         }
 
         connect();
+
+        // ── Node detail toggle ──
+        var grid = document.getElementById('nodes-grid');
+        var toggleBtn = document.getElementById('toggle-detail');
+        var toggleIcon = document.getElementById('toggle-detail-icon');
+        var toggleLabel = document.getElementById('toggle-detail-label');
+        var compact = localStorage.getItem('nodes-compact') === '1';
+        function applyCompact() {
+          grid.classList.toggle('compact-nodes', compact);
+          toggleIcon.className = 'bi ' + (compact ? 'bi-eye-slash' : 'bi-eye-fill');
+          toggleLabel.textContent = compact ? 'Compact' : 'Detailed';
+        }
+        applyCompact();
+        if (toggleBtn) toggleBtn.addEventListener('click', function() {
+          compact = !compact;
+          localStorage.setItem('nodes-compact', compact ? '1' : '0');
+          applyCompact();
+        });
       })();
