@@ -39,92 +39,143 @@
         %h5.text-lg.font-semibold.text-gray-100
           %i.bi.bi-bug.mr-2
           Redis Debug
-        %a.text-sm.px-3.py-1.5.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200{href: admin_debug_path}
-          %i.bi.bi-arrow-clockwise.mr-1
-          Refresh
+        .flex.items-center.gap-2
+          %span.text-xs.text-ghmuted#debug-status Live
+          %span.inline-block.w-2.h-2.rounded-full.bg-green-500#debug-dot
 
-      - if @error
-        %div.p-2.rounded.border.border-red-700.text-red-400.text-sm.mb-4{class: "bg-red-900/30"}= @error
+      #debug-error
 
-      - if @redis_info
-        .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-6
+      .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-6
+        .rounded-lg.border.border-ghborder.bg-ghcard
+          .px-4.py-3.border-b.border-ghborder
+            %h6.text-sm.font-semibold.text-gray-100
+              %i.bi.bi-server.mr-2
+              Server Info
+          %table.w-full.debug-table
+            %tbody#info-tbody
 
-          .rounded-lg.border.border-ghborder.bg-ghcard
-            .px-4.py-3.border-b.border-ghborder
-              %h6.text-sm.font-semibold.text-gray-100
-                %i.bi.bi-server.mr-2
-                Server Info
-            %table.w-full.debug-table
-              %tbody
-                - @redis_info.each do |key, val|
-                  %tr.border-b.border-ghborder2
-                    %td.px-4.py-2.text-ghmuted.font-medium.whitespace-nowrap= key
-                    %td.px-4.py-2.text-gray-200.font-mono
-                      - if key == "uptime_in_seconds"
-                        - secs = val.to_i
-                        - days = secs / 86400
-                        - hours = (secs % 86400) / 3600
-                        - mins = (secs % 3600) / 60
-                        = "#{days}d #{hours}h #{mins}m"
-                      - else
-                        = val
-
-          .rounded-lg.border.border-ghborder.bg-ghcard
-            .px-4.py-3.border-b.border-ghborder
-              %h6.text-sm.font-semibold.text-gray-100
-                %i.bi.bi-broadcast.mr-2
-                Pub/Sub Channels
-                %span.text-ghmuted.font-normal.ml-2= "(#{@pubsub_channels.size})"
-            .p-4
-              - if @pubsub_channels.empty?
-                .text-ghmuted.text-sm No active channels
-              - else
-                .flex.flex-wrap.gap-2
-                  - @pubsub_channels.sort.each do |ch|
-                    %span.inline-block.px-2.py-1.text-xs.font-mono.rounded.border.border-ghborder2.text-gray-300.bg-ghbg= ch
+        .rounded-lg.border.border-ghborder.bg-ghcard
+          .px-4.py-3.border-b.border-ghborder
+            %h6.text-sm.font-semibold.text-gray-100
+              %i.bi.bi-broadcast.mr-2
+              Pub/Sub Channels
+              %span.text-ghmuted.font-normal.ml-2#pubsub-count
+          #pubsub-body.p-4
 
       .rounded-lg.border.border-ghborder.bg-ghcard
         .px-4.py-3.border-b.border-ghborder
           %h6.text-sm.font-semibold.text-gray-100
             %i.bi.bi-key.mr-2
             Keys
-            %span.text-ghmuted.font-normal.ml-2= "(#{@keys&.size || 0})"
-        - if @keys.blank?
-          .p-4.text-ghmuted.text-sm No keys found
-        - else
-          .overflow-x-auto
-            %table.w-full.debug-table
-              %thead
-                %tr.border-b.border-ghborder2
-                  %th.py-2.px-3 Key
-                  %th.py-2 Type
-                  %th.py-2 TTL
-                  %th.py-2 Size
-                  %th.py-2 Value
-              %tbody
-                - @keys.each do |entry|
-                  %tr.border-b.border-ghborder2.hover:bg-ghcard
-                    %td.py-2.px-3.font-mono.font-bold.text-cyan-400.whitespace-nowrap= entry[:key]
-                    %td.py-2
-                      %span.inline-block.px-2.py-0.5.text-xs.rounded-full.border.border-ghborder2.text-ghmuted= entry[:type]
-                    %td.py-2.font-mono.text-sm
-                      - if entry[:ttl] == -1
-                        %span.text-ghmuted \u221e
-                      - elsif entry[:ttl] == -2
-                        %span.text-red-400 expired
-                      - else
-                        %span.text-yellow-400= "#{entry[:ttl]}s"
-                    %td.py-2.font-mono.text-sm.text-ghmuted
-                      - if entry[:size]
-                        - if entry[:type] == "string"
-                          = "#{entry[:size]} B"
-                        - else
-                          = entry[:size]
-                    %td.py-2.font-mono.text-xs.text-gray-300.val-cell
-                      - val = entry[:value].to_s
-                      - if val.length > 500
-                        %details
-                          %summary.cursor-pointer.text-ghmuted= "#{val[0..200]}..."
-                          .mt-2= val
-                      - else
-                        = val
+            %span.text-ghmuted.font-normal.ml-2#keys-count
+        .overflow-x-auto
+          %table.w-full.debug-table
+            %thead
+              %tr.border-b.border-ghborder2
+                %th.py-2.px-3 Key
+                %th.py-2 Type
+                %th.py-2 TTL
+                %th.py-2 Size
+                %th.py-2 Value
+            %tbody#keys-tbody
+
+    :javascript
+      (function() {
+        function esc(s) {
+          return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function fmtUptime(secs) {
+          secs = parseInt(secs) || 0;
+          var d = Math.floor(secs / 86400);
+          var h = Math.floor((secs % 86400) / 3600);
+          var m = Math.floor((secs % 3600) / 60);
+          return d + 'd ' + h + 'h ' + m + 'm';
+        }
+
+        function renderInfo(info) {
+          var tbody = document.getElementById('info-tbody');
+          var html = '';
+          Object.keys(info).forEach(function(key) {
+            var val = key === 'uptime_in_seconds' ? fmtUptime(info[key]) : esc(info[key]);
+            html += '<tr class="border-b border-ghborder2">' +
+              '<td class="px-4 py-2 text-ghmuted font-medium whitespace-nowrap">' + esc(key) + '</td>' +
+              '<td class="px-4 py-2 text-gray-200 font-mono">' + val + '</td></tr>';
+          });
+          tbody.innerHTML = html;
+        }
+
+        function renderPubsub(channels) {
+          document.getElementById('pubsub-count').textContent = '(' + channels.length + ')';
+          var body = document.getElementById('pubsub-body');
+          if (channels.length === 0) {
+            body.innerHTML = '<span class="text-ghmuted text-sm">No active channels</span>';
+            return;
+          }
+          var html = '<div class="flex flex-wrap gap-2">';
+          channels.sort().forEach(function(ch) {
+            html += '<span class="inline-block px-2 py-1 text-xs font-mono rounded border border-ghborder2 text-gray-300 bg-ghbg">' + esc(ch) + '</span>';
+          });
+          html += '</div>';
+          body.innerHTML = html;
+        }
+
+        function renderKeys(keys) {
+          document.getElementById('keys-count').textContent = '(' + keys.length + ')';
+          var tbody = document.getElementById('keys-tbody');
+          if (keys.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-ghmuted text-sm">No keys found</td></tr>';
+            return;
+          }
+          var html = '';
+          keys.forEach(function(e) {
+            var ttlHtml;
+            if (e.ttl === -1) ttlHtml = '<span class="text-ghmuted">\u221e</span>';
+            else if (e.ttl === -2) ttlHtml = '<span class="text-red-400">expired</span>';
+            else ttlHtml = '<span class="text-yellow-400">' + e.ttl + 's</span>';
+
+            var sizeHtml = '';
+            if (e.size !== null && e.size !== undefined) {
+              sizeHtml = e.type === 'string' ? e.size + ' B' : String(e.size);
+            }
+
+            var val = String(e.value || '');
+            var valHtml;
+            if (val.length > 500) {
+              valHtml = '<details><summary class="cursor-pointer text-ghmuted">' + esc(val.substring(0, 200)) + '...</summary><div class="mt-2">' + esc(val) + '</div></details>';
+            } else {
+              valHtml = esc(val);
+            }
+
+            html += '<tr class="border-b border-ghborder2 hover:bg-ghcard">' +
+              '<td class="py-2 px-3 font-mono font-bold text-cyan-400 whitespace-nowrap">' + esc(e.key) + '</td>' +
+              '<td class="py-2"><span class="inline-block px-2 py-0.5 text-xs rounded-full border border-ghborder2 text-ghmuted">' + esc(e.type) + '</span></td>' +
+              '<td class="py-2 font-mono text-sm">' + ttlHtml + '</td>' +
+              '<td class="py-2 font-mono text-sm text-ghmuted">' + sizeHtml + '</td>' +
+              '<td class="py-2 font-mono text-xs text-gray-300 val-cell">' + valHtml + '</td></tr>';
+          });
+          tbody.innerHTML = html;
+        }
+
+        function refresh() {
+          fetch('/admin/debug.json')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              document.getElementById('debug-dot').className = 'inline-block w-2 h-2 rounded-full bg-green-500';
+              document.getElementById('debug-status').textContent = 'Live';
+              document.getElementById('debug-error').innerHTML = '';
+              if (data.info) renderInfo(data.info);
+              if (data.pubsub_channels) renderPubsub(data.pubsub_channels);
+              if (data.keys) renderKeys(data.keys);
+            })
+            .catch(function(err) {
+              document.getElementById('debug-dot').className = 'inline-block w-2 h-2 rounded-full bg-red-500';
+              document.getElementById('debug-status').textContent = 'Error';
+              document.getElementById('debug-error').innerHTML =
+                '<div class="p-2 rounded border border-red-700 text-red-400 text-sm mb-4 bg-red-900/30">' + esc(err.message) + '</div>';
+            });
+        }
+
+        refresh();
+        setInterval(refresh, 3000);
+      })();

@@ -4,6 +4,16 @@ module Admin
     before_action :require_admin
 
     def show
+      load_redis_data
+      respond_to do |format|
+        format.html
+        format.json { render json: { info: @redis_info, keys: @keys, pubsub_channels: @pubsub_channels } }
+      end
+    end
+
+    private
+
+    def load_redis_data
       redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
 
       @redis_info = redis.info.slice(
