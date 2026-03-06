@@ -50,6 +50,7 @@ class AudioChannel < ApplicationCable::Channel
 
     callsign = data["callsign"].to_s.strip.upcase
     redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
+    refresh_ttl(redis)
     redis.publish("audio:commands", { action: "select_tg", tg: tg, callsign: callsign }.to_json)
   ensure
     redis&.close
@@ -61,10 +62,9 @@ class AudioChannel < ApplicationCable::Channel
 
     callsign = data["callsign"].to_s.strip.upcase
     redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
+    refresh_ttl(redis)
     redis.publish("audio:tx", { action: "ptt_start", tg: tg, callsign: callsign }.to_json)
-    # Update metadata to reflect the browser that is actually transmitting
     update_web_node_info(redis, callsign)
-    # Optimistic broadcast so dashboard cards update instantly
     broadcast_talker_hint(callsign, tg, true)
   ensure
     redis&.close
@@ -76,6 +76,7 @@ class AudioChannel < ApplicationCable::Channel
 
     callsign = data["callsign"].to_s.strip.upcase
     redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
+    refresh_ttl(redis)
     redis.publish("audio:tx", { action: "ptt_stop", tg: tg, callsign: callsign }.to_json)
     broadcast_talker_hint(callsign, tg, false)
   ensure
@@ -92,7 +93,19 @@ class AudioChannel < ApplicationCable::Channel
     redis&.close
   end
 
+  def keepalive(_data = nil)
+    redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
+    refresh_ttl(redis)
+  ensure
+    redis&.close
+  end
+
   private
+
+  def refresh_ttl(redis)
+    return if @ref_key.blank?
+    redis.expire(@ref_key, 120)
+  end
 
   def broadcast_talker_hint(callsign, tg, talking)
     patch = { "callsign" => callsign, "isTalker" => talking, "tg" => tg }

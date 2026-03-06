@@ -1030,9 +1030,16 @@
 
       setPlaying(true);
       saveState();
+
+      // Refresh server-side TTL every 60s while connected
+      if (window._keepaliveInterval) clearInterval(window._keepaliveInterval);
+      window._keepaliveInterval = setInterval(function() {
+        acSend('keepalive');
+      }, 60000);
     }
 
     function stopAudio() {
+      if (window._keepaliveInterval) { clearInterval(window._keepaliveInterval); window._keepaliveInterval = null; }
       pttStop();
       stopMeter();
       analyser = null;
