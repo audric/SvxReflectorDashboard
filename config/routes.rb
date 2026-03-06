@@ -24,6 +24,7 @@ Rails.application.routes.draw do
     resources :bridges, controller: "bridge" do
       member do
         patch :toggle
+        get :backups
       end
     end
     resource :system_info, only: :show, controller: "system_info"

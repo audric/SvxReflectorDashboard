@@ -30,5 +30,60 @@
   %body.text-ghtext
     = render 'shared/navbar', active: 'admin'
 
+    -# Backup browser modal
+    #backup-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
+      .bg-ghcard.border.border-gray-600.rounded-lg.max-w-3xl.w-full.mx-4.shadow-xl.flex.flex-col{style: "max-height: 85vh"}
+        .flex.items-center.justify-between.px-5.py-4.border-b.border-ghborder.shrink-0
+          %h6.text-base.font-semibold.text-gray-100
+            %i.bi.bi-clock-history.mr-2
+            Configuration Backups
+          %button.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "closeBackups()"}
+            %i.bi.bi-x-lg
+        .flex.flex-1.overflow-hidden
+          #backup-list.border-r.border-ghborder.overflow-y-auto.shrink-0{style: "width: 220px"}
+            .px-3.py-3.text-sm.text-ghmuted#backup-list-inner
+              %span.text-ghdim Loading…
+          #backup-content.flex-1.overflow-y-auto.p-4
+            %pre.text-xs.font-mono.text-gray-300.whitespace-pre-wrap#backup-content-pre
+              %span.text-ghdim Select a backup to inspect
+
     .max-w-3xl.mx-auto.px-4.pb-12
       = render 'form'
+
+    :javascript
+      var _backupData = null;
+      function openBackups() {
+        var modal = document.getElementById('backup-modal');
+        modal.style.display = 'flex';
+        if (_backupData) { renderBackupList(_backupData); return; }
+        fetch('#{backups_admin_bridge_path(@bridge)}')
+          .then(function(r) { return r.json(); })
+          .then(function(data) { _backupData = data; renderBackupList(data); })
+          .catch(function() {
+            document.getElementById('backup-list-inner').innerHTML = '<span class="text-red-400">Failed to load backups</span>';
+          });
+      }
+      function closeBackups() {
+        document.getElementById('backup-modal').style.display = 'none';
+      }
+      document.getElementById('backup-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeBackups();
+      });
+      function renderBackupList(backups) {
+        var list = document.getElementById('backup-list-inner');
+        if (!backups.length) { list.innerHTML = '<span class="text-ghdim">No backups available</span>'; return; }
+        list.innerHTML = '';
+        backups.forEach(function(b, i) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'w-full text-left px-3 py-2 rounded-md text-sm hover:bg-ghborder2 cursor-pointer transition-colors text-gray-300 backup-item';
+          btn.innerHTML = '<div class="font-mono text-xs">' + b.label + '</div>';
+          btn.addEventListener('click', function() {
+            document.querySelectorAll('.backup-item').forEach(function(el) { el.classList.remove('bg-ghborder2', 'text-gray-100'); });
+            btn.classList.add('bg-ghborder2', 'text-gray-100');
+            document.getElementById('backup-content-pre').textContent = b.content;
+          });
+          list.appendChild(btn);
+          if (i === 0) btn.click();
+        });
+      }

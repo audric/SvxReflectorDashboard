@@ -10,15 +10,20 @@
   -# ── Name ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4.p-4
     %label.block.text-sm.font-semibold.text-gray-400.mb-2 Bridge Name
-    = f.text_field :name, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. Link to SM reflector"
+    = f.text_field :name, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. Link to SM reflector", data: { original: @bridge.name }
+    - if @bridge.persisted?
+      #name-warn.p-2.rounded.border.text-sm.mt-2.items-center.gap-2.hidden{class: "border-yellow-700/50 text-yellow-400 bg-yellow-900/20"}
+        %i.bi.bi-exclamation-triangle.mr-1
+        Changing the name will recreate the container.
 
-  -# ── Local Reflector ──
+  -# ── Local Reflector (collapsible) ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
-    .px-4.py-3.border-b.border-gray-600
+    .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('local')"}
       %h5.text-lg.font-semibold.text-gray-100
         %i.bi.bi-broadcast.mr-2
         Local Reflector
-    .px-4.py-4
+      %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-local"}
+    .accordion-body.px-4{id: "body-local"}
       .grid.grid-cols-1.md:grid-cols-2.gap-4
         .mb-1
           %label.block.text-sm.text-gray-500.mb-1 HOST
@@ -36,13 +41,14 @@
           %label.block.text-sm.text-gray-500.mb-1 DEFAULT_TG
           = f.number_field :local_default_tg, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1
 
-  -# ── Remote Reflector ──
+  -# ── Remote Reflector (collapsible) ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
-    .px-4.py-3.border-b.border-gray-600
+    .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('remote')"}
       %h5.text-lg.font-semibold.text-gray-100
         %i.bi.bi-cloud.mr-2
         Remote Reflector
-    .px-4.py-4
+      %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-remote"}
+    .accordion-body.px-4{id: "body-remote"}
       .grid.grid-cols-1.md:grid-cols-2.gap-4
         .mb-1
           %label.block.text-sm.text-gray-500.mb-1 HOST
@@ -60,25 +66,98 @@
           %label.block.text-sm.text-gray-500.mb-1 DEFAULT_TG
           = f.number_field :remote_default_tg, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1
 
-  -# ── Bridge Link ──
+  -# ── TG Mappings (collapsible) ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
-    .px-4.py-3.border-b.border-gray-600
+    .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('mappings')"}
       %h5.text-lg.font-semibold.text-gray-100
         %i.bi.bi-diagram-3.mr-2
-        Bridge Link
-    .px-4.py-4
-      .grid.grid-cols-1.md:grid-cols-3.gap-4
-        .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 Local TG
-          = f.number_field :bridge_local_tg, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1
-        .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 Remote TG
-          = f.number_field :bridge_remote_tg, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1
-        .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 TIMEOUT (0 = disabled)
-          = f.number_field :timeout, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 0
+        TG Mappings
+      .flex.items-center.gap-2
+        %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-600.cursor-not-allowed.opacity-50{type: "button", id: "btn-mappings", disabled: true, onclick: "event.stopPropagation(); addMapping()"}
+          %i.bi.bi-plus.mr-1
+          Add
+        %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-mappings"}
+    .accordion-body.px-4{id: "body-mappings"}
+      %table.w-full.text-sm
+        %thead
+          %tr.text-gray-500.text-left
+            %th.pb-2.pr-2 Local TG
+            %th.pb-2.pr-2 Remote TG
+            %th.pb-2.pr-2 Timeout (s)
+            %th.pb-2.w-10
+        %tbody#mappings-tbody
+          - mappings = @bridge.persisted? ? @bridge.bridge_tg_mappings : [OpenStruct.new(local_tg: 1, remote_tg: 1, timeout: 0)]
+          - mappings.each do |mapping|
+            %tr.border-t.border-gray-700
+              %td.py-2.pr-2
+                %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "number", name: "bridge[mapping_local_tgs][]", value: mapping.local_tg, min: 1}
+              %td.py-2.pr-2
+                %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "number", name: "bridge[mapping_remote_tgs][]", value: mapping.remote_tg, min: 1}
+              %td.py-2.pr-2
+                %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "number", name: "bridge[mapping_timeouts][]", value: mapping.timeout || 0, min: 0}
+              %td.py-2.text-center
+                %button.text-red-400.hover:text-red-300.cursor-pointer{type: "button", onclick: "removeMapping(this)"}
+                  %i.bi.bi-x-lg
 
   -# ── Save ──
   .flex.gap-2
     = f.submit class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
+    - if @bridge.persisted?
+      %button.px-4.py-2.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "openBackups()"}
+        %i.bi.bi-clock-history.mr-1
+        Backups
     = link_to "Cancel", admin_bridges_path, class: "px-4 py-2 rounded-md border border-gray-600 text-gray-400 hover:text-gray-200"
+
+:css
+  .accordion-body { max-height: 0; overflow: hidden; padding-top: 0; padding-bottom: 0; transition: max-height 0.3s ease, padding 0.3s ease; }
+  .accordion-body.open { max-height: 5000px; padding-top: 1rem; padding-bottom: 1rem; }
+  .accordion-chevron { transition: transform 0.3s ease; }
+  .accordion-chevron.open { transform: rotate(180deg); }
+
+:javascript
+  (function() {
+    var nameInput = document.querySelector('input[name="bridge[name]"]');
+    var warn = document.getElementById('name-warn');
+    if (nameInput && warn) {
+      var original = nameInput.dataset.original || '';
+      nameInput.addEventListener('input', function() {
+        if (this.value !== original) { warn.classList.remove('hidden'); warn.classList.add('flex'); }
+        else { warn.classList.add('hidden'); warn.classList.remove('flex'); }
+      });
+    }
+  })();
+
+  function toggleSection(id) {
+    var body = document.getElementById('body-' + id);
+    var chevron = document.getElementById('chevron-' + id);
+    body.classList.toggle('open');
+    chevron.classList.toggle('open');
+    var btn = document.getElementById('btn-' + id);
+    if (btn) {
+      var open = body.classList.contains('open');
+      btn.disabled = !open;
+      btn.classList.toggle('opacity-50', !open);
+      btn.classList.toggle('cursor-not-allowed', !open);
+      btn.classList.toggle('text-gray-600', !open);
+      btn.classList.toggle('cursor-pointer', open);
+      btn.classList.toggle('text-gray-400', open);
+      btn.classList.toggle('hover:text-gray-200', open);
+    }
+  }
+
+  function addMapping() {
+    var tbody = document.getElementById('mappings-tbody');
+    var tr = document.createElement('tr');
+    tr.className = 'border-t border-gray-700';
+    tr.innerHTML = '<td class="py-2 pr-2"><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="number" name="bridge[mapping_local_tgs][]" min="1" value="1"></td>' +
+      '<td class="py-2 pr-2"><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="number" name="bridge[mapping_remote_tgs][]" min="1" value="1"></td>' +
+      '<td class="py-2 pr-2"><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="number" name="bridge[mapping_timeouts][]" min="0" value="0"></td>' +
+      '<td class="py-2 text-center"><button type="button" class="text-red-400 hover:text-red-300 cursor-pointer" onclick="removeMapping(this)"><i class="bi bi-x-lg"></i></button></td>';
+    tbody.appendChild(tr);
+  }
+
+  function removeMapping(btn) {
+    var tbody = document.getElementById('mappings-tbody');
+    if (tbody.rows.length <= 1) return;
+    btn.closest('tr').remove();
+  }

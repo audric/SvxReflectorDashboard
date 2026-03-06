@@ -90,15 +90,17 @@
                         %i.bi.bi-circle-fill{style: "font-size: 0.4rem"}
                         Stopped
 
-                  .grid.grid-cols-1.md:grid-cols-2.gap-x-8.gap-y-1.text-sm
+                  .text-sm
                     .flex.items-center.gap-2
                       %span.text-ghmuted Local:
                       %span.text-gray-300.font-mono= "#{bridge.local_callsign}@#{bridge.local_host}:#{bridge.local_port}"
-                      %span.text-ghdim TG #{bridge.bridge_local_tg}
                     .flex.items-center.gap-2
                       %span.text-ghmuted Remote:
                       %span.text-gray-300.font-mono= "#{bridge.remote_callsign}@#{bridge.remote_host}:#{bridge.remote_port}"
-                      %span.text-ghdim TG #{bridge.bridge_remote_tg}
+                    .flex.items-center.gap-2.mt-1
+                      %span.text-ghmuted Mappings:
+                      - bridge.bridge_tg_mappings.each do |m|
+                        %span.inline-block.px-2.py-0.5.text-xs.font-mono.rounded.border.border-ghborder2.text-gray-300= "#{m.local_tg} \u2194 #{m.remote_tg}"
 
                 .flex.items-center.gap-2.ml-4
                   = link_to edit_admin_bridge_path(bridge), class: "p-2 rounded-md text-gray-400 hover:text-gray-200 hover:bg-ghborder2", title: "Edit" do

@@ -2,10 +2,10 @@ module Admin
   class BridgeController < ApplicationController
     layout false
     before_action :require_reflector_admin
-    before_action :set_bridge, only: %i[edit update destroy toggle]
+    before_action :set_bridge, only: %i[edit update destroy toggle backups]
 
     def index
-      @bridges = Bridge.order(:name)
+      @bridges = Bridge.includes(:bridge_tg_mappings).order(:name)
       @container_statuses = fetch_container_statuses
     end
 
@@ -16,8 +16,6 @@ module Admin
         local_default_tg: 1,
         remote_port: 5300,
         remote_default_tg: 1,
-        bridge_local_tg: 1,
-        bridge_remote_tg: 1,
         timeout: 0
       )
     end
@@ -25,6 +23,8 @@ module Admin
     def create
       @bridge = Bridge.new(bridge_params)
       if @bridge.save
+        save_tg_mappings(@bridge)
+        @bridge.generate_config
         redirect_to admin_bridges_path, notice: "Bridge \"#{@bridge.name}\" created."
       else
         render :new, status: :unprocessable_entity
@@ -34,8 +34,17 @@ module Admin
     def edit; end
 
     def update
+      name_changed = bridge_params[:name] != @bridge.name
       if @bridge.update(bridge_params)
-        restart_container(@bridge) if @bridge.enabled?
+        save_tg_mappings(@bridge)
+        @bridge.generate_config
+        if @bridge.enabled?
+          if name_changed
+            recreate_container(@bridge)
+          else
+            restart_container(@bridge)
+          end
+        end
         redirect_to admin_bridges_path, notice: "Bridge \"#{@bridge.name}\" updated."
       else
         render :edit, status: :unprocessable_entity
@@ -47,6 +56,16 @@ module Admin
       remove_container(@bridge)
       @bridge.destroy
       redirect_to admin_bridges_path, notice: "Bridge deleted."
+    end
+
+    def backups
+      dir = @bridge.config_dir
+      files = Dir.glob(dir.join("svxlink.conf.*.bak")).sort.reverse.map do |path|
+        stamp = File.basename(path).match(/\.(\d{8}_\d{6})\.bak$/)&.[](1)
+        label = stamp ? Time.strptime(stamp, "%Y%m%d_%H%M%S").strftime("%Y-%m-%d %H:%M:%S") : File.basename(path)
+        { filename: File.basename(path), label: label, content: File.read(path) }
+      end
+      render json: files
     end
 
     def toggle
@@ -71,9 +90,19 @@ module Admin
       params.require(:bridge).permit(
         :name, :local_host, :local_port, :local_callsign, :local_auth_key,
         :local_default_tg, :remote_host, :remote_port, :remote_callsign,
-        :remote_auth_key, :remote_default_tg, :bridge_local_tg,
-        :bridge_remote_tg, :timeout, :enabled
+        :remote_auth_key, :remote_default_tg, :timeout, :enabled
       )
+    end
+
+    def save_tg_mappings(bridge)
+      bridge.bridge_tg_mappings.destroy_all
+      local_tgs = Array(params.dig(:bridge, :mapping_local_tgs))
+      remote_tgs = Array(params.dig(:bridge, :mapping_remote_tgs))
+      timeouts = Array(params.dig(:bridge, :mapping_timeouts))
+      local_tgs.zip(remote_tgs, timeouts).each do |local_tg, remote_tg, tout|
+        next if local_tg.blank? || remote_tg.blank?
+        bridge.bridge_tg_mappings.create(local_tg: local_tg.to_i, remote_tg: remote_tg.to_i, timeout: tout.to_i)
+      end
     end
 
     def require_reflector_admin
@@ -161,6 +190,12 @@ module Admin
       Rails.logger.info "[Bridge] Restarted container #{bridge.container_name}"
     rescue => e
       Rails.logger.error "[Bridge] Failed to restart container: #{e.class} #{e.message}"
+    end
+
+    def recreate_container(bridge)
+      stop_container(bridge)
+      remove_container(bridge)
+      start_or_recreate_container(bridge)
     end
 
     def remove_container(bridge)

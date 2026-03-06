@@ -10,7 +10,17 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_06_163430) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_06_193350) do
+  create_table "bridge_tg_mappings", force: :cascade do |t|
+    t.integer "bridge_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "local_tg"
+    t.integer "remote_tg"
+    t.integer "timeout"
+    t.datetime "updated_at", null: false
+    t.index ["bridge_id"], name: "index_bridge_tg_mappings_on_bridge_id"
+  end
+
   create_table "bridges", force: :cascade do |t|
     t.integer "bridge_local_tg"
     t.integer "bridge_remote_tg"
@@ -152,6 +162,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_06_163430) do
     t.index ["callsign"], name: "index_users_on_callsign", unique: true
   end
 
+  add_foreign_key "bridge_tg_mappings", "bridges"
   add_foreign_key "node_infos", "users"
   add_foreign_key "nodes", "node_classes"
   add_foreign_key "nodes", "talkgroups"
