@@ -6,6 +6,7 @@
     %meta{charset: "UTF-8"}
     %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
     %title SVXReflector Dashboard
+    = csrf_meta_tags
     %script{src: "/vendor/tailwind/tailwind.js"}
     :javascript
       tailwind.config = {
@@ -185,8 +186,12 @@
                 %span.font-bold.font-mono.text-base.text-gray-100
                   %i.bi.bi-mic-fill.mr-1{class: (is_talker ? 'text-green-500 mic-active' : 'text-gray-500 opacity-25'), id: "node-#{callsign}-mic"}
                   = callsign
-                %span.inline-block.px-2.py-0.5.text-xs.rounded.font-semibold.text-white{class: "bg-#{st_col}-600", id: "node-#{callsign}-status"}
-                  = st_txt
+                .flex.items-center.gap-2
+                  %span.inline-block.px-2.py-0.5.text-xs.rounded.font-semibold.text-white{class: "bg-#{st_col}-600", id: "node-#{callsign}-status"}
+                    = st_txt
+                  - if current_user&.reflector_admin?
+                    %button.block-node-btn.text-gray-500.hover:text-orange-400.cursor-pointer.transition-colors{type: "button", onclick: "openBlockModal('#{callsign}')", title: "Block node"}
+                      %i.bi.bi-mic-mute{style: "font-size: 0.85rem"}
 
               -# ── LIVE banner (visible only when transmitting) ──
               .live-banner{class: (is_talker ? nil : 'hidden'), id: "node-#{callsign}-live-banner"}
@@ -279,6 +284,33 @@
             %i.bi.bi-hdd-network.text-6xl.block.mb-2
             No nodes currently connected.
 
+
+    - if current_user&.reflector_admin?
+      -# ── Block Node Modal ──
+      #block-modal.hidden.fixed.inset-0.z-50.items-center.justify-center{style: "background: rgba(0,0,0,0.6)"}
+        .rounded-lg.border.border-gray-600.bg-ghcard.p-6.shadow-xl{style: "width: 380px; max-width: 95vw;"}
+          .flex.items-center.gap-2.mb-4
+            %i.bi.bi-mic-mute.text-orange-400
+            %h5.text-lg.font-semibold.text-gray-100
+              %span#block-modal-title-text Block
+              %span#block-modal-callsign.font-mono
+          %p.text-sm.text-ghmuted.mb-4
+            Temporarily prevent this node from transmitting. It will still be connected
+            and able to listen. The block resets each time the node tries to transmit.
+          %label.block.text-sm.text-gray-500.mb-1 Duration
+          %select#block-modal-duration.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm.mb-4{class: "bg-[#0d1117] text-ghtext"}
+            %option{value: "0"} Unblock (0s)
+            %option{value: "60"} 1 minute
+            %option{value: "300", selected: true} 5 minutes
+            %option{value: "600"} 10 minutes
+            %option{value: "1800"} 30 minutes
+            %option{value: "3600"} 1 hour
+          #block-modal-result.text-sm.mb-3
+          .flex.justify-end.gap-2
+            %button#block-modal-cancel.px-4.py-2.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer.text-sm{type: "button"} Cancel
+            %button#block-modal-confirm.px-4.py-2.rounded-md.bg-orange-600.hover:bg-orange-700.text-white.font-semibold.cursor-pointer.text-sm{type: "button"}
+              %i.bi.bi-mic-mute.mr-1
+              Block
 
     - nodes_json = @nodes.to_json.html_safe
     :javascript
@@ -693,5 +725,120 @@
           compact = !compact;
           localStorage.setItem('nodes-compact', compact ? '1' : '0');
           applyCompact();
+        });
+      })();
+
+      // ── Node Block Modal ──
+      (function() {
+        var modal = document.getElementById('block-modal');
+        if (!modal) return;
+        var callsignEl = document.getElementById('block-modal-callsign');
+        var durationEl = document.getElementById('block-modal-duration');
+        var resultEl = document.getElementById('block-modal-result');
+        var confirmBtn = document.getElementById('block-modal-confirm');
+        var cancelBtn = document.getElementById('block-modal-cancel');
+        var titleEl = document.getElementById('block-modal-title-text');
+        var currentCallsign = '';
+        var blockedNodes = {}; // { callsign: expiresAt (ms) }
+
+        function isBlocked(callsign) {
+          var exp = blockedNodes[callsign];
+          if (!exp) return false;
+          if (Date.now() > exp) { delete blockedNodes[callsign]; updateIcon(callsign, false); return false; }
+          return true;
+        }
+
+        function updateIcon(callsign, blocked) {
+          var btn = document.querySelector('#node-' + CSS.escape(callsign) + ' .block-node-btn');
+          if (!btn) return;
+          var icon = btn.querySelector('i');
+          if (blocked) {
+            btn.classList.remove('text-gray-500', 'hover:text-orange-400');
+            btn.classList.add('text-orange-400', 'hover:text-green-400');
+            icon.className = 'bi bi-mic-mute-fill';
+            btn.title = 'Unblock node';
+          } else {
+            btn.classList.remove('text-orange-400', 'hover:text-green-400');
+            btn.classList.add('text-gray-500', 'hover:text-orange-400');
+            icon.className = 'bi bi-mic-mute';
+            btn.title = 'Block node';
+          }
+        }
+
+        window.openBlockModal = function(callsign) {
+          currentCallsign = callsign;
+          callsignEl.textContent = callsign;
+          resultEl.innerHTML = '';
+          confirmBtn.disabled = false;
+          var blocked = isBlocked(callsign);
+          if (blocked) {
+            durationEl.value = '0';
+            titleEl.textContent = 'Unblock';
+            confirmBtn.innerHTML = '<i class="bi bi-mic mr-1"></i>Unblock';
+            confirmBtn.classList.remove('bg-orange-600', 'hover:bg-orange-700');
+            confirmBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+          } else {
+            durationEl.value = '300';
+            titleEl.textContent = 'Block';
+            confirmBtn.innerHTML = '<i class="bi bi-mic-mute mr-1"></i>Block';
+            confirmBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+            confirmBtn.classList.add('bg-orange-600', 'hover:bg-orange-700');
+          }
+          modal.classList.remove('hidden');
+          modal.classList.add('flex');
+        };
+
+        function closeModal() {
+          modal.classList.add('hidden');
+          modal.classList.remove('flex');
+        }
+
+        cancelBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', function(e) { if (e.target === modal) closeModal(); });
+
+        durationEl.addEventListener('change', function() {
+          var seconds = parseInt(durationEl.value);
+          if (seconds === 0) {
+            confirmBtn.innerHTML = '<i class="bi bi-mic mr-1"></i>Unblock';
+            confirmBtn.classList.remove('bg-orange-600', 'hover:bg-orange-700');
+            confirmBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+          } else {
+            confirmBtn.innerHTML = '<i class="bi bi-mic-mute mr-1"></i>Block';
+            confirmBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+            confirmBtn.classList.add('bg-orange-600', 'hover:bg-orange-700');
+          }
+        });
+
+        confirmBtn.addEventListener('click', function() {
+          var seconds = parseInt(durationEl.value);
+          confirmBtn.disabled = true;
+          var token = document.querySelector('meta[name="csrf-token"]');
+          fetch('/admin/reflector/block_node', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token ? token.content : '' },
+            body: JSON.stringify({ callsign: currentCallsign, seconds: seconds })
+          })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            confirmBtn.disabled = false;
+            if (data.ok) {
+              if (data.seconds === 0) {
+                delete blockedNodes[data.callsign];
+                updateIcon(data.callsign, false);
+                resultEl.innerHTML = '<span class="text-green-400"><i class="bi bi-mic mr-1"></i>' + data.callsign + ' unblocked</span>';
+              } else {
+                blockedNodes[data.callsign] = Date.now() + data.seconds * 1000;
+                updateIcon(data.callsign, true);
+                resultEl.innerHTML = '<span class="text-orange-400"><i class="bi bi-mic-mute mr-1"></i>' + data.callsign + ' blocked for ' + data.seconds + 's</span>';
+              }
+              setTimeout(closeModal, 1500);
+            } else {
+              resultEl.innerHTML = '<span class="text-red-400">' + (data.error || 'Unknown error') + '</span>';
+            }
+          })
+          .catch(function() {
+            confirmBtn.disabled = false;
+            resultEl.innerHTML = '<span class="text-red-400">Request failed</span>';
+          });
         });
       })();
