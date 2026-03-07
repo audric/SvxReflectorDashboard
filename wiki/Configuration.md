@@ -54,3 +54,13 @@ Users with the **reflector admin** role can configure the SVXReflector itself fr
 All panels are collapsed by default. Each section includes inline help buttons linking to the official `svxreflector.conf(5)` documentation. Delete actions require confirmation via a styled modal dialog.
 
 After saving, the dashboard automatically restarts the SVXReflector Docker container (via the Docker socket) so changes take effect immediately.
+
+### PKI certificates
+
+The Certificates panel on the reflector edit page is split into a separate **Certificate Files** tab. When PKI certificates already exist (detected by checking for `.crt` files in the `reflector_pki` volume), the certificates form is **locked** to prevent accidental changes. To unlock it, use the **Reset PKI** action from the Certificate Files tab, which deletes all existing certificates and allows reconfiguration.
+
+The `reflector_pki` volume is mounted read-only into the web container at `/rails/reflector_pki` for detection purposes.
+
+## Bridge configuration
+
+SVXLink bridges are managed from `/admin/bridges`. Each bridge generates its own set of config files and runs as a separate Docker container. See the [[Bridges]] wiki page for full details on bridge types, config generation, backups, and archiving.

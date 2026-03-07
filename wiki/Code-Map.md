@@ -8,6 +8,8 @@
 |---|---|
 | `app/models/node_event.rb` | Persisted node events with scopes for analytics |
 | `app/models/user.rb` | User accounts with callsign validation, roles, and permissions |
+| `app/models/bridge.rb` | SVXLink bridge instances (reflector and EchoLink types), config generation, backups, archiving |
+| `app/models/bridge_tg_mapping.rb` | Talkgroup mappings for reflector-type bridges |
 | `app/models/setting.rb` | Key-value runtime settings (poll interval, reflector URL) |
 
 ### Controllers
@@ -19,6 +21,8 @@
 | `app/controllers/registrations_controller.rb` | New user registration |
 | `app/controllers/admin/users_controller.rb` | Admin user management and approval |
 | `app/controllers/admin/settings_controller.rb` | Admin runtime settings |
+| `app/controllers/admin/bridge_controller.rb` | SVXLink bridge CRUD, config generation, backups |
+| `app/controllers/admin/system_info_controller.rb` | System info page (Docker, disk, logs, settings) |
 | `app/controllers/admin/reflector_controller.rb` | Web admin for SVXReflector configuration (reads/writes config, restarts container) |
 
 ### Channels (ActionCable)
@@ -37,6 +41,8 @@
 | `app/views/registrations/` | Registration form |
 | `app/views/admin/users/` | Web user list and management |
 | `app/views/admin/settings/` | Admin settings form |
+| `app/views/admin/bridge/` | Bridge list, create/edit forms (reflector + EchoLink), backup viewer |
+| `app/views/admin/system_info/` | System info with tabs (Docker, disk, logs, settings) |
 | `app/views/admin/reflector/` | SVXReflector config editor (global, certs, users, passwords, TG rules) |
 | `app/views/shared/` | Navbar (includes audio player/PTT, S-meter, and spectrum analyser JavaScript) |
 | `app/views/layouts/` | Application layout |

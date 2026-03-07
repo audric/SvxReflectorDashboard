@@ -8,6 +8,7 @@ Welcome to the SVX Dashboard wiki — the complete reference for deploying, usin
 - **[[Architecture]]** — services, data flow, and audio path
 - **[[Configuration]]** — environment variables and settings
 - **[[User Management]]** — registration, approval, and permissions
+- **[[Bridges]]** — SVXLink bridges (reflector and EchoLink), config generation, backups, and archiving
 - **[[Audio Bridge]]** — the Go service that connects browsers to the reflector
 - **[[Reflector Protocol]]** — SVXReflector protocol V2 wire format
 - **[[Troubleshooting]]** — common issues and fixes
@@ -32,4 +33,4 @@ Registered users can tune in to talkgroups and transmit audio directly from thei
 
 ### Stack
 
-Ruby 3.2 · Rails 7.1 · Go · SQLite · Redis · Hotwire (Turbo + Stimulus) · HAML · Bootstrap 5 · Leaflet.js
+Ruby 3.2 · Rails 7.1 · Go · SQLite · Redis · Hotwire (Turbo + Stimulus) · HAML · Tailwind CSS · Leaflet.js

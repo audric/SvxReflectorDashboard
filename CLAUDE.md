@@ -67,7 +67,8 @@ The web and updater services share a Docker volume (`db_data` → `/rails/storag
 ### Frontend
 - HAML templates (not ERB)
 - Hotwire (Turbo + Stimulus) for interactivity
-- Bootstrap 5 for layout
+- Tailwind CSS (Play CDN runtime, not compiled)
+- Bootstrap Icons for iconography (no Bootstrap CSS framework)
 - Leaflet.js for the map view
 - No separate JavaScript build pipeline — uses Sprockets asset pipeline
 

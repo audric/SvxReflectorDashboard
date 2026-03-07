@@ -14,6 +14,7 @@ A Rails web application for monitoring amateur radio [SVXReflector](https://www.
 - Push-to-Talk from the browser (requires HTTPS)
 - CTCSS tone-to-talkgroup matrix with CHIRP CSV export
 - Web admin for SVXReflector configuration (global settings, certificates, users, passwords, TG rules)
+- SVXLink bridge management — reflector-to-reflector and EchoLink bridges with auto-generated configs, snapshot backups, and 30-day archive on delete
 - User management with callsign validation, admin approval, and role-based permissions
 
 ## Quick start
@@ -44,7 +45,7 @@ audio_bridge  → Go binary, SVXReflector protocol V2
 redis         → ActionCable + audio pub/sub
 ```
 
-**Stack:** Ruby 3.2 · Rails 7.1 · Go · SQLite · Redis · HAML · Bootstrap 5 · Leaflet.js
+**Stack:** Ruby 3.2 · Rails 7.1 · Go · SQLite · Redis · HAML · Tailwind CSS · Leaflet.js
 
 See the wiki for [architecture details](https://github.com/audric/SvxReflectorDashboard/wiki/Architecture) and [reflector protocol docs](https://github.com/audric/SvxReflectorDashboard/wiki/Reflector-Protocol).
 
@@ -56,6 +57,7 @@ See the wiki for [architecture details](https://github.com/audric/SvxReflectorDa
 | Architecture | [wiki/Architecture](https://github.com/audric/SvxReflectorDashboard/wiki/Architecture) |
 | Configuration | [wiki/Configuration](https://github.com/audric/SvxReflectorDashboard/wiki/Configuration) |
 | User Management | [wiki/User-Management](https://github.com/audric/SvxReflectorDashboard/wiki/User-Management) |
+| Bridges | [wiki/Bridges](https://github.com/audric/SvxReflectorDashboard/wiki/Bridges) |
 | Audio Bridge | [wiki/Audio-Bridge](https://github.com/audric/SvxReflectorDashboard/wiki/Audio-Bridge) |
 | Reflector Protocol | [wiki/Reflector-Protocol](https://github.com/audric/SvxReflectorDashboard/wiki/Reflector-Protocol) |
 | Troubleshooting | [wiki/Troubleshooting](https://github.com/audric/SvxReflectorDashboard/wiki/Troubleshooting) |
