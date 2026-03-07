@@ -74,10 +74,12 @@ module Admin
 
     def backups
       dir = @bridge.config_dir
-      files = Dir.glob(dir.join("svxlink.conf.*.bak")).sort.reverse.map do |path|
-        stamp = File.basename(path).match(/\.(\d{8}_\d{6})\.bak$/)&.[](1)
-        label = stamp ? Time.strptime(stamp, "%Y%m%d_%H%M%S").strftime("%Y-%m-%d %H:%M:%S") : File.basename(path)
-        { filename: File.basename(path), label: label, content: File.read(path) }
+      files = Dir.glob(dir.join("*.bak")).sort.reverse.map do |path|
+        basename = File.basename(path)
+        stamp = basename.match(/\.(\d{8}_\d{6})\.bak$/)&.[](1)
+        config_name = basename.sub(/\.\d{8}_\d{6}\.bak$/, "")
+        time_label = stamp ? Time.strptime(stamp, "%Y%m%d_%H%M%S").strftime("%Y-%m-%d %H:%M:%S") : basename
+        { filename: basename, label: "#{config_name} — #{time_label}", content: File.read(path) }
       end
       render json: files
     end

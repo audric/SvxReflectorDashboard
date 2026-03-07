@@ -53,7 +53,7 @@ class Bridge < ApplicationRecord
 
   def generate_config
     FileUtils.mkdir_p(config_dir)
-    backup_config if config_path.exist?
+    backup_configs
 
     if echolink?
       generate_echolink_config
@@ -341,11 +341,17 @@ class Bridge < ApplicationRecord
     FileUtils.rm_rf(config_dir) if config_dir.exist?
   end
 
-  def backup_config
+  def backup_configs
     stamp = Time.current.strftime("%Y%m%d_%H%M%S")
-    FileUtils.cp(config_path, config_dir.join("svxlink.conf.#{stamp}.bak"))
-    backups = Dir.glob(config_dir.join("svxlink.conf.*.bak")).sort
-    excess = backups.size - MAX_BACKUPS
-    backups.first(excess).each { |f| File.delete(f) } if excess > 0
+    [config_path, node_info_path, echolink_conf_path].each do |path|
+      next unless path.exist?
+      FileUtils.cp(path, config_dir.join("#{File.basename(path)}.#{stamp}.bak"))
+    end
+    # Prune old backups per file type
+    %w[svxlink.conf node_info.json ModuleEchoLink.conf].each do |name|
+      backups = Dir.glob(config_dir.join("#{name}.*.bak")).sort
+      excess = backups.size - MAX_BACKUPS
+      backups.first(excess).each { |f| File.delete(f) } if excess > 0
+    end
   end
 end
