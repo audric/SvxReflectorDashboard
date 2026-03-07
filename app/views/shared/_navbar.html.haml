@@ -144,7 +144,6 @@
 
     - if logged_in? && current_user.admin?
       .mt-6.pt-4.border-t.border-ghborder
-        .text-xs.uppercase.tracking-wider.text-ghdim.px-3.mb-2 Admin
         .space-y-1
           - admin_links = [['bi-people', 'Web Users', admin_users_path], ['bi-collection', 'Talkgroups', admin_tgs_path], ['bi-gear', 'Settings', edit_admin_settings_path]]
           - admin_links << ['bi-broadcast', 'Reflector', edit_admin_reflector_path] if current_user.reflector_admin?
