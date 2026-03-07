@@ -35,6 +35,7 @@
         %li= msg
 
 = form_with model: [:admin, @bridge], local: true do |f|
+  = f.hidden_field :bridge_type, value: "reflector"
 
   -# ── Name ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4.p-4

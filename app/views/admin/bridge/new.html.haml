@@ -31,4 +31,7 @@
     = render 'shared/navbar', active: 'admin'
 
     .max-w-3xl.mx-auto.px-4.pb-12
-      = render 'form'
+      - if @bridge.echolink?
+        = render 'form_echolink'
+      - else
+        = render 'form'

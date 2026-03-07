@@ -10,20 +10,34 @@ module Admin
     end
 
     def new
-      @bridge = Bridge.new(
+      bridge_type = params[:type].presence || "reflector"
+      defaults = {
+        bridge_type: bridge_type,
         local_host: "svxreflector",
         local_port: 5300,
-        local_default_tg: 1,
-        remote_port: 5300,
-        remote_default_tg: 1,
-        timeout: 0
-      )
+        local_default_tg: 1
+      }
+      if bridge_type == "echolink"
+        defaults.merge!(
+          echolink_max_qsos: 10,
+          echolink_max_connections: 11,
+          echolink_link_idle_timeout: 300,
+          echolink_servers: "servers.echolink.org"
+        )
+      else
+        defaults.merge!(
+          remote_port: 5300,
+          remote_default_tg: 1,
+          timeout: 0
+        )
+      end
+      @bridge = Bridge.new(defaults)
     end
 
     def create
       @bridge = Bridge.new(bridge_params)
       if @bridge.save
-        save_tg_mappings(@bridge)
+        save_tg_mappings(@bridge) if @bridge.reflector?
         @bridge.generate_config
         redirect_to admin_bridges_path, notice: "Bridge \"#{@bridge.name}\" created."
       else
@@ -36,7 +50,7 @@ module Admin
     def update
       name_changed = bridge_params[:name] != @bridge.name
       if @bridge.update(bridge_params)
-        save_tg_mappings(@bridge)
+        save_tg_mappings(@bridge) if @bridge.reflector?
         @bridge.generate_config
         if @bridge.enabled?
           if name_changed
@@ -88,7 +102,7 @@ module Admin
 
     def bridge_params
       params.require(:bridge).permit(
-        :name, :local_host, :local_port, :local_callsign, :local_auth_key,
+        :name, :bridge_type, :local_host, :local_port, :local_callsign, :local_auth_key,
         :local_default_tg, :remote_host, :remote_port, :remote_callsign,
         :remote_auth_key, :remote_default_tg, :timeout, :enabled,
         :remote_ca_bundle, :node_location, :sysop,
@@ -96,7 +110,16 @@ module Admin
         :mute_first_tx_loc, :mute_first_tx_rem, :verbose,
         :udp_heartbeat_interval,
         :cert_subj_c, :cert_subj_o, :cert_subj_ou, :cert_subj_l,
-        :cert_subj_st, :cert_subj_gn, :cert_subj_sn, :cert_email
+        :cert_subj_st, :cert_subj_gn, :cert_subj_sn, :cert_email,
+        :echolink_callsign, :echolink_password, :echolink_sysopname,
+        :echolink_location, :echolink_description,
+        :echolink_max_qsos, :echolink_max_connections, :echolink_link_idle_timeout,
+        :echolink_proxy_server, :echolink_proxy_port, :echolink_proxy_password,
+        :echolink_autocon_echolink_id, :echolink_autocon_time,
+        :echolink_accept_incoming, :echolink_reject_incoming, :echolink_drop_incoming,
+        :echolink_accept_outgoing, :echolink_reject_outgoing,
+        :echolink_reject_conf, :echolink_use_gsm_only, :echolink_bind_addr,
+        :echolink_servers
       )
     end
 
@@ -151,6 +174,9 @@ module Admin
       if bridge.ca_bundle_path.exist?
         binds << "#{bridge_dir}/ca-bundle.crt:/var/lib/svxlink/pki/ca-bundle.crt:ro"
       end
+      if bridge.echolink? && bridge.echolink_conf_path.exist?
+        binds << "#{bridge_dir}/ModuleEchoLink.conf:/etc/svxlink/svxlink.d/ModuleEchoLink.conf:ro"
+      end
 
       body = {
         Image: "audric/svxlink",
@@ -172,6 +198,19 @@ module Admin
           RestartPolicy: { Name: "unless-stopped" }
         }
       }
+
+      # EchoLink needs UDP 5198-5199 and TCP 5200 exposed to the host
+      if bridge.echolink?
+        body[:ExposedPorts] = {
+          "5198/udp" => {}, "5199/udp" => {}, "5200/tcp" => {}
+        }
+        body[:HostConfig][:PortBindings] = {
+          "5198/udp" => [{ HostPort: "5198" }],
+          "5199/udp" => [{ HostPort: "5199" }],
+          "5200/tcp" => [{ HostPort: "5200" }]
+        }
+      end
+
       body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
 
       result = docker_api_post_json("/containers/create?name=#{bridge.container_name}", body)

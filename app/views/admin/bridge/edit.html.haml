@@ -48,7 +48,10 @@
               %span.text-ghdim Select a backup to inspect
 
     .max-w-3xl.mx-auto.px-4.pb-12
-      = render 'form'
+      - if @bridge.echolink?
+        = render 'form_echolink'
+      - else
+        = render 'form'
 
     :javascript
       var _backupData = null;

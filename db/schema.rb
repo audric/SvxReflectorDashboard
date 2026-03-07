@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_07_015324) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_07_021958) do
   create_table "bridge_tg_mappings", force: :cascade do |t|
     t.integer "bridge_id", null: false
     t.datetime "created_at", null: false
@@ -24,6 +24,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_07_015324) do
   create_table "bridges", force: :cascade do |t|
     t.integer "bridge_local_tg"
     t.integer "bridge_remote_tg"
+    t.string "bridge_type", default: "reflector", null: false
     t.string "cert_email"
     t.string "cert_subj_c"
     t.string "cert_subj_gn"
@@ -33,6 +34,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_07_015324) do
     t.string "cert_subj_sn"
     t.string "cert_subj_st"
     t.datetime "created_at", null: false
+    t.string "echolink_accept_incoming"
+    t.string "echolink_accept_outgoing"
+    t.string "echolink_autocon_echolink_id"
+    t.integer "echolink_autocon_time"
+    t.string "echolink_bind_addr"
+    t.string "echolink_callsign"
+    t.text "echolink_description"
+    t.string "echolink_drop_incoming"
+    t.integer "echolink_link_idle_timeout"
+    t.string "echolink_location"
+    t.integer "echolink_max_connections"
+    t.integer "echolink_max_qsos"
+    t.string "echolink_password"
+    t.string "echolink_proxy_password"
+    t.integer "echolink_proxy_port"
+    t.string "echolink_proxy_server"
+    t.boolean "echolink_reject_conf"
+    t.string "echolink_reject_incoming"
+    t.string "echolink_reject_outgoing"
+    t.string "echolink_servers"
+    t.string "echolink_sysopname"
+    t.boolean "echolink_use_gsm_only"
     t.boolean "enabled", default: false
     t.integer "jitter_buffer_delay"
     t.string "local_auth_key"

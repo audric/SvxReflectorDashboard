@@ -1,0 +1,424 @@
+-# Help texts from official svxlink.conf(5) and ModuleEchoLink.conf(5) man pages
+- help = {}
+- help["HOST"] = "The hostname or IP address of the SvxReflector server to connect to."
+- help["PORT"] = "The TCP/UDP port used when connecting to the SvxReflector server. The default is 5300."
+- help["CALLSIGN"] = "The callsign used to identify this connection to the reflector. Must be unique on the reflector."
+- help["AUTH_KEY"] = "The authentication key (shared secret) used when connecting to the reflector."
+- help["DEFAULT_TG"] = "The default talk group to select when the connection to the reflector has been established."
+- help["NODE_LOCATION"] = "A text describing the geographic location of this bridge node. Shown on the reflector dashboard. Defaults to the bridge name if empty."
+- help["SYSOP"] = "The callsign of the system operator responsible for this bridge."
+- help["ECHOLINK_CALLSIGN"] = "The callsign to use to login to the EchoLink directory server. Use -L suffix for simplex links or -R suffix for repeaters (e.g. IU1ABC-L)."
+- help["ECHOLINK_PASSWORD"] = "The EchoLink directory server password to use."
+- help["ECHOLINK_SYSOPNAME"] = "The name of the person or club that is responsible for this system."
+- help["ECHOLINK_LOCATION"] = "The location of the station shown in the EchoLink directory. Example: [Svx] 145.500, Milan"
+- help["ECHOLINK_DESCRIPTION"] = "A longer description that is sent to remote stations upon connection. Should include QTH, frequency, antenna info, etc."
+- help["ECHOLINK_SERVERS"] = "A space separated list of IP addresses or names of the EchoLink directory servers to use. The specified servers will be tried in order until one is found that works. Default: servers.echolink.org"
+- help["ECHOLINK_MAX_QSOS"] = "The maximum number of stations that can participate in a conference QSO on this node."
+- help["ECHOLINK_MAX_CONNECTIONS"] = "The maximum total number of connections. Should normally be MAX_QSOS + 1. Connections exceeding this limit are silently ignored."
+- help["ECHOLINK_LINK_IDLE_TIMEOUT"] = "The number of seconds that a connection is idle before disconnection will occur."
+- help["ECHOLINK_PROXY_SERVER"] = "If set, connect to the given EchoLink proxy server host. All EchoLink connections, both incoming and outgoing, will then go through the proxy."
+- help["ECHOLINK_PROXY_PORT"] = "Set the TCP port used for connecting to an EchoLink proxy server. Default is 8100."
+- help["ECHOLINK_PROXY_PASSWORD"] = "Set the EchoLink proxy password. Use the password PUBLIC for public proxy servers."
+- help["ECHOLINK_AUTOCON_ECHOLINK_ID"] = "Set this to an EchoLink ID that you want to automatically connect to."
+- help["ECHOLINK_AUTOCON_TIME"] = "Set this to the time in seconds between autoconnect tries."
+- help["ECHOLINK_ACCEPT_INCOMING"] = "Only accept incoming connections where the remote callsign matches this regular expression."
+- help["ECHOLINK_REJECT_INCOMING"] = "Reject all incoming connections where the remote callsign matches this regular expression. A message will be sent to the remote station."
+- help["ECHOLINK_DROP_INCOMING"] = "Silently drop all incoming connections where the remote callsign matches this regular expression. No message will be sent."
+- help["ECHOLINK_ACCEPT_OUTGOING"] = "Only accept outgoing connections where the remote callsign matches this regular expression."
+- help["ECHOLINK_REJECT_OUTGOING"] = "Reject all outgoing connections where the remote callsign matches this regular expression."
+- help["ECHOLINK_REJECT_CONF"] = "When set, reject all incoming connections where the name of the remote station ends in the word CONF."
+- help["ECHOLINK_USE_GSM_ONLY"] = "On smaller systems with a less powerful CPU, prevent SvxLink from switching into the Speex codec. SvxLink remains in the default GSM codec."
+- help["ECHOLINK_BIND_ADDR"] = "Bind the EchoLink network sockets to a specific IP-address/interface. Needed if the computer has more than one ethernet interface."
+- help["JITTER_BUFFER_DELAY"] = "The jitter buffer delay in milliseconds. If non-zero, a jitter buffer will be used to prevent gaps in the received audio. A typical value is 100ms."
+- help["MONITOR_TGS"] = "A comma separated list of talk group IDs that should be monitored in addition to the selected talk group."
+- help["VERBOSE"] = "Set to 0 to reduce the amount of information printed to the log. Default is 1 (verbose logging enabled)."
+- help["UDP_HEARTBEAT_INTERVAL"] = "The number of seconds between UDP heartbeats. Default is 15 seconds."
+- help["REMOTE_CA_BUNDLE"] = "Paste the PEM-encoded CA certificate from the remote reflector if it uses a self-signed CA."
+- help["CERT_SUBJ_C"] = "The ISO country code (C) included in the certificate signing request. Example: IT"
+- help["CERT_SUBJ_O"] = "The organization name (O) included in the certificate signing request."
+- help["CERT_SUBJ_OU"] = "The organizational unit (OU) included in the certificate signing request."
+- help["CERT_SUBJ_L"] = "The locality name (L) included in the certificate signing request."
+- help["CERT_SUBJ_ST"] = "The state or province name (ST) included in the certificate signing request."
+- help["CERT_SUBJ_GN"] = "The given name (GN) included in the certificate signing request."
+- help["CERT_SUBJ_SN"] = "The surname (SN) included in the certificate signing request."
+- help["CERT_EMAIL"] = "The email address included in the certificate signing request."
+
+- if @bridge.errors.any?
+  .p-3.rounded.border.border-red-700.text-red-400.text-sm.mb-4{class: "bg-red-900/30"}
+    %p.font-semibold.mb-1= "#{@bridge.errors.count} error(s):"
+    %ul.list-disc.ml-4
+      - @bridge.errors.full_messages.each do |msg|
+        %li= msg
+
+= form_with model: [:admin, @bridge], local: true do |f|
+  = f.hidden_field :bridge_type, value: "echolink"
+
+  -# ── Name ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4.p-4
+    %label.block.text-sm.font-semibold.text-gray-400.mb-2 Bridge Name
+    = f.text_field :name, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. EchoLink Gateway"
+    - if @bridge.persisted?
+      #name-warn.p-2.rounded.border.text-sm.mt-2.items-center.gap-2.hidden{class: "border-yellow-700/50 text-yellow-400 bg-yellow-900/20"}
+        %i.bi.bi-exclamation-triangle.mr-1
+        Changing the name will recreate the container.
+    %label.block.text-sm.font-semibold.text-gray-400.mb-2.mt-4
+      Node Location
+      %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('NODE_LOCATION')", title: "Help"}
+        %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+    = f.text_field :node_location, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. Milan, Italy"
+    %label.block.text-sm.font-semibold.text-gray-400.mb-2.mt-4
+      Sysop
+      %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('SYSOP')", title: "Help"}
+        %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+    = f.text_field :sysop, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. IU1ABC"
+
+  -# ── EchoLink Settings (collapsible, open by default) ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('echolink')"}
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-headset.mr-2
+        EchoLink
+      %i.bi.bi-chevron-down.accordion-chevron.text-gray-400.open{id: "chevron-echolink"}
+    .accordion-body.px-4.open{id: "body-echolink"}
+      .grid.grid-cols-1.md:grid-cols-2.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            CALLSIGN
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_CALLSIGN')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.text_field :echolink_callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "IU1ABC-L"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            PASSWORD
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_PASSWORD')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.password_field :echolink_password, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", value: @bridge.echolink_password
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            SYSOPNAME
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_SYSOPNAME')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.text_field :echolink_sysopname, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "John Doe"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            SERVERS
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_SERVERS')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.text_field :echolink_servers, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "servers.echolink.org"
+      .mt-3.mb-1
+        %label.block.text-sm.text-gray-500.mb-1
+          LOCATION
+          %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_LOCATION')", title: "Help"}
+            %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+        = f.text_field :echolink_location, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "[Svx] 145.500, Milan"
+      .mt-3.mb-1
+        %label.block.text-sm.text-gray-500.mb-1
+          DESCRIPTION
+          %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_DESCRIPTION')", title: "Help"}
+            %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+        = f.text_area :echolink_description, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-xs font-mono bg-[#0d1117] text-ghtext", rows: 4, placeholder: "QTH: Milan\nQRG: 145.500 MHz\nAntenna: GP"
+      .grid.grid-cols-1.md:grid-cols-3.gap-4.mt-3
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            MAX_QSOS
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_MAX_QSOS')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.number_field :echolink_max_qsos, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1, placeholder: "10"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            MAX_CONNECTIONS
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_MAX_CONNECTIONS')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.number_field :echolink_max_connections, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1, placeholder: "11"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            LINK_IDLE_TIMEOUT (s)
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_LINK_IDLE_TIMEOUT')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.number_field :echolink_link_idle_timeout, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 0, placeholder: "300"
+
+  -# ── EchoLink Proxy (collapsible) ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('proxy')"}
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-hdd-network.mr-2
+        EchoLink Proxy
+      %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-proxy"}
+    .accordion-body.px-4{id: "body-proxy"}
+      .grid.grid-cols-1.md:grid-cols-3.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            PROXY_SERVER
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_PROXY_SERVER')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.text_field :echolink_proxy_server, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "proxy.example.com"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            PROXY_PORT
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_PROXY_PORT')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.number_field :echolink_proxy_port, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1, placeholder: "8100"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            PROXY_PASSWORD
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_PROXY_PASSWORD')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.text_field :echolink_proxy_password, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "PUBLIC"
+
+  -# ── EchoLink Auto-Connect (collapsible) ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('autocon')"}
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-arrow-repeat.mr-2
+        Auto-Connect
+      %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-autocon"}
+    .accordion-body.px-4{id: "body-autocon"}
+      .grid.grid-cols-1.md:grid-cols-2.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            AUTOCON_ECHOLINK_ID
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_AUTOCON_ECHOLINK_ID')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.text_field :echolink_autocon_echolink_id, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. 9999"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            AUTOCON_TIME (s)
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_AUTOCON_TIME')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.number_field :echolink_autocon_time, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1, placeholder: "1200"
+
+  -# ── EchoLink Access Control (collapsible) ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('access')"}
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-shield-check.mr-2
+        Access Control
+      %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-access"}
+    .accordion-body.px-4{id: "body-access"}
+      .grid.grid-cols-1.md:grid-cols-2.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            ACCEPT_INCOMING
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_ACCEPT_INCOMING')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.text_field :echolink_accept_incoming, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext font-mono", placeholder: "^(.*)$"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            REJECT_INCOMING
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_REJECT_INCOMING')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.text_field :echolink_reject_incoming, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext font-mono", placeholder: "^()$"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            DROP_INCOMING
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_DROP_INCOMING')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.text_field :echolink_drop_incoming, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext font-mono", placeholder: "^()$"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            ACCEPT_OUTGOING
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_ACCEPT_OUTGOING')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.text_field :echolink_accept_outgoing, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext font-mono", placeholder: "^(.*)$"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            REJECT_OUTGOING
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_REJECT_OUTGOING')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.text_field :echolink_reject_outgoing, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext font-mono", placeholder: "^()$"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            BIND_ADDR
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_BIND_ADDR')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.text_field :echolink_bind_addr, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext font-mono", placeholder: "0.0.0.0"
+      .grid.grid-cols-1.md:grid-cols-2.gap-4.mt-3
+        .mb-1.flex.items-center.gap-2
+          = f.check_box :echolink_reject_conf, class: "rounded border-gray-600 bg-[#0d1117]"
+          %label.text-sm.text-gray-400
+            REJECT_CONF
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_REJECT_CONF')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+        .mb-1.flex.items-center.gap-2
+          = f.check_box :echolink_use_gsm_only, class: "rounded border-gray-600 bg-[#0d1117]"
+          %label.text-sm.text-gray-400
+            USE_GSM_ONLY
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ECHOLINK_USE_GSM_ONLY')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+
+  -# ── Local Reflector (collapsible) ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('local')"}
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-broadcast.mr-2
+        Local Reflector
+      %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-local"}
+    .accordion-body.px-4{id: "body-local"}
+      .grid.grid-cols-1.md:grid-cols-2.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            HOST
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('HOST')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.text_field :local_host, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "svxreflector"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            PORT
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('PORT')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.number_field :local_port, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            CALLSIGN
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CALLSIGN')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.text_field :local_callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "ECHOLINK-GW"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            AUTH_KEY
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('AUTH_KEY')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.text_field :local_auth_key, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            DEFAULT_TG
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('DEFAULT_TG')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.number_field :local_default_tg, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1
+      .mt-3.mb-1
+        %label.block.text-sm.text-gray-500.mb-1
+          Remote CA Bundle
+          %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('REMOTE_CA_BUNDLE')", title: "Help"}
+            %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+        = f.text_area :remote_ca_bundle, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-xs font-mono bg-[#0d1117] text-ghtext", rows: 4, placeholder: "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
+
+  -# ── Advanced Options (collapsible) ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('advanced')"}
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-sliders.mr-2
+        Advanced Options
+      %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-advanced"}
+    .accordion-body.px-4{id: "body-advanced"}
+      .grid.grid-cols-1.md:grid-cols-2.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            JITTER_BUFFER_DELAY (ms)
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('JITTER_BUFFER_DELAY')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.number_field :jitter_buffer_delay, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 0, placeholder: "0"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            MONITOR_TGS
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('MONITOR_TGS')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.text_field :monitor_tgs, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. 1,2,3"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            UDP_HEARTBEAT_INTERVAL (s)
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('UDP_HEARTBEAT_INTERVAL')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.number_field :udp_heartbeat_interval, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1, placeholder: "15"
+      .grid.grid-cols-1.md:grid-cols-3.gap-4.mt-3
+        .mb-1.flex.items-center.gap-2
+          = f.check_box :verbose, class: "rounded border-gray-600 bg-[#0d1117]", checked: @bridge.verbose.nil? || @bridge.verbose?
+          %label.text-sm.text-gray-400
+            VERBOSE
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('VERBOSE')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+
+  -# ── Certificate Subject (collapsible) ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('cert')"}
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-shield-lock.mr-2
+        Certificate Subject
+      %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-cert"}
+    .accordion-body.px-4{id: "body-cert"}
+      %p.text-xs.text-ghmuted.mb-3 Fields included in the CSR sent to the reflector when connecting.
+      .grid.grid-cols-1.md:grid-cols-2.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            Country (C)
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CERT_SUBJ_C')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.text_field :cert_subj_c, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "IT", maxlength: 2
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            Organization (O)
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CERT_SUBJ_O')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.text_field :cert_subj_o, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "ECHOLINK"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            Organizational Unit (OU)
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CERT_SUBJ_OU')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.text_field :cert_subj_ou, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "SVX"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1
+            Email
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CERT_EMAIL')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+          = f.email_field :cert_email, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "call@example.com"
+
+  -# Help popup modal
+  #help-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
+    .bg-ghcard.border.border-gray-600.rounded-lg.p-5.max-w-md.w-full.mx-4.shadow-xl
+      .flex.items-center.justify-between.mb-3
+        %h6.text-base.font-semibold.text-gray-100#help-modal-title
+        %button.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "closeHelp()"}
+          %i.bi.bi-x-lg
+      %p.text-sm.text-gray-300.leading-relaxed#help-modal-body
+
+  -# ── Save ──
+  .flex.gap-2
+    = f.submit class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
+    - if @bridge.persisted?
+      %button.px-4.py-2.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "openBackups()"}
+        %i.bi.bi-clock-history.mr-1
+        Backups
+    = link_to "Cancel", admin_bridges_path, class: "px-4 py-2 rounded-md border border-gray-600 text-gray-400 hover:text-gray-200"
+
+:css
+  .accordion-body { max-height: 0; overflow: hidden; padding-top: 0; padding-bottom: 0; transition: max-height 0.3s ease, padding 0.3s ease; }
+  .accordion-body.open { max-height: 5000px; padding-top: 1rem; padding-bottom: 1rem; }
+  .accordion-chevron { transition: transform 0.3s ease; }
+  .accordion-chevron.open { transform: rotate(180deg); }
+
+:javascript
+  var HELP_TEXTS = #{help.to_json};
+
+  function openModal(id) { var m = document.getElementById(id); m.classList.remove('hidden'); m.classList.add('flex'); }
+  function closeModal(id) { var m = document.getElementById(id); m.classList.add('hidden'); m.classList.remove('flex'); }
+
+  function showHelp(key) {
+    document.getElementById('help-modal-title').textContent = key;
+    document.getElementById('help-modal-body').textContent = HELP_TEXTS[key] || 'No description available.';
+    openModal('help-modal');
+  }
+  function closeHelp() {
+    closeModal('help-modal');
+  }
+  document.getElementById('help-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeHelp();
+  });
+
+  (function() {
+    var nameInput = document.querySelector('input[name="bridge[name]"]');
+    var warn = document.getElementById('name-warn');
+    if (nameInput && warn) {
+      var original = nameInput.dataset.original || '';
+      nameInput.addEventListener('input', function() {
+        if (this.value !== original) { warn.classList.remove('hidden'); warn.classList.add('flex'); }
+        else { warn.classList.add('hidden'); warn.classList.remove('flex'); }
+      });
+    }
+  })();
+
+  function toggleSection(id) {
+    var body = document.getElementById('body-' + id);
+    var chevron = document.getElementById('chevron-' + id);
+    body.classList.toggle('open');
+    chevron.classList.toggle('open');
+  }
