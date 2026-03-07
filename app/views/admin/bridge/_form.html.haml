@@ -15,6 +15,11 @@
       #name-warn.p-2.rounded.border.text-sm.mt-2.items-center.gap-2.hidden{class: "border-yellow-700/50 text-yellow-400 bg-yellow-900/20"}
         %i.bi.bi-exclamation-triangle.mr-1
         Changing the name will recreate the container.
+    %label.block.text-sm.font-semibold.text-gray-400.mb-2.mt-4 Node Location
+    = f.text_field :node_location, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. Milan, Italy (shown on dashboard)"
+    %p.text-xs.text-ghmuted.mt-1 Location shown on the dashboard. Defaults to bridge name if empty.
+    %label.block.text-sm.font-semibold.text-gray-400.mb-2.mt-4 Sysop
+    = f.text_field :sysop, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. IU1ABC"
 
   -# ── Local Reflector (collapsible) ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4

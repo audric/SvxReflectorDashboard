@@ -49,7 +49,7 @@ class Bridge < ApplicationRecord
     ca_bundle_line = "CA_BUNDLE_FILE=/var/lib/svxlink/pki/ca-bundle.crt"
 
     # Shared optional lines for both logics
-    shared_lines = []
+    shared_lines = ["NODE_INFO_FILE=/etc/svxlink/node_info.json"]
     shared_lines << "JITTER_BUFFER_DELAY=#{jitter_buffer_delay}" if jitter_buffer_delay.present?
     shared_lines << "MONITOR_TGS=#{monitor_tgs}" if monitor_tgs.present?
     shared_lines << "TG_SELECT_TIMEOUT=#{tg_select_timeout}" if tg_select_timeout.present?
@@ -101,6 +101,21 @@ class Bridge < ApplicationRecord
 
     lines << ""
     File.write(config_path, lines.join("\n"))
+    write_node_info
+  end
+
+  def node_info_path
+    config_dir.join("node_info.json")
+  end
+
+  def write_node_info
+    info = {
+      nodeClass: "bridge",
+      nodeLocation: node_location.presence || name,
+      hidden: false,
+      sysop: sysop.presence
+    }.compact
+    File.write(node_info_path, JSON.pretty_generate(info))
   end
 
   def ca_bundle_path
