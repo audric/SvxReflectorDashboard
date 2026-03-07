@@ -202,13 +202,12 @@
 
                 -# Class + Location + Locator
                 .mb-2.flex.flex-wrap.items-center.gap-2
-                  %span.capitalize
+                  %span.capitalize{id: "node-#{callsign}-class"}
                     %i.bi{class: node_icon}
                     = node['nodeClass']
-                  - if node['nodeLocation'].present?
-                    %span.truncate{title: node['nodeLocation']}
-                      %i.bi.bi-geo-alt.mr-1
-                      = node['nodeLocation']
+                  %span.truncate{title: node['nodeLocation'].to_s, class: node['nodeLocation'].present? ? '' : 'hidden'}
+                    %i.bi.bi-geo-alt.mr-1
+                    %span{id: "node-#{callsign}-location"}= node['nodeLocation']
                   - if locator.present?
                     %span.inline-block.px-1.5.py-0.5.text-xs.rounded.border.border-gray-600.text-gray-500{class: "bg-[#0d1117]", title: "Maidenhead locator"}
                       = locator
@@ -446,6 +445,11 @@
             });
           }
 
+          // Node location
+          var locEl = document.getElementById('node-' + callsign + '-location');
+          if (locEl && n.nodeLocation) { locEl.textContent = n.nodeLocation; locEl.parentElement.title = n.nodeLocation; locEl.parentElement.classList.remove('hidden'); }
+          else if (locEl && !n.nodeLocation) { locEl.parentElement.classList.add('hidden'); }
+
           // Software version
           var swEl = document.getElementById('node-' + callsign + '-sw');
           if (swEl) swEl.textContent = [n.sw, (n.swVer||'').replace(/(\.0)+$/, '')].filter(Boolean).join(' ');
@@ -504,8 +508,8 @@
 
           // Class / location / locator
           h += '<div class="mb-2 flex flex-wrap items-center gap-2">';
-          if (n.nodeClass)    h += '<span class="capitalize"><i class="bi ' + iconCls + '"></i> ' + esc(n.nodeClass) + '</span>';
-          if (n.nodeLocation) h += '<span class="truncate" title="' + esc(n.nodeLocation) + '"><i class="bi bi-geo-alt mr-1"></i>' + esc(n.nodeLocation) + '</span>';
+          if (n.nodeClass)    h += '<span class="capitalize" id="node-' + cs + '-class"><i class="bi ' + iconCls + '"></i> ' + esc(n.nodeClass) + '</span>';
+          h += '<span class="truncate' + (n.nodeLocation ? '' : ' hidden') + '" title="' + esc(n.nodeLocation || '') + '"><i class="bi bi-geo-alt mr-1"></i><span id="node-' + cs + '-location">' + esc(n.nodeLocation || '') + '</span></span>';
           if (locator)        h += '<span class="inline-block px-1.5 py-0.5 text-xs rounded border border-gray-600 text-gray-500 bg-[#0d1117]" title="Maidenhead locator">' + esc(locator) + '</span>';
           h += '</div>';
 
