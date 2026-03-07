@@ -1,3 +1,32 @@
+-# Help texts from official svxlink.conf(5) man page — ReflectorLogic section
+- help = {}
+- help["HOST"] = "The hostname or IP address of the SvxReflector server to connect to."
+- help["PORT"] = "The TCP/UDP port used when connecting to the SvxReflector server. The default is 5300."
+- help["CALLSIGN"] = "The callsign used to identify this connection to the reflector. Must be unique on the reflector."
+- help["AUTH_KEY"] = "The authentication key (shared secret) used when connecting to the reflector."
+- help["DEFAULT_TG"] = "The default talk group to select when the connection to the reflector has been established."
+- help["JITTER_BUFFER_DELAY"] = "The jitter buffer delay in milliseconds. If non-zero, a jitter buffer will be used to prevent gaps in the received audio. The downside is a slight increase in audio delay. A typical value to try would be 100ms."
+- help["MONITOR_TGS"] = "A comma separated list of talk group IDs that should be monitored in addition to the selected talk group. Audio from monitored talk groups will be received but no audio can be transmitted on a monitored talk group. Example: MONITOR_TGS=1,2,3"
+- help["TG_SELECT_TIMEOUT"] = "The number of seconds after which a temporary talk group selection will revert to the default talk group. A value of 0 disables the timeout. Default is 0."
+- help["MUTE_FIRST_TX_LOC"] = "If set to 1, the first transmission on the local side will be muted. This can be useful to prevent a roger beep or key-up noise from being transmitted."
+- help["MUTE_FIRST_TX_REM"] = "If set to 1, the first transmission on the remote side will be muted. Same purpose as MUTE_FIRST_TX_LOC but for the remote connection."
+- help["VERBOSE"] = "Set to 0 to reduce the amount of information printed to the log. Default is 1 (verbose logging enabled)."
+- help["UDP_HEARTBEAT_INTERVAL"] = "The number of seconds between UDP heartbeats. Heartbeats are used to keep UDP connections open through firewalls and NAT routers. Default is 15 seconds."
+- help["NODE_LOCATION"] = "A text describing the geographic location of this bridge node. Shown on the reflector dashboard. Defaults to the bridge name if empty."
+- help["SYSOP"] = "The callsign of the system operator responsible for this bridge."
+- help["REMOTE_CA_BUNDLE"] = "Paste the PEM-encoded CA certificate from the remote reflector. This is needed when the remote reflector uses TLS with a self-signed CA so that the bridge can verify its certificate."
+- help["CERT_SUBJ_C"] = "The ISO country code (C) included in the certificate signing request. Example: IT"
+- help["CERT_SUBJ_O"] = "The organization name (O) included in the certificate signing request. Example: BRIDGE"
+- help["CERT_SUBJ_OU"] = "The organizational unit (OU) included in the certificate signing request. Example: SVX"
+- help["CERT_SUBJ_L"] = "The locality name (L) included in the certificate signing request. Example: Milan"
+- help["CERT_SUBJ_ST"] = "The state or province name (ST) included in the certificate signing request. Example: Lombardy"
+- help["CERT_SUBJ_GN"] = "The given name (GN) included in the certificate signing request."
+- help["CERT_SUBJ_SN"] = "The surname (SN) included in the certificate signing request."
+- help["CERT_EMAIL"] = "The email address included in the certificate signing request. Example: sysop@example.com"
+- help["LOCAL_TG"] = "The talk group number on the local reflector side of this mapping."
+- help["REMOTE_TG"] = "The talk group number on the remote reflector side of this mapping."
+- help["TIMEOUT"] = "The number of seconds after which this link will automatically disconnect. A value of 0 means the link stays connected permanently."
+
 - if @bridge.errors.any?
   .p-3.rounded.border.border-red-700.text-red-400.text-sm.mb-4{class: "bg-red-900/30"}
     %p.font-semibold.mb-1= "#{@bridge.errors.count} error(s):"
@@ -15,10 +44,16 @@
       #name-warn.p-2.rounded.border.text-sm.mt-2.items-center.gap-2.hidden{class: "border-yellow-700/50 text-yellow-400 bg-yellow-900/20"}
         %i.bi.bi-exclamation-triangle.mr-1
         Changing the name will recreate the container.
-    %label.block.text-sm.font-semibold.text-gray-400.mb-2.mt-4 Node Location
+    %label.block.text-sm.font-semibold.text-gray-400.mb-2.mt-4
+      Node Location
+      %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('NODE_LOCATION')", title: "Help"}
+        %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
     = f.text_field :node_location, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. Milan, Italy (shown on dashboard)"
     %p.text-xs.text-ghmuted.mt-1 Location shown on the dashboard. Defaults to bridge name if empty.
-    %label.block.text-sm.font-semibold.text-gray-400.mb-2.mt-4 Sysop
+    %label.block.text-sm.font-semibold.text-gray-400.mb-2.mt-4
+      Sysop
+      %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('SYSOP')", title: "Help"}
+        %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
     = f.text_field :sysop, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. IU1ABC"
 
   -# ── Local Reflector (collapsible) ──
@@ -31,19 +66,34 @@
     .accordion-body.px-4{id: "body-local"}
       .grid.grid-cols-1.md:grid-cols-2.gap-4
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 HOST
+          %label.block.text-sm.text-gray-500.mb-1
+            HOST
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('HOST')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.text_field :local_host, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "svxreflector"
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 PORT
+          %label.block.text-sm.text-gray-500.mb-1
+            PORT
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('PORT')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.number_field :local_port, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 CALLSIGN
+          %label.block.text-sm.text-gray-500.mb-1
+            CALLSIGN
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CALLSIGN')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.text_field :local_callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "BRIDGE-1"
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 AUTH_KEY
+          %label.block.text-sm.text-gray-500.mb-1
+            AUTH_KEY
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('AUTH_KEY')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.text_field :local_auth_key, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext"
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 DEFAULT_TG
+          %label.block.text-sm.text-gray-500.mb-1
+            DEFAULT_TG
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('DEFAULT_TG')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.number_field :local_default_tg, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1
 
   -# ── Remote Reflector (collapsible) ──
@@ -56,24 +106,40 @@
     .accordion-body.px-4{id: "body-remote"}
       .grid.grid-cols-1.md:grid-cols-2.gap-4
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 HOST
+          %label.block.text-sm.text-gray-500.mb-1
+            HOST
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('HOST')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.text_field :remote_host, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "reflector.example.com"
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 PORT
+          %label.block.text-sm.text-gray-500.mb-1
+            PORT
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('PORT')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.number_field :remote_port, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 CALLSIGN
+          %label.block.text-sm.text-gray-500.mb-1
+            CALLSIGN
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CALLSIGN')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.text_field :remote_callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "BRIDGE-1"
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 AUTH_KEY
+          %label.block.text-sm.text-gray-500.mb-1
+            AUTH_KEY
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('AUTH_KEY')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.text_field :remote_auth_key, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext"
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 DEFAULT_TG
+          %label.block.text-sm.text-gray-500.mb-1
+            DEFAULT_TG
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('DEFAULT_TG')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.number_field :remote_default_tg, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1
       .mt-3.mb-1
         %label.block.text-sm.text-gray-500.mb-1
           Remote CA Bundle
-          %span.text-xs.text-gray-600.ml-1 (paste PEM from the remote reflector's CA export)
+          %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('REMOTE_CA_BUNDLE')", title: "Help"}
+            %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
         = f.text_area :remote_ca_bundle, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-xs font-mono bg-[#0d1117] text-ghtext", rows: 6, placeholder: "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
 
   -# ── Advanced Options (collapsible) ──
@@ -86,27 +152,48 @@
     .accordion-body.px-4{id: "body-advanced"}
       .grid.grid-cols-1.md:grid-cols-2.gap-4
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 JITTER_BUFFER_DELAY (ms)
+          %label.block.text-sm.text-gray-500.mb-1
+            JITTER_BUFFER_DELAY (ms)
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('JITTER_BUFFER_DELAY')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.number_field :jitter_buffer_delay, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 0, placeholder: "0"
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 MONITOR_TGS
+          %label.block.text-sm.text-gray-500.mb-1
+            MONITOR_TGS
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('MONITOR_TGS')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.text_field :monitor_tgs, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. 1,2,3"
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 TG_SELECT_TIMEOUT (seconds)
+          %label.block.text-sm.text-gray-500.mb-1
+            TG_SELECT_TIMEOUT (seconds)
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('TG_SELECT_TIMEOUT')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.number_field :tg_select_timeout, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1, placeholder: "30"
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 UDP_HEARTBEAT_INTERVAL (seconds)
+          %label.block.text-sm.text-gray-500.mb-1
+            UDP_HEARTBEAT_INTERVAL (seconds)
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('UDP_HEARTBEAT_INTERVAL')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.number_field :udp_heartbeat_interval, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1, placeholder: "15"
       .grid.grid-cols-1.md:grid-cols-3.gap-4.mt-3
         .mb-1.flex.items-center.gap-2
           = f.check_box :mute_first_tx_loc, class: "rounded border-gray-600 bg-[#0d1117]"
-          %label.text-sm.text-gray-400 MUTE_FIRST_TX_LOC
+          %label.text-sm.text-gray-400
+            MUTE_FIRST_TX_LOC
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('MUTE_FIRST_TX_LOC')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
         .mb-1.flex.items-center.gap-2
           = f.check_box :mute_first_tx_rem, class: "rounded border-gray-600 bg-[#0d1117]"
-          %label.text-sm.text-gray-400 MUTE_FIRST_TX_REM
+          %label.text-sm.text-gray-400
+            MUTE_FIRST_TX_REM
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('MUTE_FIRST_TX_REM')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
         .mb-1.flex.items-center.gap-2
           = f.check_box :verbose, class: "rounded border-gray-600 bg-[#0d1117]", checked: @bridge.verbose.nil? || @bridge.verbose?
-          %label.text-sm.text-gray-400 VERBOSE
+          %label.text-sm.text-gray-400
+            VERBOSE
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('VERBOSE')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
 
   -# ── Certificate Subject (collapsible) ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
@@ -119,28 +206,52 @@
       %p.text-xs.text-ghmuted.mb-3 Fields included in the CSR sent to the reflector when connecting. Changing these will trigger a new CSR.
       .grid.grid-cols-1.md:grid-cols-2.gap-4
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 Country (C)
+          %label.block.text-sm.text-gray-500.mb-1
+            Country (C)
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CERT_SUBJ_C')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.text_field :cert_subj_c, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "IT", maxlength: 2
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 Organization (O)
+          %label.block.text-sm.text-gray-500.mb-1
+            Organization (O)
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CERT_SUBJ_O')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.text_field :cert_subj_o, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "BRIDGE"
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 Organizational Unit (OU)
+          %label.block.text-sm.text-gray-500.mb-1
+            Organizational Unit (OU)
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CERT_SUBJ_OU')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.text_field :cert_subj_ou, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "SVX"
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 Locality (L)
+          %label.block.text-sm.text-gray-500.mb-1
+            Locality (L)
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CERT_SUBJ_L')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.text_field :cert_subj_l, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "City"
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 State/Province (ST)
+          %label.block.text-sm.text-gray-500.mb-1
+            State/Province (ST)
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CERT_SUBJ_ST')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.text_field :cert_subj_st, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "Province"
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 Given Name (GN)
+          %label.block.text-sm.text-gray-500.mb-1
+            Given Name (GN)
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CERT_SUBJ_GN')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.text_field :cert_subj_gn, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "John"
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 Surname (SN)
+          %label.block.text-sm.text-gray-500.mb-1
+            Surname (SN)
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CERT_SUBJ_SN')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.text_field :cert_subj_sn, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "Doe"
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 Email
+          %label.block.text-sm.text-gray-500.mb-1
+            Email
+            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CERT_EMAIL')", title: "Help"}
+              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.email_field :cert_email, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "call@example.com"
 
   -# ── TG Mappings (collapsible) ──
@@ -158,9 +269,18 @@
       %table.w-full.text-sm
         %thead
           %tr.text-gray-500.text-left
-            %th.pb-2.pr-2 Local TG
-            %th.pb-2.pr-2 Remote TG
-            %th.pb-2.pr-2 Timeout (s)
+            %th.pb-2.pr-2
+              Local TG
+              %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('LOCAL_TG')", title: "Help"}
+                %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+            %th.pb-2.pr-2
+              Remote TG
+              %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('REMOTE_TG')", title: "Help"}
+                %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+            %th.pb-2.pr-2
+              Timeout (s)
+              %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('TIMEOUT')", title: "Help"}
+                %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
             %th.pb-2.w-10
         %tbody#mappings-tbody
           - mappings = @bridge.persisted? ? @bridge.bridge_tg_mappings : [Struct.new(:local_tg, :remote_tg, :timeout).new(1, 1, 0)]
@@ -175,6 +295,15 @@
               %td.py-2.text-center
                 %button.text-red-400.hover:text-red-300.cursor-pointer{type: "button", onclick: "removeMapping(this)"}
                   %i.bi.bi-x-lg
+
+  -# Help popup modal
+  #help-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
+    .bg-ghcard.border.border-gray-600.rounded-lg.p-5.max-w-md.w-full.mx-4.shadow-xl
+      .flex.items-center.justify-between.mb-3
+        %h6.text-base.font-semibold.text-gray-100#help-modal-title
+        %button.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "closeHelp()"}
+          %i.bi.bi-x-lg
+      %p.text-sm.text-gray-300.leading-relaxed#help-modal-body
 
   -# ── Save ──
   .flex.gap-2
@@ -192,6 +321,23 @@
   .accordion-chevron.open { transform: rotate(180deg); }
 
 :javascript
+  var HELP_TEXTS = #{help.to_json};
+
+  function openModal(id) { var m = document.getElementById(id); m.classList.remove('hidden'); m.classList.add('flex'); }
+  function closeModal(id) { var m = document.getElementById(id); m.classList.add('hidden'); m.classList.remove('flex'); }
+
+  function showHelp(key) {
+    document.getElementById('help-modal-title').textContent = key;
+    document.getElementById('help-modal-body').textContent = HELP_TEXTS[key] || 'No description available.';
+    openModal('help-modal');
+  }
+  function closeHelp() {
+    closeModal('help-modal');
+  }
+  document.getElementById('help-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeHelp();
+  });
+
   (function() {
     var nameInput = document.querySelector('input[name="bridge[name]"]');
     var warn = document.getElementById('name-warn');
