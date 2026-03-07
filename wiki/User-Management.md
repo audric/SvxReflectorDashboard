@@ -25,21 +25,55 @@ New registrations are held in a **pending** state until approved by an admin.
 
 Admins manage web users at `/admin/users`. Available actions:
 
+- **Create** new users directly (pre-approved, no registration needed)
 - **Approve** pending registrations
-- **Grant/revoke monitor permission** — allows tuning in to talkgroups
-- **Grant/revoke transmit permission** — allows Push-to-Talk
-- **Promote to admin** — grants full admin access
-- **Delete** user accounts
+- **Edit** user profile, permissions, and role
+- **Delete** user accounts (admins cannot delete themselves)
+
+### User profile fields
+
+| Field | Required | Description |
+|---|---|---|
+| Callsign | Yes | Amateur radio callsign (auto-uppercased, unique) |
+| Password | Yes | Minimum 8 characters |
+| Name | No | Display name |
+| Email | No | Contact email |
+| Mobile | No | Phone number |
+| Telegram | No | Telegram handle |
+
+## Roles
+
+| Role | Description |
+|---|---|
+| `admin` | Full access to all features and the admin panel (user management, bridges, system info) |
+| `user` | Standard user, subject to per-user permissions below |
 
 ## Permissions
 
-| Permission | What it allows |
-|---|---|
-| `can_monitor` | Tune in to talkgroups and receive audio |
-| `can_transmit` | Use Push-to-Talk to transmit via the reflector |
-| `admin` | Full access: user management, settings, all features |
+| Permission | Default | What it allows |
+|---|---|---|
+| `can_monitor` | Off | Tune in to talkgroups and receive audio |
+| `can_transmit` | Off | Use Push-to-Talk to transmit via the reflector |
+| `reflector_admin` | Off | Access to reflector configuration at `/admin/reflector` (edit global settings, certificates, users, passwords, TG rules) |
+| `cw_roger_beep` | Off | Enable CW roger beep on transmit |
+| `reflector_auth_key` | — | Per-user authentication key for the reflector |
 
-Both `can_monitor` and `can_transmit` default to `false` for new users and must be explicitly granted by an admin after approval.
+Both `can_monitor` and `can_transmit` default to off for new users and must be explicitly granted by an admin after approval.
+
+### Reflector admin
+
+The `reflector_admin` permission is separate from the `admin` role. An admin user manages web users, bridges, and system settings. A reflector admin can additionally configure the SVXReflector itself.
+
+The system enforces that **at least one reflector admin must exist at all times** — you cannot remove the last reflector admin's permission.
+
+### Self-protection
+
+Admins editing their own account cannot change their:
+- Callsign
+- Role
+- Reflector admin status
+
+This prevents accidental lockout.
 
 ## Command-line operations
 
@@ -49,7 +83,7 @@ Useful for production when you can't access the web UI (e.g. locked out of the a
 
 ```bash
 docker compose exec web bin/rails runner '
-  u = User.find_by!(callsign: "ADMIN")
+  u = User.find_by!(callsign: "ADM1N")
   u.update!(password: "newpassword", password_confirmation: "newpassword")
   puts "Password updated for #{u.callsign}"
 '
@@ -59,7 +93,7 @@ docker compose exec web bin/rails runner '
 
 ```bash
 docker compose exec web bin/rails runner '
-  User.create!(callsign: "W1AW", password: "securepass", password_confirmation: "securepass", role: "admin")
+  User.create!(callsign: "W1AW", password: "securepass", password_confirmation: "securepass", role: "admin", approved: true)
   puts "Admin user created"
 '
 ```
@@ -78,13 +112,6 @@ docker compose exec web bin/rails runner '
 
 ```bash
 docker compose exec web bin/rails runner '
-  User.all.each { |u| puts "#{u.callsign.ljust(10)} role=#{u.role} approved=#{u.approved?} monitor=#{u.can_monitor} tx=#{u.can_transmit}" }
+  User.all.each { |u| puts "#{u.callsign.ljust(10)} role=#{u.role} approved=#{u.approved?} monitor=#{u.can_monitor} tx=#{u.can_transmit} refl_admin=#{u.reflector_admin}" }
 '
 ```
-
-## User roles
-
-| Role | Description |
-|---|---|
-| `admin` | Full access to all features and the admin panel |
-| `user` | Standard user, subject to monitor/transmit permissions |
