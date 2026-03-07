@@ -5,6 +5,8 @@
 /.claude/
 /.gitignore
 
+CLAUDE.md
+
 # Ignore bundler config.
 /.bundle
 

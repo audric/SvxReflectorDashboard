@@ -27,6 +27,8 @@ Rails.application.routes.draw do
       post :sign_csr, on: :collection
       post :reject_csr, on: :collection
       post :reset_pki, on: :collection
+      post :block_node, on: :collection
+      post :revoke_cert, on: :collection
     end
     resources :bridges, controller: "bridge" do
       member do

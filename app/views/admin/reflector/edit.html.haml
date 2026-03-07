@@ -347,7 +347,37 @@
             Backups
           = link_to "Back", admin_users_path, class: "px-4 py-2 rounded-md border border-gray-600 text-gray-400 hover:text-gray-200"
 
-      -# ── 6. Pending Certificates (outside the form) ──
+      -# ── 6. Node Block (runtime, outside the form) ──
+      .rounded-lg.border.border-gray-600.bg-ghcard.mb-4.mt-6
+        .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('nodeblock')"}
+          %h5.text-lg.font-semibold.text-gray-100
+            %i.bi.bi-mic-mute.mr-2
+            Node Block
+            %span.text-sm.font-normal.text-ghmuted.ml-2 Temporarily mute a node
+          %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-nodeblock"}
+        .accordion-body.px-4{id: "body-nodeblock"}
+          %p.text-xs.text-ghmuted.mb-3
+            Block a node from transmitting for a set duration. The node can still listen but cannot talk.
+            The block resets each time the node tries to transmit. Set to 0 seconds to unblock.
+          .flex.flex-wrap.items-end.gap-3
+            .flex-1{style: "min-width: 160px"}
+              %label.block.text-sm.text-gray-500.mb-1 Callsign
+              %input#block-callsign.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", placeholder: "e.g. SM0ABC-1"}
+            .flex-1{style: "min-width: 140px"}
+              %label.block.text-sm.text-gray-500.mb-1 Duration
+              %select#block-duration.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]"}
+                %option{value: "0"} Unblock (0s)
+                %option{value: "60"} 1 minute
+                %option{value: "300", selected: true} 5 minutes
+                %option{value: "600"} 10 minutes
+                %option{value: "1800"} 30 minutes
+                %option{value: "3600"} 1 hour
+            %button#block-btn.px-4.py-2.rounded-md.bg-orange-600.hover:bg-orange-700.text-white.font-semibold.cursor-pointer.text-sm{type: "button", onclick: "blockNode()"}
+              %i.bi.bi-mic-mute.mr-1
+              Block
+          #block-result.mt-3.text-sm
+
+      -# ── 7. Pending Certificates (outside the form) ──
       .rounded-lg.border.border-gray-600.bg-ghcard.mb-4.mt-6
         .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('csrs')"}
           %h5.text-lg.font-semibold.text-gray-100
@@ -704,6 +734,70 @@
         );
       }
 
+      // ── Node Block ──
+      function blockNode() {
+        var callsign = document.getElementById('block-callsign').value.trim();
+        var seconds = parseInt(document.getElementById('block-duration').value);
+        var result = document.getElementById('block-result');
+        var btn = document.getElementById('block-btn');
+        if (!callsign) { result.innerHTML = '<span class="text-red-400">Enter a callsign</span>'; return; }
+        btn.disabled = true;
+        var token = document.querySelector('meta[name="csrf-token"]');
+        fetch('#{block_node_admin_reflector_path}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token ? token.content : '' },
+          body: JSON.stringify({ callsign: callsign, seconds: seconds })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          btn.disabled = false;
+          if (data.ok) {
+            if (data.seconds === 0) {
+              result.innerHTML = '<span class="text-green-400"><i class="bi bi-mic mr-1"></i>' + esc(data.callsign) + ' unblocked</span>';
+            } else {
+              result.innerHTML = '<span class="text-orange-400"><i class="bi bi-mic-mute mr-1"></i>' + esc(data.callsign) + ' blocked for ' + data.seconds + 's</span>';
+            }
+          } else {
+            result.innerHTML = '<span class="text-red-400">' + esc(data.error || 'Unknown error') + '</span>';
+          }
+        })
+        .catch(function() { btn.disabled = false; result.innerHTML = '<span class="text-red-400">Request failed</span>'; });
+      }
+
+      // ── Revoke Certificate ──
+      function revokeCert(callsign, btn) {
+        showDanger(
+          'Revoke certificate for "' + callsign + '"?',
+          'This will remove all certificate files for this node. Note: if the node already has a valid certificate cached locally, it can still connect until it expires. Use REJECT_CALLSIGN to fully block it.',
+          'Revoke',
+          function() {
+            btn.disabled = true;
+            var token = document.querySelector('meta[name="csrf-token"]');
+            fetch('#{revoke_cert_admin_reflector_path}', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token ? token.content : '' },
+              body: JSON.stringify({ callsign: callsign })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              if (data.ok) {
+                var row = document.getElementById('cert-row-' + callsign);
+                if (row) row.innerHTML =
+                  '<div class="flex items-center gap-2 py-2">' +
+                    '<i class="bi bi-x-circle text-red-400"></i>' +
+                    '<span class="font-mono font-semibold text-gray-200">' + esc(data.callsign) + '</span>' +
+                    '<span class="text-red-400 text-sm">Revoked</span>' +
+                  '</div>';
+              } else {
+                btn.disabled = false;
+                alert('Error: ' + (data.error || 'Unknown error'));
+              }
+            })
+            .catch(function() { btn.disabled = false; alert('Revoke failed'); });
+          }
+        );
+      }
+
       // ── Danger confirm modal ──
       var _dangerCallback = null;
       function showDanger(title, body, confirmLabel, callback) {
@@ -774,13 +868,16 @@
           content.innerHTML = '<div class="text-ghdim py-2">No certificates found.</div>';
           return;
         }
+        var infraCerts = ['svxreflector_root_ca', 'svxreflector_issuing_ca', 'svxreflector_server'];
         var labels = {
           'svxreflector_root_ca': { icon: 'bi-shield-lock', label: 'Root CA', color: 'text-yellow-400' },
-          'svxreflector_issuing_ca': { icon: 'bi-shield-check', label: 'Issuing CA', color: 'text-blue-400' }
+          'svxreflector_issuing_ca': { icon: 'bi-shield-check', label: 'Issuing CA', color: 'text-blue-400' },
+          'svxreflector_server': { icon: 'bi-hdd-rack', label: 'Server Certificate', color: 'text-green-400' }
         };
         var html = '<div class="space-y-3">';
         certs.forEach(function(cert) {
-          var meta = labels[cert.name] || { icon: 'bi-file-earmark-lock', label: 'Server Certificate', color: 'text-green-400' };
+          var isClient = infraCerts.indexOf(cert.name) === -1;
+          var meta = labels[cert.name] || { icon: 'bi-person-badge', label: cert.name, color: 'text-cyan-400' };
           var f = cert.fields;
           var subject = (f.subject || '').replace(/^.*?=/, '');
           var issuer = (f.issuer || '').replace(/^.*?=/, '');
@@ -798,11 +895,16 @@
             });
           }
 
-          html += '<div class="border border-gray-700 rounded-lg p-4">' +
+          var revokeBtn = isClient ?
+            '<button type="button" class="ml-auto p-1.5 rounded-md text-red-400 hover:text-red-300 hover:bg-ghborder2 cursor-pointer" onclick="revokeCert(\'' + esc(cert.name) + '\', this)" title="Revoke certificate">' +
+              '<i class="bi bi-trash3"></i>' +
+            '</button>' : '';
+          html += '<div class="border border-gray-700 rounded-lg p-4" id="cert-row-' + esc(cert.name) + '">' +
             '<div class="flex items-center gap-2 mb-3">' +
               '<i class="bi ' + meta.icon + ' ' + meta.color + '"></i>' +
               '<span class="font-semibold text-gray-200">' + esc(meta.label) + '</span>' +
               '<span class="text-xs text-ghdim font-mono">(' + esc(cert.name) + ')</span>' +
+              revokeBtn +
             '</div>' +
             '<div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-xs">' +
               '<div><span class="text-ghmuted">Subject:</span> <span class="text-gray-300 font-mono">' + esc(subject) + '</span></div>' +

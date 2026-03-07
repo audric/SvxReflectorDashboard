@@ -189,6 +189,47 @@ module Admin
       head :internal_server_error
     end
 
+    def block_node
+      callsign = params[:callsign].to_s.strip.gsub(/[^A-Za-z0-9\-_]/, "")
+      seconds = params[:seconds].to_i
+      if callsign.blank?
+        render json: { error: "Callsign required" }, status: :bad_request
+        return
+      end
+
+      container = find_reflector_container
+      unless container
+        render json: { error: "Reflector container not found" }, status: :not_found
+        return
+      end
+
+      docker_exec(container["Id"], ["sh", "-c", "printf 'NODE BLOCK #{callsign} #{seconds}\\n' > /dev/shm/reflector_ctrl"])
+      render json: { ok: true, callsign: callsign, seconds: seconds }
+    rescue => e
+      Rails.logger.error "[ReflectorConfig] Failed to block node: #{e.class} #{e.message}"
+      render json: { error: e.message }, status: :internal_server_error
+    end
+
+    def revoke_cert
+      callsign = params[:callsign].to_s.strip.gsub(/[^A-Za-z0-9\-_]/, "")
+      if callsign.blank?
+        render json: { error: "Callsign required" }, status: :bad_request
+        return
+      end
+
+      container = find_reflector_container
+      unless container
+        render json: { error: "Reflector container not found" }, status: :not_found
+        return
+      end
+
+      docker_exec(container["Id"], ["sh", "-c", "printf 'CA RM #{callsign}\\n' > /dev/shm/reflector_ctrl"])
+      render json: { ok: true, callsign: callsign }
+    rescue => e
+      Rails.logger.error "[ReflectorConfig] Failed to revoke certificate: #{e.class} #{e.message}"
+      render json: { error: e.message }, status: :internal_server_error
+    end
+
     def reset_pki
       container = find_reflector_container
       unless container
