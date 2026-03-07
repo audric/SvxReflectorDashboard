@@ -3,6 +3,7 @@ class DashboardController < ApplicationController
 
   def index
     fetch_nodes
+    load_sql_timeout
   end
 
   def map
@@ -84,6 +85,12 @@ class DashboardController < ApplicationController
   end
 
   private
+
+  def load_sql_timeout
+    config = ReflectorConfig.load
+    val = config.global["SQL_TIMEOUT"].to_i
+    @sql_timeout_ms = val > 0 ? val * 1000 : nil
+  end
 
   def fetch_nodes
     begin

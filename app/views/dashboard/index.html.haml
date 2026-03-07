@@ -61,6 +61,25 @@
         padding: .3rem .75rem;
         letter-spacing: .04em;
       }
+      .live-banner .sql-countdown {
+        flex: 1;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        font-size: .72rem;
+        opacity: .85;
+      }
+      .sql-bar {
+        height: 3px;
+        background: rgba(63,185,80,.15);
+        overflow: hidden;
+      }
+      .sql-bar-fill {
+        height: 100%;
+        background: #3fb950;
+        transition: width .25s linear;
+      }
+      .sql-bar-fill.sql-warn { background: #d29922; }
+      .sql-bar-fill.sql-danger { background: #f85149; }
       .mic-active {
         animation: mic-pulse 1s ease-in-out infinite;
       }
@@ -197,6 +216,11 @@
               .live-banner{class: (is_talker ? nil : 'hidden'), id: "node-#{callsign}-live-banner"}
                 %i.bi.bi-broadcast-pin
                 %span= is_talker ? "TRANSMITTING \u00B7 TG #{tg}" : 'TRANSMITTING'
+                - if @sql_timeout_ms
+                  %span.sql-countdown{id: "node-#{callsign}-countdown"}
+              - if @sql_timeout_ms
+                .sql-bar{id: "node-#{callsign}-sql-bar", class: (is_talker ? nil : 'hidden')}
+                  .sql-bar-fill{id: "node-#{callsign}-sql-fill", style: "width:100%"}
 
               .py-2.px-3.text-sm.text-gray-500
 
@@ -319,6 +343,8 @@
         // Initial state cloned from server render
         var nodes = #{nodes_json};
         var updateCount = 0;
+        var sqlTimeoutMs = #{@sql_timeout_ms || 'null'};
+        var talkTimers = {}; // callsign => { start, interval }
 
         // ── Utilities ──────────────────────────────────────────────────────────────
         function setText(id, val) {
@@ -330,6 +356,38 @@
           return String(s)
             .replace(/&/g, '&amp;').replace(/</g, '&lt;')
             .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // ── SQL timeout countdown ─────────────────────────────────────────────────
+        function startCountdown(callsign) {
+          if (!sqlTimeoutMs || talkTimers[callsign]) return;
+          var start = Date.now();
+          var total = sqlTimeoutMs;
+          function tick() {
+            var elapsed = Date.now() - start;
+            var remaining = Math.max(0, total - elapsed);
+            var pct = remaining / total * 100;
+            var secs = Math.ceil(remaining / 1000);
+            var cd = document.getElementById('node-' + callsign + '-countdown');
+            if (cd) cd.textContent = secs > 0 ? secs + 's' : '0s';
+            var fill = document.getElementById('node-' + callsign + '-sql-fill');
+            if (fill) {
+              fill.style.width = pct + '%';
+              fill.className = 'sql-bar-fill' + (pct < 20 ? ' sql-danger' : pct < 50 ? ' sql-warn' : '');
+            }
+          }
+          tick();
+          talkTimers[callsign] = { start: start, interval: setInterval(tick, 250) };
+        }
+
+        function stopCountdown(callsign) {
+          var t = talkTimers[callsign];
+          if (t) clearInterval(t.interval);
+          delete talkTimers[callsign];
+          var cd = document.getElementById('node-' + callsign + '-countdown');
+          if (cd) cd.textContent = '';
+          var fill = document.getElementById('node-' + callsign + '-sql-fill');
+          if (fill) { fill.style.width = '100%'; fill.className = 'sql-bar-fill'; }
         }
 
         // ── Signal level helpers ────────────────────────────────────────────────────
@@ -387,13 +445,23 @@
           // LIVE banner
           var liveBanner = document.getElementById('node-' + callsign + '-live-banner');
           if (liveBanner) {
-            var span = liveBanner.querySelector('span');
+            var span = liveBanner.querySelector('span:not(.sql-countdown)');
             if (isTalker) {
               liveBanner.classList.remove('hidden');
               if (span) span.textContent = 'TRANSMITTING \u00B7 TG ' + tg;
             } else {
               liveBanner.classList.add('hidden');
             }
+          }
+
+          // SQL timeout countdown
+          var sqlBar = document.getElementById('node-' + callsign + '-sql-bar');
+          if (sqlTimeoutMs && isTalker && !talkTimers[callsign]) {
+            startCountdown(callsign);
+            if (sqlBar) sqlBar.classList.remove('hidden');
+          } else if (!isTalker && talkTimers[callsign]) {
+            stopCountdown(callsign);
+            if (sqlBar) sqlBar.classList.add('hidden');
           }
 
           // TG pills
@@ -499,7 +567,12 @@
           h += '<div class="live-banner ' + (isTalker ? '' : 'hidden') + '" id="node-' + cs + '-live-banner">' +
                '<i class="bi bi-broadcast-pin"></i>' +
                '<span>' + (isTalker ? 'TRANSMITTING \u00B7 TG ' + tg : 'TRANSMITTING') + '</span>' +
+               (sqlTimeoutMs ? '<span class="sql-countdown" id="node-' + cs + '-countdown"></span>' : '') +
                '</div>';
+          if (sqlTimeoutMs) {
+            h += '<div class="sql-bar ' + (isTalker ? '' : 'hidden') + '" id="node-' + cs + '-sql-bar">' +
+                 '<div class="sql-bar-fill" id="node-' + cs + '-sql-fill" style="width:100%"></div></div>';
+          }
 
           // Card body
           h += '<div class="py-2 px-3 text-sm text-gray-500">';
@@ -666,6 +739,13 @@
         }
 
         connect();
+
+        // ── Start countdowns for nodes already talking on page load ──
+        if (sqlTimeoutMs) {
+          Object.keys(nodes).forEach(function(cs) {
+            if (nodes[cs].isTalker) startCountdown(cs);
+          });
+        }
 
         // ── Node detail toggle ──
         var grid = document.getElementById('nodes-grid');
