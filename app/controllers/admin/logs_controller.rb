@@ -62,7 +62,9 @@ module Admin
 
       query = "stdout=true&stderr=true&timestamps=true"
       if since.present?
-        query += "&since=#{since}"
+        # Parse ISO 8601 timestamp and add 1ns to avoid re-fetching the last line
+        t = Time.iso8601(since) + Rational(1, 1_000_000_000)
+        query += "&since=#{t.to_f}"
       else
         query += "&tail=#{tail}"
       end

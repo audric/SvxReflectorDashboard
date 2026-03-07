@@ -44,6 +44,10 @@ class Bridge < ApplicationRecord
     lines << "CARD_SAMPLE_RATE=48000"
     lines << ""
 
+    write_ca_bundle
+    has_ca_bundle = ca_bundle_path.exist?
+    ca_bundle_line = "CA_BUNDLE_FILE=/var/lib/svxlink/pki/ca-bundle.crt"
+
     lines << "[ReflectorLogicLocal]"
     lines << "TYPE=Reflector"
     lines << "HOST=#{local_host}"
@@ -51,6 +55,7 @@ class Bridge < ApplicationRecord
     lines << "CALLSIGN=#{local_callsign}"
     lines << "AUTH_KEY=#{local_auth_key}"
     lines << "DEFAULT_TG=#{local_default_tg}"
+    lines << ca_bundle_line if has_ca_bundle
     lines << ""
 
     lines << "[ReflectorLogicRemote]"
@@ -60,6 +65,7 @@ class Bridge < ApplicationRecord
     lines << "CALLSIGN=#{remote_callsign}"
     lines << "AUTH_KEY=#{remote_auth_key}"
     lines << "DEFAULT_TG=#{remote_default_tg}"
+    lines << ca_bundle_line if has_ca_bundle
 
     mappings.each_with_index do |mapping, i|
       lines << ""
@@ -71,7 +77,6 @@ class Bridge < ApplicationRecord
 
     lines << ""
     File.write(config_path, lines.join("\n"))
-    write_ca_bundle
   end
 
   def ca_bundle_path

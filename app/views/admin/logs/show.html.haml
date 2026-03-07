@@ -70,6 +70,8 @@
         var lastTimestamp = null;
         var fetching = false;
 
+        var tsRegex = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.\d+)?Z/;
+
         function fetchLogs(incremental) {
           var cid = logSelect.value;
           if (!cid || fetching) return;
@@ -86,24 +88,17 @@
             .then(function(r) { return r.json(); })
             .then(function(data) {
               var logs = data.logs || '';
+              if (logs.length > 0) {
+                var lines = logs.trimEnd().split('\n');
+                for (var i = lines.length - 1; i >= 0; i--) {
+                  var m = lines[i].match(tsRegex);
+                  if (m) { lastTimestamp = m[0]; break; }
+                }
+              }
               if (incremental && lastTimestamp && logs.length > 0) {
                 logPre.textContent += logs;
               } else {
                 logPre.textContent = logs || '(empty)';
-              }
-              // Extract last timestamp for next incremental fetch
-              if (logs.length > 0) {
-                var lines = logs.trimEnd().split('\n');
-                var lastLine = lines[lines.length - 1];
-                // Docker timestamps: 2026-03-06T16:45:42.123456789Z
-                var match = lastLine.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?)/);
-                if (match) {
-                  // Convert to unix timestamp, add a nanosecond to avoid duplicating the last line
-                  var d = new Date(match[1]);
-                  if (!isNaN(d.getTime())) {
-                    lastTimestamp = String(d.getTime() / 1000 + 0.000001);
-                  }
-                }
               }
               if (logAuto.checked) logOutput.scrollTop = logOutput.scrollHeight;
             })
@@ -116,9 +111,14 @@
             });
         }
 
+        function isContainerRunning() {
+          var opt = logSelect.options[logSelect.selectedIndex];
+          return opt && opt.dataset.state === 'running';
+        }
+
         function scheduleNext() {
           if (autoTimeout) { clearTimeout(autoTimeout); autoTimeout = null; }
-          if (logAuto.checked && logSelect.value) {
+          if (logAuto.checked && logSelect.value && isContainerRunning()) {
             autoTimeout = setTimeout(function() { fetchLogs(true); }, 1500);
           }
         }

@@ -126,17 +126,11 @@ module Admin
     end
 
     def start_or_recreate_container(bridge)
-      # Check if container exists
-      existing = find_container(bridge)
+      existing = find_container(bridge, all: true)
       if existing
-        state = existing.dig("State") || ""
-        if state == "running"
-          restart_container(bridge)
-        else
-          docker_api_post("/containers/#{existing["Id"]}/start")
-          Rails.logger.info "[Bridge] Started existing container #{bridge.container_name}"
-        end
-        return
+        # Always recreate to pick up config/mount changes
+        stop_container(bridge) if existing["State"] == "running"
+        remove_container(bridge)
       end
 
       # Create new container

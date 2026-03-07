@@ -102,7 +102,7 @@ module Admin
 
       # Sanitize callsign to prevent command injection
       safe_callsign = callsign.gsub(/[^A-Za-z0-9\-_]/, "")
-      docker_exec(container["Id"], ["sh", "-c", "echo 'CA SIGN #{safe_callsign}' > /dev/shm/reflector_ctrl"])
+      docker_exec(container["Id"], ["sh", "-c", "printf 'CA SIGN #{safe_callsign}\\n' > /dev/shm/reflector_ctrl"])
       render json: { ok: true, callsign: safe_callsign }
     rescue => e
       Rails.logger.error "[ReflectorConfig] Failed to sign CSR: #{e.class} #{e.message}"
