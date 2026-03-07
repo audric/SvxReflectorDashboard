@@ -128,7 +128,7 @@
       }
       .flash { animation: flash-update .8s ease-out; }
   %body.text-ghtext.pb-8
-    = render 'shared/navbar', active: 'dashboard', ws_indicator: true, activity_log: true
+    = render 'shared/navbar', active: 'dashboard', ws_indicator: true
 
     .px-3.md:px-4
 
@@ -319,8 +319,6 @@
         // Initial state cloned from server render
         var nodes = #{nodes_json};
         var updateCount = 0;
-        var logCount    = 0;
-        var MAX_LOG     = 60;
 
         // ── Utilities ──────────────────────────────────────────────────────────────
         function setText(id, val) {
@@ -598,47 +596,6 @@
           }
         }
 
-        // ── Activity log ───────────────────────────────────────────────────────────
-        function addLog(msg) {
-          var log  = document.getElementById('activity-log');
-          if (!log) return;
-
-          var placeholder = document.getElementById('log-placeholder');
-          if (placeholder) placeholder.remove();
-
-          logCount++;
-          setText('log-count', logCount);
-          var item = document.createElement('div');
-          item.className = 'activity-item px-3 py-2 border-b';
-
-          var callsign = msg.callsign ? esc(msg.callsign) : '';
-          item.innerHTML =
-            '<span class="text-gray-500 mr-2">' + new Date().toLocaleTimeString() + '</span>' +
-            (callsign ? '<strong class="font-mono mr-1 text-gray-100">' + callsign + '</strong>' : '') +
-            fmtMsg(msg);
-
-          log.insertBefore(item, log.firstChild);
-          while (log.children.length > MAX_LOG) log.removeChild(log.lastChild);
-        }
-
-        function fmtMsg(msg) {
-          if (msg.raw)
-            return '<span class="text-yellow-500 font-mono">' + esc(msg.raw.substring(0, 80)) + '</span>';
-          if (msg.isTalker !== undefined)
-            return msg.isTalker
-              ? '<span class="text-green-500"><i class="bi bi-mic-fill mr-1"></i>Talking on TG <strong>' + (msg.tg || '?') + '</strong></span>'
-              : '<span class="text-gray-500"><i class="bi bi-mic-mute mr-1"></i>Stopped talking</span>';
-          if (msg.tg !== undefined && msg.callsign)
-            return msg.tg === 0
-              ? '<span class="text-gray-500">Left talkgroup</span>'
-              : 'Joined TG <strong class="text-blue-500">' + msg.tg + '</strong>';
-          if (msg.msg_type)
-            return '<span class="text-cyan-500">' + esc(msg.msg_type) + '</span>' +
-                   (msg.tg ? ' TG <strong>' + msg.tg + '</strong>' : '');
-          return '<span class="text-gray-500 font-mono">' +
-                 esc(JSON.stringify(msg).substring(0, 100)) + '</span>';
-        }
-
         // ── WebSocket indicator ────────────────────────────────────────────────────
         function setWs(state) {
           document.querySelectorAll('.js-ws-dot').forEach(function(el) {
@@ -697,14 +654,12 @@
               });
               refreshStats();
               if (window.audioPlayerUpdateTgs) window.audioPlayerUpdateTgs(msg.nodes);
-              addLog({ msg_type: 'Snapshot (' + Object.keys(msg.nodes).length + ' nodes)' });
               return;
             }
 
             // Single-node update
             if (msg.callsign) updateCard(msg.callsign, msg);
             refreshStats();
-            addLog(msg);
           };
 
           ws.onclose = function () { setWs('disconnected'); setTimeout(connect, 5000); };

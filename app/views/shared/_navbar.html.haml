@@ -154,17 +154,6 @@
               %i.bi{class: icon}
               = label
 
-    -# ── Activity log (admin only, dashboard only) ──
-    - if logged_in? && current_user.admin? && local_assigns.fetch(:activity_log, false)
-      .mt-4.pt-3.border-t.border-ghborder
-        .flex.items-center.gap-1.mb-2.px-3
-          %i.bi.bi-activity.text-ghdim.text-xs
-          %span.text-xs.uppercase.tracking-wider.text-ghdim Activity
-          %span.inline-block.px-1.5.py-0.5.text-xs.rounded-full.bg-gray-600.text-gray-200.ml-auto#log-count 0
-        #activity-log.overflow-y-auto{style: "scrollbar-width:thin;max-height:120px;"}
-          #log-placeholder.text-center.text-ghdim.py-3.text-xs
-            %i.bi.bi-hourglass-split.block.mb-1
-            Waiting for updates…
 
   -# ── Audio player (visible only to users with monitor permission + auth key) ──
   - if logged_in? && current_user.can_monitor? && current_user.reflector_auth_key.present?
