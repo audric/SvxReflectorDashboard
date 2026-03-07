@@ -55,6 +55,25 @@ All panels are collapsed by default. Each section includes inline help buttons l
 
 After saving, the dashboard automatically restarts the SVXReflector Docker container (via the Docker socket) so changes take effect immediately.
 
+The reflector edit page is organized into three tabs:
+
+1. **Configuration** — all the config panels listed above
+2. **Node Block** — temporarily block nodes from transmitting (see below)
+3. **Certificate Files** — view pending CSRs, issued certificates, export CA bundle, and reset PKI
+
+### Node Block
+
+Node Block lets a reflector admin temporarily prevent a node from transmitting. The blocked node can still listen but cannot talk. The block timer resets each time the node attempts to transmit.
+
+It is accessible from two places:
+
+- **Reflector admin page** (`/admin/reflector` → Node Block tab) — enter any callsign and select a duration
+- **Dashboard** (`/`) — click the mute icon on a node card (visible to admins only)
+
+Available durations: 1 minute, 5 minutes, 10 minutes, 30 minutes, 1 hour. Set to 0 to unblock.
+
+Technically, the block works by writing a `NODE BLOCK <callsign> <seconds>` command to the reflector's control pipe (`/dev/shm/reflector_ctrl`) inside the Docker container. The block is runtime-only and does not persist across reflector restarts.
+
 ### PKI certificates
 
 The Certificates panel on the reflector edit page is split into a separate **Certificate Files** tab. When PKI certificates already exist (detected by checking for `.crt` files in the `reflector_pki` volume), the certificates form is **locked** to prevent accidental changes. To unlock it, use the **Reset PKI** action from the Certificate Files tab, which deletes all existing certificates and allows reconfiguration.
