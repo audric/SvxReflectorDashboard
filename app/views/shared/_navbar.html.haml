@@ -53,12 +53,8 @@
 %nav.sticky.top-0.z-50.bg-ghcard.border-b.border-ghborder.mb-4.py-2.lg:hidden
   .flex.items-center.justify-between.flex-wrap.px-4
     %span.font-bold.text-gray-100.flex.items-center.gap-2.js-brand{style: "cursor:default;user-select:none;"}
-      %i.bi.bi-broadcast-pin.text-green-500
+      %i.bi.bi-broadcast-pin.js-ws-icon{class: (local_assigns.fetch(:ws_indicator, false) ? "text-yellow-500 animate-pulse" : "text-green-500"), title: (local_assigns.fetch(:ws_indicator, false) ? "Connecting\u2026" : "")}
       SVXReflector
-      - if local_assigns.fetch(:ws_indicator, false)
-        %span.flex.items-center.gap-1
-          %span.js-ws-dot.ws-dot.ws-connecting
-          %span.js-ws-label.text-gray-500.text-sm Connecting…
       %span.text-gray-100.text-sm.font-mono= @reflector_host
 
     %button.text-gray-400.md:hidden{type: "button", onclick: "document.getElementById('mainNav').classList.toggle('hidden')"}
@@ -123,14 +119,10 @@
 %aside.hidden.lg:flex.lg:flex-col.fixed.top-0.left-0.bottom-0.w-56.bg-ghcard.border-r.border-ghborder.z-50
   .px-4.py-4.border-b.border-ghborder
     .flex.items-center.gap-2.js-brand{style: "cursor:default;user-select:none;"}
-      %i.bi.bi-broadcast-pin.text-green-500.text-lg
+      %i.bi.bi-broadcast-pin.text-lg.js-ws-icon{class: (local_assigns.fetch(:ws_indicator, false) ? "text-yellow-500 animate-pulse" : "text-green-500"), title: (local_assigns.fetch(:ws_indicator, false) ? "Connecting\u2026" : "")}
       %span.font-bold.text-gray-100 SVXReflector
-    - if @reflector_host.present?
-      .text-sm.font-mono.text-ghmuted.mt-1.truncate= @reflector_host
-    - if local_assigns.fetch(:ws_indicator, false)
-      .flex.items-center.gap-1.mt-2
-        %span.js-ws-dot.ws-dot.ws-connecting
-        %span.js-ws-label.text-gray-500.text-sm Connecting…
+      - if @reflector_host.present?
+        %span.text-lg.font-normal.text-ghmuted= @reflector_host
 
   %nav.flex-1.px-3.py-4.overflow-y-auto
     .space-y-1

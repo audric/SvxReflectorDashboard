@@ -1,7 +1,12 @@
 class ApplicationController < ActionController::Base
   helper_method :current_user, :logged_in?
+  before_action :set_brand_name
 
   private
+
+  def set_brand_name
+    @reflector_host = Setting.get('brand_name', ENV.fetch('BRAND_NAME', ''))
+  end
 
   def current_user
     @current_user ||= User.find_by(id: session[:user_id]) if session[:user_id]

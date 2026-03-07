@@ -16,7 +16,7 @@ services:
       - ./reflector:/h
 
   svxreflector:
-    image: audric/svxlink
+    image: ghcr.io/audric/svxlink-docker
     build: https://github.com/audric/svxlink-docker.git
     ports:
       - "5300:5300/tcp"
@@ -88,6 +88,7 @@ services:
       - svxreflector
 
   audio_bridge:
+    image: ghcr.io/audric/svxreflectordashboard-audio-bridge
     build: ./audio_bridge
     network_mode: host
     env_file: .env

@@ -392,13 +392,12 @@
       (function () {
         'use strict';
         function setWs(state) {
-          document.querySelectorAll('.js-ws-dot').forEach(function(el) {
-            el.className = 'js-ws-dot ws-dot ws-' + state;
-          });
-          document.querySelectorAll('.js-ws-label').forEach(function(el) {
-            el.textContent =
-              state === 'connected'    ? 'Live'         :
-              state === 'disconnected' ? 'Disconnected' : 'Connecting\u2026';
+          var color = state === 'connected' ? 'text-green-500' : state === 'disconnected' ? 'text-red-500' : 'text-yellow-500';
+          var title = state === 'connected' ? 'Live' : state === 'disconnected' ? 'Disconnected' : 'Connecting\u2026';
+          var pulse = state === 'connecting' ? 'animate-pulse' : '';
+          document.querySelectorAll('.js-ws-icon').forEach(function(el) {
+            el.className = 'bi bi-broadcast-pin js-ws-icon text-lg ' + color + (pulse ? ' ' + pulse : '');
+            el.title = title;
           });
         }
         function connectWs() {
