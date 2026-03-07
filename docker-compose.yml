@@ -52,7 +52,7 @@ services:
     restart: unless-stopped
 
   web:
-    image: audric/svxreflectordashboard_web
+    image: ghcr.io/audric/svxreflectordashboard-web
     build: .
     expose:
       - "3000"
@@ -74,7 +74,7 @@ services:
         condition: service_started
 
   updater:
-    image: audric/svxreflectordashboard_updater
+    image: ghcr.io/audric/svxreflectordashboard-web
     build: .
     command: bash -lc "bundle exec rails runner 'require Rails.root.join(\"lib\",\"reflector_listener\").to_s; ReflectorListener.start; sleep'"
     env_file: .env

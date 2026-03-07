@@ -30,14 +30,23 @@ REFLECTOR_HOST=your-reflector-ip
 
 Set `DOMAIN` to your public hostname for automatic HTTPS, or leave as `localhost` for local development.
 
-## 3. Build and start services
+## 3. Pull and start services
+
+Pre-built multi-arch images (amd64, arm64/Raspberry Pi) are available from GitHub Container Registry:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+This starts six services: `svxreflector`, `caddy`, `web`, `updater`, `audio_bridge`, and `redis`.
+
+To build images locally instead (e.g. for development or custom changes):
 
 ```bash
 docker compose build
 docker compose up -d
 ```
-
-This starts six services: `svxreflector`, `caddy`, `web`, `updater`, `audio_bridge`, and `redis`.
 
 ## 4. Initialize the database
 
@@ -84,6 +93,13 @@ docker compose down -v
 ## Deploying to production
 
 The `Dockerfile` uses a multi-stage build producing a minimal, non-root production image. The audio bridge has its own `Dockerfile` in `audio_bridge/`.
+
+Pre-built images for **amd64** and **arm64** (Raspberry Pi 3/4/5) are automatically built and pushed to GitHub Container Registry on every push to `main`:
+
+| Image | Registry |
+|---|---|
+| Web + Updater | `ghcr.io/audric/svxreflectordashboard-web` |
+| Audio Bridge | `ghcr.io/audric/svxreflectordashboard-audio-bridge` |
 
 ### Production checklist
 

@@ -70,6 +70,7 @@ All templates use **HAML** (not ERB).
 |---|---|
 | `Dockerfile` | Multi-stage Rails production image |
 | `docker-compose.yml` | Service definitions: svxreflector, caddy, web, updater, audio_bridge, redis |
+| `.github/workflows/docker.yml` | CI workflow: builds and pushes multi-arch Docker images (amd64 + arm64) to ghcr.io |
 | `Caddyfile` | Caddy reverse proxy config (uses DOMAIN env var for automatic TLS) |
 | `.env.example` | Template for environment variables |
 | `config/routes.rb` | URL routing |
