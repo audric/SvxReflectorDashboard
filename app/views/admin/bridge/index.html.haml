@@ -45,7 +45,7 @@
             %i.bi.bi-trash3.mr-1
             Delete
 
-    .max-w-4xl.mx-auto.px-4.pb-12
+    .max-w-7xl.mx-auto.px-4.pb-12
       - if flash[:notice]
         %div.p-2.rounded.border.border-green-700.text-green-400.text-sm.mb-4.flex.items-center.justify-between{class: "bg-green-900/30", id: "flash-notice"}
           %span= flash[:notice]
@@ -56,6 +56,11 @@
         %h4.text-xl.font-semibold.text-gray-100
           %i.bi.bi-diagram-3.mr-2
           Bridges
+      - if flash[:alert]
+        %div.p-2.rounded.border.border-red-700.text-red-400.text-sm.mb-4.flex.items-center.justify-between{class: "bg-red-900/30", id: "flash-alert"}
+          %span= flash[:alert]
+          %button.text-red-400.hover:text-red-200.cursor-pointer{type: "button", onclick: "this.parentElement.remove()"}
+            %i.bi.bi-x
         .relative.inline-block{id: "new-bridge-dropdown"}
           %button.px-3.py-2.rounded-md.bg-blue-600.hover:bg-blue-700.text-white.text-sm.font-semibold.cursor-pointer.flex.items-center.gap-1{type: "button", onclick: "toggleNewMenu()"}
             %i.bi.bi-plus.mr-1

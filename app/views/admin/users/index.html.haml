@@ -32,9 +32,9 @@
   %body.text-ghtext
     = render 'shared/navbar', active: 'admin'
 
-    .max-w-5xl.mx-auto.px-4
-      .flex.justify-between.items-center.mb-4
-        %h5.text-lg.font-semibold.text-gray-100
+    .max-w-7xl.mx-auto.px-4.pb-12
+      .flex.items-center.justify-between.mb-6
+        %h4.text-xl.font-semibold.text-gray-100
           %i.bi.bi-people.mr-2
           Web Users
         = link_to new_admin_user_path, class: "inline-block text-sm px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold" do
@@ -42,9 +42,15 @@
           New User
 
       - if flash[:notice]
-        %div.p-2.rounded.border.border-green-700.text-green-400.text-sm.mb-4{class: "bg-green-900/30", id: "flash-notice"}= flash[:notice]
+        %div.p-2.rounded.border.border-green-700.text-green-400.text-sm.mb-4.flex.items-center.justify-between{class: "bg-green-900/30", id: "flash-notice"}
+          %span= flash[:notice]
+          %button.text-green-400.hover:text-green-200.cursor-pointer{type: "button", onclick: "this.parentElement.remove()"}
+            %i.bi.bi-x
       - if flash[:alert]
-        %div.p-2.rounded.border.border-red-700.text-red-400.text-sm.mb-4{class: "bg-red-900/30", id: "flash-alert"}= flash[:alert]
+        %div.p-2.rounded.border.border-red-700.text-red-400.text-sm.mb-4.flex.items-center.justify-between{class: "bg-red-900/30", id: "flash-alert"}
+          %span= flash[:alert]
+          %button.text-red-400.hover:text-red-200.cursor-pointer{type: "button", onclick: "this.parentElement.remove()"}
+            %i.bi.bi-x
 
       .overflow-x-auto
         %table.w-full.text-left.admin-table
@@ -102,3 +108,11 @@
                     - unless user == current_user
                       = button_to admin_user_path(user), method: :delete, class: "inline-block text-sm px-2 py-1 rounded border border-red-700 text-red-400 hover:text-red-300", form_class: "inline", form: { data: { turbo_confirm: "Delete #{user.callsign}?" } } do
                         %i.bi.bi-trash
+
+    :javascript
+      (function() {
+        ['flash-notice', 'flash-alert'].forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) setTimeout(function() { el.style.transition = 'opacity 0.5s'; el.style.opacity = '0'; setTimeout(function() { el.remove(); }, 500); }, 5000);
+        });
+      })();

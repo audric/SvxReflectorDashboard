@@ -139,6 +139,11 @@
         %p.text-sm.text-gray-300.leading-relaxed#help-modal-body
 
     .max-w-3xl.mx-auto.px-4.pb-12
+      .flex.items-center.justify-between.mb-6
+        %h4.text-xl.font-semibold.text-gray-100
+          %i.bi.bi-broadcast.mr-2
+          Reflector
+
       - if flash[:notice]
         %div.p-2.rounded.border.border-green-700.text-green-400.text-sm.mb-4.flex.items-center.justify-between{class: "bg-green-900/30", id: "flash-notice"}
           %span= flash[:notice]

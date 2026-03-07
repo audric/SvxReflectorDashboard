@@ -30,19 +30,20 @@
   %body.text-ghtext
     = render 'shared/navbar', active: 'admin'
 
-    .max-w-xl.mx-auto.px-4
+    .max-w-7xl.mx-auto.px-4.pb-12
+      .flex.items-center.justify-between.mb-6
+        %h4.text-xl.font-semibold.text-gray-100
+          %i.bi.bi-gear.mr-2
+          Settings
+
       - if flash[:notice]
         %div.p-2.rounded.border.border-green-700.text-green-400.text-sm.mb-4.flex.items-center.justify-between{class: "bg-green-900/30", id: "flash-notice"}
           %span= flash[:notice]
           %button.text-green-400.hover:text-green-200.cursor-pointer{type: "button", onclick: "this.parentElement.remove()"}
             %i.bi.bi-x
 
-      .rounded-lg.border.border-gray-600.bg-ghcard
-        .px-4.py-3.border-b.border-gray-600
-          %h5.text-lg.font-semibold.text-gray-100
-            %i.bi.bi-gear.mr-2
-            Settings
-        .p-4
+      .max-w-xl
+        .rounded-lg.border.border-gray-600.bg-ghcard.p-4
           = form_with url: admin_settings_path, method: :patch, local: true do |f|
             .mb-4
               %label.block.text-sm.text-gray-500.mb-1 Reflector Status URL
@@ -61,4 +62,9 @@
 
             .flex.gap-2
               = f.submit "Save Settings", class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
-              = link_to "Back", admin_users_path, class: "px-4 py-2 rounded-md border border-gray-600 text-gray-400 hover:text-gray-200"
+
+    :javascript
+      (function() {
+        var el = document.getElementById('flash-notice');
+        if (el) setTimeout(function() { el.style.transition = 'opacity 0.5s'; el.style.opacity = '0'; setTimeout(function() { el.remove(); }, 500); }, 5000);
+      })();
