@@ -43,6 +43,8 @@ These are stored in the `settings` table and take effect on the next poll cycle 
 
 ## Reflector configuration
 
+![Reflector Config](images/admin-reflector.png)
+
 Users with the **reflector admin** role can configure the SVXReflector itself from `/admin/reflector`. This web UI edits the reflector's configuration file directly and provides sections for:
 
 - **Global settings** — listen port, HTTP port, codecs, callsign accept/reject filters, timeouts, PKI paths, random QSY range

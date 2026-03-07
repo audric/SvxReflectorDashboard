@@ -1,5 +1,7 @@
 # Bridges
 
+![Bridges](images/admin-bridges.png)
+
 SVXLink bridges connect two audio endpoints — typically a local reflector and a remote reflector or EchoLink network. Each bridge runs as a separate Docker container (`svxlink-bridge-<id>`) with auto-generated configuration files.
 
 ## Bridge types

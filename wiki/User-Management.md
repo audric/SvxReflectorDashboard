@@ -21,6 +21,8 @@ Callsigns are automatically uppercased and validated against the format `/\A[A-Z
 
 New registrations are held in a **pending** state until approved by an admin.
 
+![Web Users](images/admin-users.png)
+
 ## Web Users admin panel
 
 Admins manage web users at `/admin/users`. Available actions:

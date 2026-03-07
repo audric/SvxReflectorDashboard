@@ -31,6 +31,16 @@ Registered users can tune in to talkgroups and transmit audio directly from thei
 - **User accounts** — registration with callsign validation, admin approval, per-user permissions
 - **Admin panel** — web user management, registration approval, reflector configuration (global settings, certificates, users, passwords, TG rules)
 
+### Screenshots
+
+| Dashboard | Map | Stats |
+|---|---|---|
+| ![Dashboard](images/dashboard.png) | ![Map](images/map.png) | ![Stats](images/stats.png) |
+
+| TG Matrix | Reflector Config | System Info |
+|---|---|---|
+| ![TG Matrix](images/tg-matrix.png) | ![Reflector](images/admin-reflector.png) | ![System](images/admin-system.png) |
+
 ### Stack
 
 Ruby 3.2 · Rails 7.1 · Go · SQLite · Redis · Hotwire (Turbo + Stimulus) · HAML · Tailwind CSS · Leaflet.js
