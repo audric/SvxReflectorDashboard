@@ -49,7 +49,7 @@ class Bridge < ApplicationRecord
     ca_bundle_line = "CA_BUNDLE_FILE=/var/lib/svxlink/pki/ca-bundle.crt"
 
     lines << "[ReflectorLogicLocal]"
-    lines << "TYPE=Reflector"
+    lines << "TYPE=ReflectorV2"
     lines << "HOST=#{local_host}"
     lines << "PORT=#{local_port}"
     lines << "CALLSIGN=#{local_callsign}"
@@ -59,7 +59,7 @@ class Bridge < ApplicationRecord
     lines << ""
 
     lines << "[ReflectorLogicRemote]"
-    lines << "TYPE=Reflector"
+    lines << "TYPE=ReflectorV2"
     lines << "HOST=#{remote_host}"
     lines << "PORT=#{remote_port}"
     lines << "CALLSIGN=#{remote_callsign}"
