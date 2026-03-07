@@ -16,6 +16,8 @@ module Admin
     }.freeze
 
     def show
+      @active_tab = params[:tab] || "info"
+
       @info = {
         "Ruby" => RUBY_VERSION,
         "Rails" => Rails::VERSION::STRING,
@@ -34,9 +36,45 @@ module Admin
       @disks = fetch_disk_info
       @services = fetch_docker_services
       @service_graph = build_mermaid_graph
+
+      # For Logs tab
+      @containers = fetch_log_containers
     end
 
     private
+
+    def fetch_log_containers
+      return [] unless File.exist?(DOCKER_SOCKET)
+      containers = docker_api_get("/containers/json?all=true")
+      return [] unless containers
+
+      project = containers.filter_map { |c| c.dig("Labels", "com.docker.compose.project").presence }.first
+      bridge_ids = Set.new(
+        containers
+          .select { |c| c["Names"]&.any? { |n| n =~ /\A\/svxlink-bridge-\d+\z/ } }
+          .map { |c| c["Id"] }
+      )
+
+      results = containers
+        .select { |c| c.dig("Labels", "com.docker.compose.project") == project }
+        .reject { |c| c.dig("Labels", "com.docker.compose.service")&.start_with?("init-") }
+        .reject { |c| bridge_ids.include?(c["Id"]) }
+        .map { |c| { id: c["Id"], name: c.dig("Labels", "com.docker.compose.service") || c["Names"]&.first&.delete_prefix("/"), state: c["State"] } }
+
+      bridge_names = Bridge.pluck(:id, :name).to_h
+      containers
+        .select { |c| c["Names"]&.any? { |n| n =~ /\A\/svxlink-bridge-\d+\z/ } }
+        .each { |c|
+          container_name = c["Names"].find { |n| n =~ /svxlink-bridge/ }&.delete_prefix("/")
+          bridge_id = container_name&.match(/(\d+)\z/)&.[](1)&.to_i
+          label = bridge_names[bridge_id] ? "bridge: #{bridge_names[bridge_id]}" : container_name
+          results << { id: c["Id"], name: label, state: c["State"] }
+        }
+      results.sort_by { |c| c[:name].to_s }
+    rescue => e
+      Rails.logger.warn("Docker containers fetch failed: #{e.message}")
+      []
+    end
 
     def redis_version
       Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1")).info["redis_version"]

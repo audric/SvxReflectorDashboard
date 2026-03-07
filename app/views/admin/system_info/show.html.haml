@@ -5,7 +5,7 @@
   %head
     %meta{charset: "UTF-8"}
     %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
-    %title SVXReflector · System Info
+    %title SVXReflector · System
     %script{src: "/vendor/tailwind/tailwind.js"}
     :javascript
       tailwind.config = {
@@ -27,155 +27,466 @@
     %script{src: "/vendor/mermaid/mermaid.min.js"}
     :css
       body { background: #0d1117; }
+      .debug-table th { font-size: .73rem; text-transform: uppercase; letter-spacing: .05em; color: #6e7681; border-color: #21262d; }
+      .debug-table td { font-size: .85rem; border-color: #21262d; vertical-align: top; }
+      .val-cell { max-width: 600px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+      .tab-btn { transition: color 0.15s, border-color 0.15s; }
+      .tab-btn.active { color: #c9d1d9; border-bottom: 2px solid #3fb950; }
+      .tab-panel { display: none; }
+      .tab-panel.active { display: block; }
 
   %body.text-ghtext
     = render 'shared/navbar', active: 'admin'
 
     .max-w-7xl.mx-auto.px-4.pb-12
-      .flex.items-center.gap-2.mb-6
-        %i.bi.bi-cpu.text-lg.text-ghmuted
-        %h2.text-xl.font-semibold.text-gray-100 System Info
 
-      -# ── Top row: Host + Application side by side on desktop ──
-      .grid.grid-cols-1.lg:grid-cols-2.gap-6.mb-6
-        - if @host.present?
+      -# ── Tabs ──
+      .flex.items-center.gap-6.border-b.border-ghborder.mb-6
+        %button.tab-btn.pb-3.text-sm.font-medium.text-ghmuted.hover:text-gray-200.cursor-pointer.border-b-2.border-transparent{type: "button", onclick: "switchTab('info')", id: "tab-info", class: @active_tab == 'info' ? 'active' : ''}
+          %i.bi.bi-cpu.mr-1
+          System Info
+        %button.tab-btn.pb-3.text-sm.font-medium.text-ghmuted.hover:text-gray-200.cursor-pointer.border-b-2.border-transparent{type: "button", onclick: "switchTab('logs')", id: "tab-logs", class: @active_tab == 'logs' ? 'active' : ''}
+          %i.bi.bi-terminal.mr-1
+          Logs
+        %button.tab-btn.pb-3.text-sm.font-medium.text-ghmuted.hover:text-gray-200.cursor-pointer.border-b-2.border-transparent{type: "button", onclick: "switchTab('debug')", id: "tab-debug", class: @active_tab == 'debug' ? 'active' : ''}
+          %i.bi.bi-bug.mr-1
+          Redis
+
+      -# ════════════════════════════════════════════════
+      -# TAB: System Info
+      -# ════════════════════════════════════════════════
+      #panel-info.tab-panel{class: @active_tab == 'info' ? 'active' : ''}
+
+        -# ── Top row: Host + Application ──
+        .grid.grid-cols-1.lg:grid-cols-2.gap-6.mb-6
+          - if @host.present?
+            %div
+              .flex.items-center.gap-2.mb-3
+                %i.bi.bi-pc-display.text-ghmuted
+                %h3.text-base.font-semibold.text-gray-100 Host
+              .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden
+                %table.w-full.text-sm
+                  %tbody
+                    - @host.each do |label, value|
+                      %tr.border-b.border-ghborder2
+                        %td.px-4.py-2.text-ghmuted.font-medium.whitespace-nowrap{style: "width: 140px"}= label
+                        %td.px-4.py-2.text-gray-200.font-mono= value
+
           %div
             .flex.items-center.gap-2.mb-3
-              %i.bi.bi-pc-display.text-ghmuted
-              %h3.text-base.font-semibold.text-gray-100 Host
+              %i.bi.bi-info-circle.text-ghmuted
+              %h3.text-base.font-semibold.text-gray-100 Application
             .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden
               %table.w-full.text-sm
                 %tbody
-                  - @host.each do |label, value|
+                  - @info.each do |label, value|
                     %tr.border-b.border-ghborder2
                       %td.px-4.py-2.text-ghmuted.font-medium.whitespace-nowrap{style: "width: 140px"}= label
                       %td.px-4.py-2.text-gray-200.font-mono= value
 
-        %div
-          .flex.items-center.gap-2.mb-3
-            %i.bi.bi-info-circle.text-ghmuted
-            %h3.text-base.font-semibold.text-gray-100 Application
-          .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden
-            %table.w-full.text-sm
-              %tbody
-                - @info.each do |label, value|
-                  %tr.border-b.border-ghborder2
-                    %td.px-4.py-2.text-ghmuted.font-medium.whitespace-nowrap{style: "width: 140px"}= label
-                    %td.px-4.py-2.text-gray-200.font-mono= value
-
-      -# ── Second row: Memory + Disks side by side on desktop ──
-      .grid.grid-cols-1.lg:grid-cols-2.gap-6.mb-6
-        - if @memory
-          %div
-            .flex.items-center.gap-2.mb-3
-              %i.bi.bi-memory.text-ghmuted
-              %h3.text-base.font-semibold.text-gray-100 Memory
-            .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden
-              %table.w-full.text-sm
-                %tbody
-                  %tr.border-b.border-ghborder2
-                    %td.px-4.py-2.text-ghmuted.font-medium.whitespace-nowrap{style: "width: 140px"} RAM
-                    %td.px-4.py-2
-                      .flex.items-center.gap-3
-                        .flex-1{style: "height:12px;border-radius:6px;background:#21262d;overflow:hidden;"}
-                          .flex{style: "height:100%;"}
-                            .bg-blue-500{style: "width:#{@memory[:used_pct]}%;"}
-                            .bg-blue-300{style: "width:#{@memory[:bufcache_pct]}%;opacity:0.5;"}
-                        %span.text-xs.text-gray-300.font-mono.whitespace-nowrap
-                          = "#{@memory[:used]} / #{@memory[:total]}"
-                  %tr.border-b.border-ghborder2
-                    %td.px-4.py-2.text-ghmuted.font-medium Used
-                    %td.px-4.py-2.text-gray-200.font-mono= "#{@memory[:used]} (#{@memory[:used_pct]}%)"
-                  %tr.border-b.border-ghborder2
-                    %td.px-4.py-2.text-ghmuted.font-medium
-                    %td.px-4.py-2.text-gray-200.font-mono.text-xs
-                      %span.text-ghmuted Buff/Cache
-                      = @memory[:buffers]
-                      \/
-                      = @memory[:cached]
-                      %span.text-ghmuted.ml-3 Avail
-                      = @memory[:available]
-                      %span.text-ghmuted.ml-3 Free
-                      = @memory[:free]
-                  - if @memory[:has_swap]
+        -# ── Second row: Memory + Disks ──
+        .grid.grid-cols-1.lg:grid-cols-2.gap-6.mb-6
+          - if @memory
+            %div
+              .flex.items-center.gap-2.mb-3
+                %i.bi.bi-memory.text-ghmuted
+                %h3.text-base.font-semibold.text-gray-100 Memory
+              .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden
+                %table.w-full.text-sm
+                  %tbody
                     %tr.border-b.border-ghborder2
-                      %td.px-4.py-2.text-ghmuted.font-medium Swap
+                      %td.px-4.py-2.text-ghmuted.font-medium.whitespace-nowrap{style: "width: 140px"} RAM
                       %td.px-4.py-2
                         .flex.items-center.gap-3
                           .flex-1{style: "height:12px;border-radius:6px;background:#21262d;overflow:hidden;"}
-                            .bg-yellow-500{style: "width:#{@memory[:swap_pct]}%;height:100%;"}
+                            .flex{style: "height:100%;"}
+                              .bg-blue-500{style: "width:#{@memory[:used_pct]}%;"}
+                              .bg-blue-300{style: "width:#{@memory[:bufcache_pct]}%;opacity:0.5;"}
                           %span.text-xs.text-gray-300.font-mono.whitespace-nowrap
-                            = "#{@memory[:swap_used]} / #{@memory[:swap_total]}"
+                            = "#{@memory[:used]} / #{@memory[:total]}"
+                    %tr.border-b.border-ghborder2
+                      %td.px-4.py-2.text-ghmuted.font-medium Used
+                      %td.px-4.py-2.text-gray-200.font-mono= "#{@memory[:used]} (#{@memory[:used_pct]}%)"
+                    %tr.border-b.border-ghborder2
+                      %td.px-4.py-2.text-ghmuted.font-medium
+                      %td.px-4.py-2.text-gray-200.font-mono.text-xs
+                        %span.text-ghmuted Buff/Cache
+                        = @memory[:buffers]
+                        \/
+                        = @memory[:cached]
+                        %span.text-ghmuted.ml-3 Avail
+                        = @memory[:available]
+                        %span.text-ghmuted.ml-3 Free
+                        = @memory[:free]
+                    - if @memory[:has_swap]
+                      %tr.border-b.border-ghborder2
+                        %td.px-4.py-2.text-ghmuted.font-medium Swap
+                        %td.px-4.py-2
+                          .flex.items-center.gap-3
+                            .flex-1{style: "height:12px;border-radius:6px;background:#21262d;overflow:hidden;"}
+                              .bg-yellow-500{style: "width:#{@memory[:swap_pct]}%;height:100%;"}
+                            %span.text-xs.text-gray-300.font-mono.whitespace-nowrap
+                              = "#{@memory[:swap_used]} / #{@memory[:swap_total]}"
 
-        - if @disks.present?
-          %div
+          - if @disks.present?
+            %div
+              .flex.items-center.gap-2.mb-3
+                %i.bi.bi-device-hdd.text-ghmuted
+                %h3.text-base.font-semibold.text-gray-100 Disks
+              .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden
+                %table.w-full.text-sm
+                  %thead
+                    %tr.border-b.border-ghborder
+                      %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Device
+                      %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Type
+                      %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Mount
+                      %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Usage
+                  %tbody
+                    - @disks.each do |disk|
+                      - bar_color = disk[:used_pct] >= 90 ? "#f85149" : disk[:used_pct] >= 70 ? "#d29922" : "#3fb950"
+                      %tr.border-b.border-ghborder2
+                        %td.px-4.py-2.font-mono.text-gray-200.text-xs= disk[:device]
+                        %td.px-4.py-2.text-ghmuted.text-xs= disk[:fstype]
+                        %td.px-4.py-2.font-mono.text-gray-200.text-xs= disk[:mount]
+                        %td.px-4.py-2{style: "min-width:200px;"}
+                          .flex.items-center.gap-3
+                            .flex-1{style: "height:12px;border-radius:6px;background:#21262d;overflow:hidden;"}
+                              %div{style: "width:#{disk[:used_pct]}%;height:100%;background:#{bar_color};border-radius:6px;"}
+                            %span.text-xs.text-gray-300.font-mono.whitespace-nowrap
+                              = "#{disk[:used]} / #{disk[:total]} (#{disk[:used_pct]}%)"
+
+        -# ── Docker Services ──
+        - if @services.present?
+          .mb-6
             .flex.items-center.gap-2.mb-3
-              %i.bi.bi-device-hdd.text-ghmuted
-              %h3.text-base.font-semibold.text-gray-100 Disks
+              %i.bi.bi-boxes.text-ghmuted
+              %h3.text-base.font-semibold.text-gray-100 Docker Services
             .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden
               %table.w-full.text-sm
                 %thead
                   %tr.border-b.border-ghborder
-                    %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Device
-                    %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Type
-                    %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Mount
-                    %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Usage
+                    %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Service
+                    %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Image
+                    %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim State
+                    %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Status
                 %tbody
-                  - @disks.each do |disk|
-                    - bar_color = disk[:used_pct] >= 90 ? "#f85149" : disk[:used_pct] >= 70 ? "#d29922" : "#3fb950"
+                  - @services.each do |svc|
                     %tr.border-b.border-ghborder2
-                      %td.px-4.py-2.font-mono.text-gray-200.text-xs= disk[:device]
-                      %td.px-4.py-2.text-ghmuted.text-xs= disk[:fstype]
-                      %td.px-4.py-2.font-mono.text-gray-200.text-xs= disk[:mount]
-                      %td.px-4.py-2{style: "min-width:200px;"}
-                        .flex.items-center.gap-3
-                          .flex-1{style: "height:12px;border-radius:6px;background:#21262d;overflow:hidden;"}
-                            %div{style: "width:#{disk[:used_pct]}%;height:100%;background:#{bar_color};border-radius:6px;"}
-                          %span.text-xs.text-gray-300.font-mono.whitespace-nowrap
-                            = "#{disk[:used]} / #{disk[:total]} (#{disk[:used_pct]}%)"
+                      %td.px-4.py-2.font-mono.font-semibold.text-gray-200= svc[:service]
+                      %td.px-4.py-2.font-mono.text-ghmuted.text-xs= svc[:image]
+                      %td.px-4.py-2
+                        - case svc[:state]
+                        - when "running"
+                          %span.inline-flex.items-center.gap-1.5.text-green-400.text-xs.font-medium
+                            %span.w-2.h-2.rounded-full.bg-green-400
+                            running
+                        - when "exited"
+                          %span.inline-flex.items-center.gap-1.5.text-red-400.text-xs.font-medium
+                            %span.w-2.h-2.rounded-full.bg-red-400
+                            exited
+                        - else
+                          %span.inline-flex.items-center.gap-1.5.text-yellow-400.text-xs.font-medium
+                            %span.w-2.h-2.rounded-full.bg-yellow-400
+                            = svc[:state]
+                      %td.px-4.py-2.text-ghmuted.text-xs= svc[:status]
 
-      -# ── Docker Services: full width ──
-      - if @services.present?
-        .mb-6
-          .flex.items-center.gap-2.mb-3
-            %i.bi.bi-boxes.text-ghmuted
-            %h3.text-base.font-semibold.text-gray-100 Docker Services
-          .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden
-            %table.w-full.text-sm
+        -# ── Service Dependencies graph ──
+        - if @service_graph.present?
+          .mb-6
+            .flex.items-center.gap-2.mb-3
+              %i.bi.bi-diagram-3.text-ghmuted
+              %h3.text-base.font-semibold.text-gray-100 Service Dependencies
+            .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden.p-4
+              .mermaid= @service_graph
+
+      -# ════════════════════════════════════════════════
+      -# TAB: Logs
+      -# ════════════════════════════════════════════════
+      #panel-logs.tab-panel{class: @active_tab == 'logs' ? 'active' : ''}
+
+        .flex.items-center.justify-between.mb-4
+          %h5.text-lg.font-semibold.text-gray-100
+            %i.bi.bi-terminal.mr-2
+            Container Logs
+          .flex.items-center.gap-2
+            %select#log-container.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-1.cursor-pointer{style: "outline:none;"}
+              %option{value: ""} Select container…
+              - @containers.each do |c|
+                %option{value: c[:id], data: { state: c[:state] }}
+                  = "#{c[:name]} (#{c[:state]})"
+            %select#log-tail.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-1.cursor-pointer{style: "outline:none;"}
+              %option{value: "50"} 50 lines
+              %option{value: "200", selected: true} 200 lines
+              %option{value: "500"} 500 lines
+              %option{value: "1000"} 1000 lines
+            %button#log-refresh.text-xs.px-2.py-1.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.cursor-pointer{type: "button", title: "Refresh"}
+              %i.bi.bi-arrow-clockwise
+            %label.flex.items-center.gap-1.text-xs.text-ghmuted.cursor-pointer
+              %input#log-auto{type: "checkbox"}
+              Auto
+
+        .rounded-lg.border.border-ghborder.bg-ghcard
+          #log-output{style: "max-height: calc(100vh - 220px); overflow-y: auto;"}
+            %pre.text-xs.font-mono.text-gray-400.px-4.py-3.m-0.whitespace-pre-wrap#log-pre
+              %span.text-ghdim Select a container to view its logs
+
+      -# ════════════════════════════════════════════════
+      -# TAB: Redis Debug
+      -# ════════════════════════════════════════════════
+      #panel-debug.tab-panel{class: @active_tab == 'debug' ? 'active' : ''}
+
+        .flex.items-center.justify-between.mb-4
+          %h5.text-lg.font-semibold.text-gray-100
+            %i.bi.bi-bug.mr-2
+            Redis Debug
+          .flex.items-center.gap-2
+            %span.text-xs.text-ghmuted#debug-status Live
+            %span.inline-block.w-2.h-2.rounded-full.bg-green-500#debug-dot
+
+        #debug-error
+
+        .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-6
+          .rounded-lg.border.border-ghborder.bg-ghcard
+            .px-4.py-3.border-b.border-ghborder
+              %h6.text-sm.font-semibold.text-gray-100
+                %i.bi.bi-server.mr-2
+                Server Info
+            %table.w-full.debug-table
+              %tbody#info-tbody
+
+          .rounded-lg.border.border-ghborder.bg-ghcard
+            .px-4.py-3.border-b.border-ghborder
+              %h6.text-sm.font-semibold.text-gray-100
+                %i.bi.bi-broadcast.mr-2
+                Pub/Sub Channels
+                %span.text-ghmuted.font-normal.ml-2#pubsub-count
+            #pubsub-body.p-4
+
+        .rounded-lg.border.border-ghborder.bg-ghcard
+          .px-4.py-3.border-b.border-ghborder
+            %h6.text-sm.font-semibold.text-gray-100
+              %i.bi.bi-key.mr-2
+              Keys
+              %span.text-ghmuted.font-normal.ml-2#keys-count
+          .overflow-x-auto
+            %table.w-full.debug-table
               %thead
-                %tr.border-b.border-ghborder
-                  %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Service
-                  %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Image
-                  %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim State
-                  %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Status
-              %tbody
-                - @services.each do |svc|
-                  %tr.border-b.border-ghborder2
-                    %td.px-4.py-2.font-mono.font-semibold.text-gray-200= svc[:service]
-                    %td.px-4.py-2.font-mono.text-ghmuted.text-xs= svc[:image]
-                    %td.px-4.py-2
-                      - case svc[:state]
-                      - when "running"
-                        %span.inline-flex.items-center.gap-1.5.text-green-400.text-xs.font-medium
-                          %span.w-2.h-2.rounded-full.bg-green-400
-                          running
-                      - when "exited"
-                        %span.inline-flex.items-center.gap-1.5.text-red-400.text-xs.font-medium
-                          %span.w-2.h-2.rounded-full.bg-red-400
-                          exited
-                      - else
-                        %span.inline-flex.items-center.gap-1.5.text-yellow-400.text-xs.font-medium
-                          %span.w-2.h-2.rounded-full.bg-yellow-400
-                          = svc[:state]
-                    %td.px-4.py-2.text-ghmuted.text-xs= svc[:status]
+                %tr.border-b.border-ghborder2
+                  %th.py-2.px-3 Key
+                  %th.py-2 Type
+                  %th.py-2 TTL
+                  %th.py-2 Size
+                  %th.py-2 Value
+              %tbody#keys-tbody
 
-      -# ── Service Dependencies graph: full width ──
-      - if @service_graph.present?
-        .mb-6
-          .flex.items-center.gap-2.mb-3
-            %i.bi.bi-diagram-3.text-ghmuted
-            %h3.text-base.font-semibold.text-gray-100 Service Dependencies
-          .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden.p-4
-            .mermaid= @service_graph
-          :javascript
-            mermaid.initialize({ startOnLoad: true, theme: 'dark', themeVariables: { primaryColor: '#161b22', primaryTextColor: '#c9d1d9', lineColor: '#30363d', primaryBorderColor: '#30363d' } });
+    :javascript
+      // ── Tab switching ──
+      function switchTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+        document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+        document.getElementById('tab-' + tab).classList.add('active');
+        document.getElementById('panel-' + tab).classList.add('active');
+        // Start/stop debug polling based on tab
+        if (tab === 'debug' && !debugStarted) { startDebug(); }
+        // Stop log auto-refresh when leaving logs tab
+        if (tab !== 'logs') { stopLogAuto(); }
+      }
+
+      // ── Mermaid ──
+      mermaid.initialize({ startOnLoad: true, theme: 'dark', themeVariables: { primaryColor: '#161b22', primaryTextColor: '#c9d1d9', lineColor: '#30363d', primaryBorderColor: '#30363d' } });
+
+      // ── Logs ──
+      (function() {
+        var logSelect = document.getElementById('log-container');
+        var logTail = document.getElementById('log-tail');
+        var logPre = document.getElementById('log-pre');
+        var logOutput = document.getElementById('log-output');
+        var logRefresh = document.getElementById('log-refresh');
+        var logAuto = document.getElementById('log-auto');
+        var autoTimeout = null;
+        var lastTimestamp = null;
+        var fetching = false;
+
+        var tsRegex = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.\d+)?Z/;
+
+        function fetchLogs(incremental) {
+          var cid = logSelect.value;
+          if (!cid || fetching) return;
+          fetching = true;
+
+          var url = '/admin/logs/fetch?container=' + encodeURIComponent(cid);
+          if (incremental && lastTimestamp) {
+            url += '&since=' + encodeURIComponent(lastTimestamp);
+          } else {
+            url += '&tail=' + logTail.value;
+          }
+
+          fetch(url)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              var logs = data.logs || '';
+              if (logs.length > 0) {
+                var lines = logs.trimEnd().split('\n');
+                for (var i = lines.length - 1; i >= 0; i--) {
+                  var m = lines[i].match(tsRegex);
+                  if (m) { lastTimestamp = m[0]; break; }
+                }
+              }
+              if (incremental && lastTimestamp && logs.length > 0) {
+                logPre.textContent += logs;
+              } else {
+                logPre.textContent = logs || '(empty)';
+              }
+              if (logAuto.checked) logOutput.scrollTop = logOutput.scrollHeight;
+            })
+            .catch(function(err) {
+              logPre.textContent = 'Error: ' + err.message;
+            })
+            .finally(function() {
+              fetching = false;
+              scheduleNext();
+            });
+        }
+
+        function isContainerRunning() {
+          var opt = logSelect.options[logSelect.selectedIndex];
+          return opt && opt.dataset.state === 'running';
+        }
+
+        function scheduleNext() {
+          if (autoTimeout) { clearTimeout(autoTimeout); autoTimeout = null; }
+          if (logAuto.checked && logSelect.value && isContainerRunning()) {
+            autoTimeout = setTimeout(function() { fetchLogs(true); }, 1500);
+          }
+        }
+
+        window.stopLogAuto = function() {
+          if (autoTimeout) { clearTimeout(autoTimeout); autoTimeout = null; }
+        };
+
+        function fullRefresh() {
+          lastTimestamp = null;
+          fetchLogs(false);
+        }
+
+        logSelect.addEventListener('change', function() {
+          if (this.value) { lastTimestamp = null; fetchLogs(false); }
+          else { logPre.innerHTML = '<span class="text-ghdim">Select a container to view its logs</span>'; stopLogAuto(); lastTimestamp = null; }
+        });
+        logTail.addEventListener('change', fullRefresh);
+        logRefresh.addEventListener('click', fullRefresh);
+        logAuto.addEventListener('change', function() {
+          if (this.checked) scheduleNext(); else stopLogAuto();
+        });
+      })();
+
+      // ── Redis Debug (lazy-loaded on tab switch) ──
+      var debugStarted = false;
+      var debugInterval = null;
+
+      function esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
+      function startDebug() {
+        debugStarted = true;
+
+        function fmtUptime(secs) {
+          secs = parseInt(secs) || 0;
+          var d = Math.floor(secs / 86400);
+          var h = Math.floor((secs % 86400) / 3600);
+          var m = Math.floor((secs % 3600) / 60);
+          return d + 'd ' + h + 'h ' + m + 'm';
+        }
+
+        function renderInfo(info) {
+          var tbody = document.getElementById('info-tbody');
+          var html = '';
+          Object.keys(info).forEach(function(key) {
+            var val = key === 'uptime_in_seconds' ? fmtUptime(info[key]) : esc(info[key]);
+            html += '<tr class="border-b border-ghborder2">' +
+              '<td class="px-4 py-2 text-ghmuted font-medium whitespace-nowrap">' + esc(key) + '</td>' +
+              '<td class="px-4 py-2 text-gray-200 font-mono">' + val + '</td></tr>';
+          });
+          tbody.innerHTML = html;
+        }
+
+        function renderPubsub(channels) {
+          document.getElementById('pubsub-count').textContent = '(' + channels.length + ')';
+          var body = document.getElementById('pubsub-body');
+          if (channels.length === 0) {
+            body.innerHTML = '<span class="text-ghmuted text-sm">No active channels</span>';
+            return;
+          }
+          var html = '<div class="flex flex-wrap gap-2">';
+          channels.sort().forEach(function(ch) {
+            html += '<span class="inline-block px-2 py-1 text-xs font-mono rounded border border-ghborder2 text-gray-300 bg-ghbg">' + esc(ch) + '</span>';
+          });
+          html += '</div>';
+          body.innerHTML = html;
+        }
+
+        function renderKeys(keys) {
+          document.getElementById('keys-count').textContent = '(' + keys.length + ')';
+          var tbody = document.getElementById('keys-tbody');
+          if (keys.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-ghmuted text-sm">No keys found</td></tr>';
+            return;
+          }
+          var html = '';
+          keys.forEach(function(e) {
+            var ttlHtml;
+            if (e.ttl === -1) ttlHtml = '<span class="text-ghmuted">\u221e</span>';
+            else if (e.ttl === -2) ttlHtml = '<span class="text-red-400">expired</span>';
+            else ttlHtml = '<span class="text-yellow-400">' + e.ttl + 's</span>';
+
+            var sizeHtml = '';
+            if (e.size !== null && e.size !== undefined) {
+              sizeHtml = e.type === 'string' ? e.size + ' B' : String(e.size);
+            }
+
+            var val = String(e.value || '');
+            var valHtml;
+            if (val.length > 500) {
+              valHtml = '<details><summary class="cursor-pointer text-ghmuted">' + esc(val.substring(0, 200)) + '...</summary><div class="mt-2">' + esc(val) + '</div></details>';
+            } else {
+              valHtml = esc(val);
+            }
+
+            html += '<tr class="border-b border-ghborder2 hover:bg-ghcard">' +
+              '<td class="py-2 px-3 font-mono font-bold text-cyan-400 whitespace-nowrap">' + esc(e.key) + '</td>' +
+              '<td class="py-2"><span class="inline-block px-2 py-0.5 text-xs rounded-full border border-ghborder2 text-ghmuted">' + esc(e.type) + '</span></td>' +
+              '<td class="py-2 font-mono text-sm">' + ttlHtml + '</td>' +
+              '<td class="py-2 font-mono text-sm text-ghmuted">' + sizeHtml + '</td>' +
+              '<td class="py-2 font-mono text-xs text-gray-300 val-cell">' + valHtml + '</td></tr>';
+          });
+          tbody.innerHTML = html;
+        }
+
+        function refresh() {
+          fetch('/admin/debug.json')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              document.getElementById('debug-dot').className = 'inline-block w-2 h-2 rounded-full bg-green-500';
+              document.getElementById('debug-status').textContent = 'Live';
+              document.getElementById('debug-error').innerHTML = '';
+              if (data.info) renderInfo(data.info);
+              if (data.pubsub_channels) renderPubsub(data.pubsub_channels);
+              if (data.keys) renderKeys(data.keys);
+            })
+            .catch(function(err) {
+              document.getElementById('debug-dot').className = 'inline-block w-2 h-2 rounded-full bg-red-500';
+              document.getElementById('debug-status').textContent = 'Error';
+              document.getElementById('debug-error').innerHTML =
+                '<div class="p-2 rounded border border-red-700 text-red-400 text-sm mb-4 bg-red-900/30">' + esc(err.message) + '</div>';
+            });
+        }
+
+        refresh();
+        debugInterval = setInterval(refresh, 3000);
+      }
+
+      // Auto-start debug if that tab is active
+      if (document.getElementById('panel-debug').classList.contains('active')) {
+        startDebug();
+      }

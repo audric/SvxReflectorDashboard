@@ -109,13 +109,7 @@
                     Bridge
                 = link_to admin_system_info_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-ghborder2" do
                   %i.bi.bi-cpu
-                  System Info
-                = link_to admin_logs_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-ghborder2" do
-                  %i.bi.bi-terminal
-                  Logs
-                = link_to admin_debug_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-ghborder2" do
-                  %i.bi.bi-bug
-                  Debug
+                  System
                 .border-t.border-ghborder2.my-1
               = button_to logout_path, method: :delete, class: "flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-ghborder2 w-full" do
                 %i.bi.bi-box-arrow-right
@@ -155,9 +149,7 @@
           - admin_links = [['bi-people', 'Web Users', admin_users_path], ['bi-collection', 'Talkgroups', admin_tgs_path], ['bi-gear', 'Settings', edit_admin_settings_path]]
           - admin_links << ['bi-broadcast', 'Reflector', edit_admin_reflector_path] if current_user.reflector_admin?
           - admin_links << ['bi-diagram-3', 'Bridge', admin_bridges_path] if current_user.reflector_admin?
-          - admin_links << ['bi-cpu', 'System Info', admin_system_info_path]
-          - admin_links << ['bi-terminal', 'Logs', admin_logs_path]
-          - admin_links << ['bi-bug', 'Debug', admin_debug_path]
+          - admin_links << ['bi-cpu', 'System', admin_system_info_path]
           - admin_links.each do |icon, label, path|
             %a.flex.items-center.gap-3.px-3.py-2.rounded-md.text-sm.transition-colors{class: (request.path.start_with?(path) ? 'bg-ghborder2 text-gray-100' : 'text-ghmuted hover:bg-ghborder2 hover:text-gray-300'), href: path}
               %i.bi{class: icon}
@@ -196,24 +188,24 @@
           #s-meter-fill{style: "height:100%;width:100%;border-radius:2px;background:linear-gradient(to right,#3fb950,#d29922,#f85149);transform:scaleX(0);transform-origin:left;transition:transform 50ms;"}
         %canvas#spectrum.hidden{width: "200", height: "32", style: "width:100%;height:32px;border-radius:4px;"}
 
-  .border-t.border-ghborder.px-3.py-2
-    %button#theme-toggle-desktop.flex.items-center.gap-3.px-2.py-2.rounded-md.text-sm.text-ghmuted.hover:bg-ghborder2.hover:text-gray-300.w-full.cursor-pointer{type: "button"}
-      %i.bi.bi-moon-fill#theme-icon-desktop.text-sm
-      %span#theme-label-desktop Dark
-
   .border-t.border-ghborder.px-3.py-3
     - if logged_in?
       .flex.items-center.gap-2.px-2.py-1
         .w-7.h-7.rounded-full.bg-ghborder.flex.items-center.justify-center.text-ghmuted
           %i.bi.bi-person-fill.text-sm
-        %span.text-sm.text-gray-200.font-mono.truncate= current_user.callsign
+        %span.text-sm.text-gray-200.font-mono.truncate.flex-1= current_user.callsign
+        %button#theme-toggle-desktop.flex.items-center.justify-center.rounded-md.text-ghmuted.hover:text-gray-300.cursor-pointer{type: "button", title: "Toggle theme", style: "width:28px;height:28px;"}
+          %i.bi.bi-moon-fill#theme-icon-desktop.text-sm
       = button_to logout_path, method: :delete, class: "flex items-center gap-2 px-3 py-2 mt-1 rounded-md text-sm text-red-400 hover:bg-ghborder2 w-full" do
         %i.bi.bi-box-arrow-right
         Logout
     - else
-      = link_to register_path, class: "flex items-center gap-2 px-3 py-2 rounded-md text-sm text-ghmuted hover:bg-ghborder2 hover:text-gray-300" do
-        %i.bi.bi-person-plus
-        Register
+      .flex.items-center.gap-2.px-3.py-1
+        = link_to register_path, class: "flex items-center gap-2 py-2 rounded-md text-sm text-ghmuted hover:text-gray-300 flex-1" do
+          %i.bi.bi-person-plus
+          Register
+        %button#theme-toggle-desktop.flex.items-center.justify-center.rounded-md.text-ghmuted.hover:text-gray-300.cursor-pointer{type: "button", title: "Toggle theme", style: "width:28px;height:28px;"}
+          %i.bi.bi-moon-fill#theme-icon-desktop.text-sm
       = link_to login_path, class: "flex items-center gap-2 px-3 py-2 rounded-md text-sm text-ghmuted hover:bg-ghborder2 hover:text-gray-300" do
         %i.bi.bi-box-arrow-in-right
         Login
@@ -264,6 +256,8 @@
       });
       var label = document.getElementById('theme-label-desktop');
       if (label) label.textContent = isLight ? 'Light' : 'Dark';
+      var btn = document.getElementById('theme-toggle-desktop');
+      if (btn) btn.title = isLight ? 'Switch to dark' : 'Switch to light';
     }
 
     var saved = localStorage.getItem('theme') || 'dark';
