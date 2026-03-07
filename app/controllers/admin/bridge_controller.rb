@@ -73,15 +73,16 @@ module Admin
     end
 
     def backups
-      dir = @bridge.config_dir
-      files = Dir.glob(dir.join("*.bak")).sort.reverse.map do |path|
-        basename = File.basename(path)
-        stamp = basename.match(/\.(\d{8}_\d{6})\.bak$/)&.[](1)
-        config_name = basename.sub(/\.\d{8}_\d{6}\.bak$/, "")
-        time_label = stamp ? Time.strptime(stamp, "%Y%m%d_%H%M%S").strftime("%Y-%m-%d %H:%M:%S") : basename
-        { filename: basename, label: "#{config_name} — #{time_label}", content: File.read(path) }
+      dir = @bridge.backups_dir
+      snapshots = Dir.glob(dir.join("*")).select { |d| File.directory?(d) }.sort.reverse.map do |snap_dir|
+        stamp = File.basename(snap_dir)
+        time_label = Time.strptime(stamp, "%Y%m%d_%H%M%S").strftime("%Y-%m-%d %H:%M:%S") rescue stamp
+        files = Dir.glob(File.join(snap_dir, "*")).sort.map do |f|
+          { name: File.basename(f), content: File.read(f) }
+        end
+        { label: time_label, files: files }
       end
-      render json: files
+      render json: snapshots
     end
 
     def toggle

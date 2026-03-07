@@ -72,6 +72,7 @@
       document.getElementById('backup-modal').addEventListener('click', function(e) {
         if (e.target === this) closeBackups();
       });
+      function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
       function renderBackupList(backups) {
         var list = document.getElementById('backup-list-inner');
         if (!backups.length) { list.innerHTML = '<span class="text-ghdim">No backups available</span>'; return; }
@@ -80,11 +81,17 @@
           var btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'w-full text-left px-3 py-2 rounded-md text-sm hover:bg-ghborder2 cursor-pointer transition-colors text-gray-300 backup-item';
-          btn.innerHTML = '<div class="font-mono text-xs">' + b.label + '</div>';
+          btn.innerHTML = '<div class="font-mono text-xs">' + esc(b.label) + '</div><div class="text-xs text-ghdim mt-0.5">' + b.files.length + ' file' + (b.files.length === 1 ? '' : 's') + '</div>';
           btn.addEventListener('click', function() {
             document.querySelectorAll('.backup-item').forEach(function(el) { el.classList.remove('bg-ghborder2', 'text-gray-100'); });
             btn.classList.add('bg-ghborder2', 'text-gray-100');
-            document.getElementById('backup-content-pre').textContent = b.content;
+            var html = '';
+            b.files.forEach(function(f, j) {
+              if (j > 0) html += '\n';
+              html += '── ' + esc(f.name) + ' ──\n' + esc(f.content) + '\n';
+            });
+            document.getElementById('backup-content-pre').textContent = '';
+            document.getElementById('backup-content-pre').innerHTML = html;
           });
           list.appendChild(btn);
           if (i === 0) btn.click();

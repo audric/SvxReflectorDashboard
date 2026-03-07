@@ -55,6 +55,9 @@
         %button.tab-btn.pb-3.text-sm.font-medium.text-ghmuted.hover:text-gray-200.cursor-pointer.border-b-2.border-transparent{type: "button", onclick: "switchTab('debug')", id: "tab-debug", class: @active_tab == 'debug' ? 'active' : ''}
           %i.bi.bi-bug.mr-1
           Redis
+        %button.tab-btn.pb-3.text-sm.font-medium.text-ghmuted.hover:text-gray-200.cursor-pointer.border-b-2.border-transparent{type: "button", onclick: "switchTab('settings')", id: "tab-settings", class: @active_tab == 'settings' ? 'active' : ''}
+          %i.bi.bi-gear.mr-1
+          Settings
 
       -# ════════════════════════════════════════════════
       -# TAB: System Info
@@ -283,6 +286,38 @@
                   %th.py-2 Value
               %tbody#keys-tbody
 
+      -# ════════════════════════════════════════════════
+      -# TAB: Settings
+      -# ════════════════════════════════════════════════
+      #panel-settings.tab-panel{class: @active_tab == 'settings' ? 'active' : ''}
+
+        - if flash[:notice]
+          %div.p-2.rounded.border.border-green-700.text-green-400.text-sm.mb-4.flex.items-center.justify-between{class: "bg-green-900/30", id: "flash-notice"}
+            %span= flash[:notice]
+            %button.text-green-400.hover:text-green-200.cursor-pointer{type: "button", onclick: "this.parentElement.remove()"}
+              %i.bi.bi-x
+
+        .max-w-xl
+          .rounded-lg.border.border-gray-600.bg-ghcard.p-4
+            = form_with url: admin_settings_path, method: :patch, local: true do |f|
+              .mb-4
+                %label.block.text-sm.text-gray-500.mb-1 Reflector Status URL
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600{class: "bg-[#0d1117]", type: "url", name: "settings[reflector_status_url]", value: @settings["reflector_status_url"], placeholder: "http://host:8080/status"}
+                %small.text-gray-500 The SVXReflector HTTP status endpoint polled by the updater.
+
+              .mb-4
+                %label.block.text-sm.text-gray-500.mb-1 Brand Name
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600{class: "bg-[#0d1117]", type: "text", name: "settings[brand_name]", value: @settings["brand_name"], placeholder: "My Reflector"}
+                %small.text-gray-500 Display name shown in the navbar.
+
+              .mb-4
+                %label.block.text-sm.text-gray-500.mb-1 Poll Interval (seconds)
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600{class: "bg-[#0d1117]", type: "number", name: "settings[poll_interval]", value: @settings["poll_interval"], min: 1, max: 10, step: 1}
+                %small.text-gray-500 How often the updater polls the reflector (1–10 seconds).
+
+              .flex.gap-2
+                = f.submit "Save Settings", class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
+
     :javascript
       // ── Tab switching ──
       function switchTab(tab) {
@@ -295,6 +330,12 @@
         // Stop log auto-refresh when leaving logs tab
         if (tab !== 'logs') { stopLogAuto(); }
       }
+
+      // ── Flash auto-dismiss ──
+      (function() {
+        var el = document.getElementById('flash-notice');
+        if (el) setTimeout(function() { el.style.transition = 'opacity 0.5s'; el.style.opacity = '0'; setTimeout(function() { el.remove(); }, 500); }, 5000);
+      })();
 
       // ── Mermaid ──
       mermaid.initialize({ startOnLoad: true, theme: 'dark', themeVariables: { primaryColor: '#161b22', primaryTextColor: '#c9d1d9', lineColor: '#30363d', primaryBorderColor: '#30363d' } });

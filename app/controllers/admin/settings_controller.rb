@@ -13,7 +13,7 @@ module Admin
       KEYS.each do |key|
         Setting.set(key, params[:settings][key].presence)
       end
-      redirect_to edit_admin_settings_path, notice: "Settings saved"
+      redirect_to admin_system_info_path(tab: "settings"), notice: "Settings saved"
     end
 
     private

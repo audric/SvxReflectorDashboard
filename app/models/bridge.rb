@@ -98,6 +98,10 @@ class Bridge < ApplicationRecord
     File.write(ca_bundle_path, parts.join("\n") + "\n")
   end
 
+  def backups_dir
+    config_dir.join("backups")
+  end
+
   private
 
   def reflector_logic_lines
@@ -337,21 +341,62 @@ class Bridge < ApplicationRecord
     output
   end
 
+  ARCHIVE_RETENTION_DAYS = 30
+
+  def self.archive_dir
+    Rails.root.join("bridge", "_archive")
+  end
+
   def cleanup
-    FileUtils.rm_rf(config_dir) if config_dir.exist?
+    return unless config_dir.exist?
+
+    archive_name = "#{id}_#{name.parameterize}_#{Time.current.strftime('%Y%m%d_%H%M%S')}"
+    dest = self.class.archive_dir.join(archive_name)
+    FileUtils.mkdir_p(self.class.archive_dir)
+    FileUtils.mv(config_dir, dest)
+
+    self.class.purge_old_archives
+  end
+
+  def self.purge_old_archives
+    return unless archive_dir.exist?
+
+    cutoff = ARCHIVE_RETENTION_DAYS.days.ago
+    Dir.glob(archive_dir.join("*")).each do |dir|
+      next unless File.directory?(dir)
+      FileUtils.rm_rf(dir) if File.mtime(dir) < cutoff
+    end
   end
 
   def backup_configs
+    self.class.purge_old_archives
+
+    files = [config_path, node_info_path, echolink_conf_path].select(&:exist?)
+    return if files.empty?
+
+    migrate_legacy_backups if Dir.glob(config_dir.join("*.bak")).any?
+
     stamp = Time.current.strftime("%Y%m%d_%H%M%S")
-    [config_path, node_info_path, echolink_conf_path].each do |path|
-      next unless path.exist?
-      FileUtils.cp(path, config_dir.join("#{File.basename(path)}.#{stamp}.bak"))
-    end
-    # Prune old backups per file type
-    %w[svxlink.conf node_info.json ModuleEchoLink.conf].each do |name|
-      backups = Dir.glob(config_dir.join("#{name}.*.bak")).sort
-      excess = backups.size - MAX_BACKUPS
-      backups.first(excess).each { |f| File.delete(f) } if excess > 0
+    snapshot_dir = backups_dir.join(stamp)
+    FileUtils.mkdir_p(snapshot_dir)
+    files.each { |path| FileUtils.cp(path, snapshot_dir.join(File.basename(path))) }
+
+    # Prune old snapshots
+    snapshots = Dir.glob(backups_dir.join("*")).select { |d| File.directory?(d) }.sort
+    excess = snapshots.size - MAX_BACKUPS
+    snapshots.first(excess).each { |d| FileUtils.rm_rf(d) } if excess > 0
+  end
+
+  def migrate_legacy_backups
+    Dir.glob(config_dir.join("*.bak")).each do |path|
+      basename = File.basename(path)
+      stamp = basename.match(/\.(\d{8}_\d{6})\.bak$/)&.[](1)
+      next unless stamp
+
+      config_name = basename.sub(/\.\d{8}_\d{6}\.bak$/, "")
+      snapshot_dir = backups_dir.join(stamp)
+      FileUtils.mkdir_p(snapshot_dir)
+      FileUtils.mv(path, snapshot_dir.join(config_name))
     end
   end
 end

@@ -5,6 +5,7 @@ module Admin
 
     def edit
       @config = ReflectorConfig.load
+      @has_certs = Dir.glob(Rails.root.join("reflector_pki", "certs", "*.crt")).any?
     end
 
     def backups

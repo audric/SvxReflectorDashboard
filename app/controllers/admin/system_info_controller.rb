@@ -18,6 +18,11 @@ module Admin
     def show
       @active_tab = params[:tab] || "info"
 
+      # For Settings tab
+      settings_keys = Admin::SettingsController::KEYS
+      settings_defaults = { "reflector_status_url" => ENV.fetch("REFLECTOR_STATUS_URL", ""), "brand_name" => ENV.fetch("BRAND_NAME", ""), "poll_interval" => "4" }
+      @settings = settings_keys.index_with { |key| Setting.get(key, settings_defaults[key]) }
+
       @info = {
         "Ruby" => RUBY_VERSION,
         "Rails" => Rails::VERSION::STRING,

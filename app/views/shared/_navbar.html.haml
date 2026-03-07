@@ -97,9 +97,6 @@
                 = link_to admin_tgs_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-ghborder2" do
                   %i.bi.bi-collection
                   Talkgroups
-                = link_to edit_admin_settings_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-ghborder2" do
-                  %i.bi.bi-gear
-                  Settings
                 - if current_user.reflector_admin?
                   = link_to edit_admin_reflector_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-ghborder2" do
                     %i.bi.bi-broadcast
@@ -145,7 +142,7 @@
     - if logged_in? && current_user.admin?
       .mt-3.pt-3.border-t.border-ghborder
         .space-y-1
-          - admin_links = [['bi-people', 'Web Users', admin_users_path], ['bi-collection', 'Talkgroups', admin_tgs_path], ['bi-gear', 'Settings', edit_admin_settings_path]]
+          - admin_links = [['bi-people', 'Web Users', admin_users_path], ['bi-collection', 'Talkgroups', admin_tgs_path]]
           - admin_links << ['bi-broadcast', 'Reflector', edit_admin_reflector_path] if current_user.reflector_admin?
           - admin_links << ['bi-diagram-3', 'Bridge', admin_bridges_path] if current_user.reflector_admin?
           - admin_links << ['bi-cpu', 'System', admin_system_info_path]

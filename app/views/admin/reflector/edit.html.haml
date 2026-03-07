@@ -150,6 +150,19 @@
           %button.text-green-400.hover:text-green-200.cursor-pointer{type: "button", onclick: "this.parentElement.remove()"}
             %i.bi.bi-x
 
+      -# ── Tab bar ──
+      .flex.border-b.border-gray-600.mb-6
+        %button.tab-btn.px-4.py-2.text-sm.font-semibold.border-b-2.cursor-pointer{type: "button", id: "tab-config", onclick: "switchTab('config')", class: "border-blue-500 text-blue-400"}
+          %i.bi.bi-gear.mr-1
+          Configuration
+        %button.tab-btn.px-4.py-2.text-sm.font-semibold.border-b-2.cursor-pointer{type: "button", id: "tab-nodeblock", onclick: "switchTab('nodeblock')", class: "border-transparent text-gray-400 hover:text-gray-200"}
+          %i.bi.bi-mic-mute.mr-1
+          Node Block
+        %button.tab-btn.px-4.py-2.text-sm.font-semibold.border-b-2.cursor-pointer{type: "button", id: "tab-certfiles", onclick: "switchTab('certfiles')", class: "border-transparent text-gray-400 hover:text-gray-200"}
+          %i.bi.bi-file-earmark-lock.mr-1
+          Certificate Files
+
+      <div id="panel-config">
       = form_with url: admin_reflector_path, method: :patch, local: true do |f|
 
         -# ── 1. Global Settings ──
@@ -221,8 +234,16 @@
             %h5.text-lg.font-semibold.text-gray-100
               %i.bi.bi-shield-lock.mr-2
               Certificates
+              - if @has_certs
+                %i.bi.bi-lock-fill.text-yellow-400.text-sm.ml-2
             %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-certs"}
           .accordion-body.px-4{id: "body-certs"}
+            - if @has_certs
+              .p-3.rounded.border.text-sm.mb-4.flex.items-center.gap-2{class: "border-yellow-700/50 text-yellow-400 bg-yellow-900/20"}
+                %i.bi.bi-lock-fill
+                Certificates are already generated. To modify these fields, reset PKI from the
+                %strong Certificate Files
+                tab first.
             - cert_fields = %w[COMMON_NAME ORG_UNIT ORG LOCALITY STATE COUNTRY EMAIL_ADDRESS SUBJECT_ALT_NAME]
             - [["ROOT_CA", :root_ca, @config.root_ca], ["ISSUING_CA", :issuing_ca, @config.issuing_ca], ["SERVER_CERT", :server_cert, @config.server_cert]].each do |label, param_key, data|
               %h6.text-sm.font-semibold.text-gray-400.mb-3.mt-4= label
@@ -234,7 +255,7 @@
                       - if help[key]
                         %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('#{key}')", title: "Help"}
                           %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
-                    %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[#{param_key}][#{key}]", value: data[key]}
+                    %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[#{param_key}][#{key}]", value: data[key], disabled: @has_certs}
 
         -# ── 3. Users (collapsed) ──
         .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
@@ -352,8 +373,10 @@
             Backups
           = link_to "Back", admin_users_path, class: "px-4 py-2 rounded-md border border-gray-600 text-gray-400 hover:text-gray-200"
 
-      -# ── 6. Node Block (runtime, outside the form) ──
-      .rounded-lg.border.border-gray-600.bg-ghcard.mb-4.mt-6
+      </div>
+      <div id="panel-nodeblock" style="display:none">
+      -# ── Node Block (runtime, outside the form) ──
+      .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
         .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('nodeblock')"}
           %h5.text-lg.font-semibold.text-gray-100
             %i.bi.bi-mic-mute.mr-2
@@ -382,8 +405,10 @@
               Block
           #block-result.mt-3.text-sm
 
-      -# ── 7. Pending Certificates (outside the form) ──
-      .rounded-lg.border.border-gray-600.bg-ghcard.mb-4.mt-6
+      </div>
+      <div id="panel-certfiles" style="display:none">
+      -# ── Pending Certificates ──
+      .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
         .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('csrs')"}
           %h5.text-lg.font-semibold.text-gray-100
             %i.bi.bi-shield-check.mr-2
@@ -398,8 +423,8 @@
           #csrs-content.text-sm.text-ghmuted
             %span.text-ghdim Click Refresh to load pending certificate requests.
 
-      -# ── 7. Our Certificates ──
-      .rounded-lg.border.border-gray-600.bg-ghcard.mb-4.mt-4
+      -# ── Our Certificates ──
+      .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
         .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('ourcerts')"}
           %h5.text-lg.font-semibold.text-gray-100
             %i.bi.bi-award.mr-2
@@ -415,8 +440,32 @@
         .accordion-body.px-4{id: "body-ourcerts"}
           #ourcerts-content.text-sm.text-ghmuted
             %span.text-ghdim Loading…
+      </div>
 
     :javascript
+      function switchTab(tab) {
+        ['config', 'nodeblock', 'certfiles'].forEach(function(t) {
+          document.getElementById('panel-' + t).style.display = t === tab ? '' : 'none';
+        });
+        document.querySelectorAll('.tab-btn').forEach(function(btn) {
+          var active = btn.id === 'tab-' + tab;
+          btn.classList.toggle('border-blue-500', active);
+          btn.classList.toggle('text-blue-400', active);
+          btn.classList.toggle('border-transparent', !active);
+          btn.classList.toggle('text-gray-400', !active);
+        });
+        if (tab === 'nodeblock') {
+          var nbBody = document.getElementById('body-nodeblock');
+          if (!nbBody.classList.contains('open')) toggleSection('nodeblock');
+        }
+        if (tab === 'certfiles') {
+          var csrBody = document.getElementById('body-csrs');
+          if (!csrBody.classList.contains('open')) toggleSection('csrs');
+          var ourBody = document.getElementById('body-ourcerts');
+          if (!ourBody.classList.contains('open')) toggleSection('ourcerts');
+        }
+      }
+
       var HELP_TEXTS = #{help.to_json};
 
       function openModal(id) { var m = document.getElementById(id); m.classList.remove('hidden'); m.classList.add('flex'); }
@@ -845,8 +894,8 @@
             .then(function(r) { return r.json(); })
             .then(function(data) {
               if (data.ok) {
-                _ourCertsLoaded = false;
-                document.getElementById('ourcerts-content').innerHTML = '<div class="flex items-center gap-2 text-green-400 py-2"><i class="bi bi-check-circle"></i> PKI reset complete. Reflector is restarting with fresh certificates.</div>';
+                window.location.reload();
+                return;
               }
               btn.innerHTML = '<i class="bi bi-trash3 mr-1"></i>Reset PKI';
               btn.disabled = false;
