@@ -48,6 +48,28 @@ class Bridge < ApplicationRecord
     has_ca_bundle = ca_bundle_path.exist?
     ca_bundle_line = "CA_BUNDLE_FILE=/var/lib/svxlink/pki/ca-bundle.crt"
 
+    # Shared optional lines for both logics
+    shared_lines = []
+    shared_lines << "JITTER_BUFFER_DELAY=#{jitter_buffer_delay}" if jitter_buffer_delay.present?
+    shared_lines << "MONITOR_TGS=#{monitor_tgs}" if monitor_tgs.present?
+    shared_lines << "TG_SELECT_TIMEOUT=#{tg_select_timeout}" if tg_select_timeout.present?
+    shared_lines << "MUTE_FIRST_TX_LOC=1" if mute_first_tx_loc?
+    shared_lines << "MUTE_FIRST_TX_REM=1" if mute_first_tx_rem?
+    shared_lines << "VERBOSE=0" if verbose == false
+    shared_lines << "UDP_HEARTBEAT_INTERVAL=#{udp_heartbeat_interval}" if udp_heartbeat_interval.present?
+    shared_lines << ca_bundle_line if has_ca_bundle
+
+    # Certificate subject fields
+    cert_lines = []
+    cert_lines << "CERT_SUBJ_C=#{cert_subj_c}" if cert_subj_c.present?
+    cert_lines << "CERT_SUBJ_O=#{cert_subj_o}" if cert_subj_o.present?
+    cert_lines << "CERT_SUBJ_OU=#{cert_subj_ou}" if cert_subj_ou.present?
+    cert_lines << "CERT_SUBJ_L=#{cert_subj_l}" if cert_subj_l.present?
+    cert_lines << "CERT_SUBJ_ST=#{cert_subj_st}" if cert_subj_st.present?
+    cert_lines << "CERT_SUBJ_GN=#{cert_subj_gn}" if cert_subj_gn.present?
+    cert_lines << "CERT_SUBJ_SN=#{cert_subj_sn}" if cert_subj_sn.present?
+    cert_lines << "CERT_EMAIL=#{cert_email}" if cert_email.present?
+
     lines << "[ReflectorLogicLocal]"
     lines << "TYPE=ReflectorV2"
     lines << "HOST=#{local_host}"
@@ -55,7 +77,8 @@ class Bridge < ApplicationRecord
     lines << "CALLSIGN=#{local_callsign}"
     lines << "AUTH_KEY=#{local_auth_key}"
     lines << "DEFAULT_TG=#{local_default_tg}"
-    lines << ca_bundle_line if has_ca_bundle
+    lines.concat(shared_lines)
+    lines.concat(cert_lines)
     lines << ""
 
     lines << "[ReflectorLogicRemote]"
@@ -65,7 +88,8 @@ class Bridge < ApplicationRecord
     lines << "CALLSIGN=#{remote_callsign}"
     lines << "AUTH_KEY=#{remote_auth_key}"
     lines << "DEFAULT_TG=#{remote_default_tg}"
-    lines << ca_bundle_line if has_ca_bundle
+    lines.concat(shared_lines)
+    lines.concat(cert_lines)
 
     mappings.each_with_index do |mapping, i|
       lines << ""

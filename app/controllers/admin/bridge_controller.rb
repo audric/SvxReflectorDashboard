@@ -91,7 +91,12 @@ module Admin
         :name, :local_host, :local_port, :local_callsign, :local_auth_key,
         :local_default_tg, :remote_host, :remote_port, :remote_callsign,
         :remote_auth_key, :remote_default_tg, :timeout, :enabled,
-        :remote_ca_bundle
+        :remote_ca_bundle,
+        :jitter_buffer_delay, :monitor_tgs, :tg_select_timeout,
+        :mute_first_tx_loc, :mute_first_tx_rem, :verbose,
+        :udp_heartbeat_interval,
+        :cert_subj_c, :cert_subj_o, :cert_subj_ou, :cert_subj_l,
+        :cert_subj_st, :cert_subj_gn, :cert_subj_sn, :cert_email
       )
     end
 

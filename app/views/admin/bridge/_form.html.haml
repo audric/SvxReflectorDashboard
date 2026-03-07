@@ -71,6 +71,73 @@
           %span.text-xs.text-gray-600.ml-1 (paste PEM from the remote reflector's CA export)
         = f.text_area :remote_ca_bundle, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-xs font-mono bg-[#0d1117] text-ghtext", rows: 6, placeholder: "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
 
+  -# ── Advanced Options (collapsible) ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('advanced')"}
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-sliders.mr-2
+        Advanced Options
+      %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-advanced"}
+    .accordion-body.px-4{id: "body-advanced"}
+      .grid.grid-cols-1.md:grid-cols-2.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 JITTER_BUFFER_DELAY (ms)
+          = f.number_field :jitter_buffer_delay, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 0, placeholder: "0"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 MONITOR_TGS
+          = f.text_field :monitor_tgs, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. 1,2,3"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 TG_SELECT_TIMEOUT (seconds)
+          = f.number_field :tg_select_timeout, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1, placeholder: "30"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 UDP_HEARTBEAT_INTERVAL (seconds)
+          = f.number_field :udp_heartbeat_interval, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1, placeholder: "15"
+      .grid.grid-cols-1.md:grid-cols-3.gap-4.mt-3
+        .mb-1.flex.items-center.gap-2
+          = f.check_box :mute_first_tx_loc, class: "rounded border-gray-600 bg-[#0d1117]"
+          %label.text-sm.text-gray-400 MUTE_FIRST_TX_LOC
+        .mb-1.flex.items-center.gap-2
+          = f.check_box :mute_first_tx_rem, class: "rounded border-gray-600 bg-[#0d1117]"
+          %label.text-sm.text-gray-400 MUTE_FIRST_TX_REM
+        .mb-1.flex.items-center.gap-2
+          = f.check_box :verbose, class: "rounded border-gray-600 bg-[#0d1117]", checked: @bridge.verbose.nil? || @bridge.verbose?
+          %label.text-sm.text-gray-400 VERBOSE
+
+  -# ── Certificate Subject (collapsible) ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('cert')"}
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-shield-lock.mr-2
+        Certificate Subject
+      %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-cert"}
+    .accordion-body.px-4{id: "body-cert"}
+      %p.text-xs.text-ghmuted.mb-3 Fields included in the CSR sent to the reflector when connecting. Changing these will trigger a new CSR.
+      .grid.grid-cols-1.md:grid-cols-2.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 Country (C)
+          = f.text_field :cert_subj_c, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "IT", maxlength: 2
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 Organization (O)
+          = f.text_field :cert_subj_o, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "BRIDGE"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 Organizational Unit (OU)
+          = f.text_field :cert_subj_ou, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "SVX"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 Locality (L)
+          = f.text_field :cert_subj_l, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "City"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 State/Province (ST)
+          = f.text_field :cert_subj_st, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "Province"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 Given Name (GN)
+          = f.text_field :cert_subj_gn, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "John"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 Surname (SN)
+          = f.text_field :cert_subj_sn, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "Doe"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 Email
+          = f.email_field :cert_email, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "call@example.com"
+
   -# ── TG Mappings (collapsible) ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
     .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('mappings')"}

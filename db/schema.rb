@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_06_210149) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_07_011847) do
   create_table "bridge_tg_mappings", force: :cascade do |t|
     t.integer "bridge_id", null: false
     t.datetime "created_at", null: false
@@ -24,13 +24,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_06_210149) do
   create_table "bridges", force: :cascade do |t|
     t.integer "bridge_local_tg"
     t.integer "bridge_remote_tg"
+    t.string "cert_email"
+    t.string "cert_subj_c"
+    t.string "cert_subj_gn"
+    t.string "cert_subj_l"
+    t.string "cert_subj_o"
+    t.string "cert_subj_ou"
+    t.string "cert_subj_sn"
+    t.string "cert_subj_st"
     t.datetime "created_at", null: false
     t.boolean "enabled", default: false
+    t.integer "jitter_buffer_delay"
     t.string "local_auth_key"
     t.string "local_callsign"
     t.integer "local_default_tg"
     t.string "local_host"
     t.integer "local_port"
+    t.string "monitor_tgs"
+    t.boolean "mute_first_tx_loc"
+    t.boolean "mute_first_tx_rem"
     t.string "name"
     t.string "remote_auth_key"
     t.text "remote_ca_bundle"
@@ -38,8 +50,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_06_210149) do
     t.integer "remote_default_tg"
     t.string "remote_host"
     t.integer "remote_port"
+    t.integer "tg_select_timeout"
     t.integer "timeout"
+    t.integer "udp_heartbeat_interval"
     t.datetime "updated_at", null: false
+    t.boolean "verbose"
   end
 
   create_table "ctcss_tones", force: :cascade do |t|
