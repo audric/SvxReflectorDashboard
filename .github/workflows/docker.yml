@@ -21,6 +21,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate REVISION and changelog
+        run: |
+          git rev-parse HEAD > public/REVISION
+          ruby -rjson -e '
+            grouped = {}
+            `git log --format="%h\t%ai\t%s" --no-merges`.each_line do |l|
+              sha, date, msg = l.strip.split("\t", 3)
+              next unless sha && date && msg
+              d = date[0,10]
+              (grouped[d] ||= []) << {sha: sha, message: msg}
+            end
+            File.write("public/changelog.json", JSON.pretty_generate(
+              grouped.map { |d, cs| {date: d, commits: cs} }
+            ))
+          '
 
       - uses: docker/setup-qemu-action@v3
 

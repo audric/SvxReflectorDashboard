@@ -1,0 +1,637 @@
+[
+  {
+    "date": "2026-03-08",
+    "commits": [
+      {
+        "sha": "8e522bb",
+        "message": "Use HOSTS/HOST_PORT instead of deprecated HOST/PORT in bridge configs"
+      },
+      {
+        "sha": "fb4863d",
+        "message": "Add bridge TG mapping and remote host info to dashboard node cards"
+      },
+      {
+        "sha": "451572b",
+        "message": "Fix cert config sections silently dropped when saving reflector settings"
+      }
+    ]
+  },
+  {
+    "date": "2026-03-07",
+    "commits": [
+      {
+        "sha": "687aab9",
+        "message": "Add SQL_TIMEOUT countdown timer to dashboard node cards"
+      },
+      {
+        "sha": "fc9ba0a",
+        "message": "Use broadcast icon as live indicator, show brand name on all pages"
+      },
+      {
+        "sha": "f15cb44",
+        "message": "Update docker-compose and docs for ghcr.io pre-built multi-arch images"
+      },
+      {
+        "sha": "d717cf2",
+        "message": "Switch Docker workflow to GitHub Container Registry (ghcr.io)"
+      },
+      {
+        "sha": "4fcd96e",
+        "message": "Add GitHub Actions workflow for multi-arch Docker builds (amd64 + arm64)"
+      },
+      {
+        "sha": "10d5f7a",
+        "message": "Add screenshots to wiki pages (dashboard, map, stats, admin panels)"
+      },
+      {
+        "sha": "ac6e1e9",
+        "message": "Add Node Block documentation to Configuration wiki page"
+      },
+      {
+        "sha": "7c9d30b",
+        "message": "Expand User Management wiki: audio setup guide, reflector-side config, PTT flow"
+      },
+      {
+        "sha": "9631a8e",
+        "message": "Update User Management wiki: add reflector_admin, contact fields, self-protection"
+      },
+      {
+        "sha": "49f5ce8",
+        "message": "Remove CLAUDE.md from git tracking (already in .gitignore)"
+      },
+      {
+        "sha": "a530be5",
+        "message": "Update docs: replace Bootstrap 5 with Tailwind CSS, add Bridges wiki page"
+      },
+      {
+        "sha": "34051f3",
+        "message": "Admin UI improvements: tabs, snapshot backups, cert locking, settings merge"
+      },
+      {
+        "sha": "24e24f1",
+        "message": "Remove activity log from sidebar and dashboard"
+      },
+      {
+        "sha": "51ca009",
+        "message": "Reduce spacing around sidebar admin section divider"
+      },
+      {
+        "sha": "3d374d6",
+        "message": "Fix New Bridge dropdown misplaced inside flash alert block"
+      },
+      {
+        "sha": "ce874bf",
+        "message": "Back up all bridge config files (node_info.json, ModuleEchoLink.conf)"
+      },
+      {
+        "sha": "78e743c",
+        "message": "Remove Admin section title from sidebar"
+      },
+      {
+        "sha": "04c925a",
+        "message": "Fix dashboard not updating nodeLocation on WebSocket updates"
+      },
+      {
+        "sha": "5c14156",
+        "message": "Standardize admin page layout: consistent widths, titles, and flash messages"
+      },
+      {
+        "sha": "3b9f03f",
+        "message": "Consolidate System Info, Logs, and Debug into single tabbed System page"
+      },
+      {
+        "sha": "d00c42a",
+        "message": "Add EchoLink bridge type with full config generation and UI"
+      },
+      {
+        "sha": "aa2c753",
+        "message": "Add help icons with descriptions to all bridge form fields"
+      },
+      {
+        "sha": "337cf22",
+        "message": "Add node_info.json generation, node_location and sysop fields to bridges"
+      },
+      {
+        "sha": "63d415e",
+        "message": "Add node block/unblock controls to dashboard for reflector admins"
+      },
+      {
+        "sha": "2d479ce",
+        "message": "Add advanced options and certificate subject fields to bridge config"
+      },
+      {
+        "sha": "d3271b7",
+        "message": "Use ReflectorV2 protocol for bridge connections"
+      },
+      {
+        "sha": "a96a55a",
+        "message": "Add node block and certificate revocation features to reflector admin"
+      },
+      {
+        "sha": "3440e5d",
+        "message": "Fix bridge container lifecycle, log viewer bugs, and add CA_BUNDLE_FILE to bridge config"
+      }
+    ]
+  },
+  {
+    "date": "2026-03-06",
+    "commits": [
+      {
+        "sha": "473290e",
+        "message": "Ignore docker-compose.override.yml"
+      },
+      {
+        "sha": "b1d9e61",
+        "message": "Fix OpenStruct not available in production: use Struct instead"
+      },
+      {
+        "sha": "9098088",
+        "message": "Remove tracked bridge config and ignore sensitive files"
+      },
+      {
+        "sha": "7dccbc2",
+        "message": "Add PKI management UI, per-bridge remote CA bundle, and TG descriptions"
+      },
+      {
+        "sha": "89b6e59",
+        "message": "Add multi-TG mappings, config backups, collapsible form, and name change warning for bridges"
+      },
+      {
+        "sha": "806c2ce",
+        "message": "Add SVXLink bridge management and container log viewer"
+      },
+      {
+        "sha": "a5bac18",
+        "message": "Show link icon for bridge nodes on TG Map at connected TG intersections"
+      },
+      {
+        "sha": "9716423",
+        "message": "Refresh audio bridge TTL on PTT, TG select, and periodic keepalive"
+      },
+      {
+        "sha": "f9ead74",
+        "message": "Fix audio disconnecting on navigation: preserve state across page loads"
+      },
+      {
+        "sha": "84a6da9",
+        "message": "Fix disk info not showing in Docker: stop filtering overlay filesystem"
+      },
+      {
+        "sha": "bf9ce1e",
+        "message": "Make Redis debug page live with 3s polling"
+      },
+      {
+        "sha": "3a67584",
+        "message": "Add Redis debug page under /admin/debug"
+      },
+      {
+        "sha": "ce0ac76",
+        "message": "Add admin TG CRUD, TG Map on /tg, auto-dismiss flashes, fix stale audio bridge sessions"
+      },
+      {
+        "sha": "cf969e7",
+        "message": "Fix addLog crash for non-admin users missing activity log element"
+      },
+      {
+        "sha": "2fdbb25",
+        "message": "Fix XSS: complete HTML escaping in toast notifications"
+      },
+      {
+        "sha": "5ebc3ed",
+        "message": "Compact memory card on System Info page"
+      },
+      {
+        "sha": "f231e85",
+        "message": "Add compact/detailed toggle for node cards on dashboard"
+      },
+      {
+        "sha": "e4b2478",
+        "message": "Rework dashboard layout: move activity log to sidebar, compact KPIs, 5-col node grid"
+      },
+      {
+        "sha": "35c1802",
+        "message": "Add light/dark theme toggle, enhance System Info with host/memory/disk panels, and add config backup browser"
+      },
+      {
+        "sha": "61f88e8",
+        "message": "Backup reflector config before each save (keep last 10)"
+      },
+      {
+        "sha": "d565726",
+        "message": "Harden Docker services and vendor all CDN assets locally"
+      },
+      {
+        "sha": "e67c896",
+        "message": "Switch svxlink-docker to own fork for build resilience"
+      },
+      {
+        "sha": "f0abe8d",
+        "message": "Add System Info page and improve admin panels"
+      }
+    ]
+  },
+  {
+    "date": "2026-03-05",
+    "commits": [
+      {
+        "sha": "dd70f2e",
+        "message": "Add Caddy reverse proxy with automatic HTTPS"
+      },
+      {
+        "sha": "dc0df47",
+        "message": "Fix default admin callsign in wiki (ADMIN → ADM1N)"
+      },
+      {
+        "sha": "08d012b",
+        "message": "Update README and wiki with recent changes"
+      },
+      {
+        "sha": "48fa319",
+        "message": "Fix TG switch reusing WebSocket instead of teardown/reconnect"
+      },
+      {
+        "sha": "6dc18c7",
+        "message": "Fix repeater shift calculation on TG matrix page"
+      },
+      {
+        "sha": "ca85053",
+        "message": "Replace browser alert() calls with styled toast notifications"
+      },
+      {
+        "sha": "c545001",
+        "message": "Rename admin \"Users\" to \"Web Users\""
+      },
+      {
+        "sha": "b7ca6f5",
+        "message": "Replace browser confirm() with styled delete confirmation modal"
+      },
+      {
+        "sha": "4f7dfa0",
+        "message": "Collapse all panels by default on reflector config page"
+      },
+      {
+        "sha": "2e55e0c",
+        "message": "Disconnect Tune In audio on logout"
+      },
+      {
+        "sha": "fbbcf5a",
+        "message": "Fix Tune In PTT removing all node cards from dashboard"
+      },
+      {
+        "sha": "b5b8f20",
+        "message": "Show user callsign in Reflector Auth Key label"
+      },
+      {
+        "sha": "8897aa3",
+        "message": "Preserve Tune In audio across Turbo navigations"
+      },
+      {
+        "sha": "c201287",
+        "message": "Raise spectrum analyzer floor for more dynamic visual range"
+      },
+      {
+        "sha": "aa49843",
+        "message": "Improve spectrum analyzer and CW roger beep spectral purity"
+      },
+      {
+        "sha": "7575231",
+        "message": "Play CW roger beep locally so the user hears it too"
+      },
+      {
+        "sha": "7b2428b",
+        "message": "Fix web node card: live browser info, instant PTT updates, Firefox layout"
+      },
+      {
+        "sha": "91713bb",
+        "message": "Add CW roger beep option for PTT transmissions"
+      },
+      {
+        "sha": "98e86b6",
+        "message": "Deduplicate docker-compose env vars with YAML anchor and env_file"
+      },
+      {
+        "sha": "be99067",
+        "message": "Enable ActionCable CSRF protection with optional allowed origins"
+      },
+      {
+        "sha": "ca059f7",
+        "message": "Surface auth/connection errors from Go bridge to browser"
+      }
+    ]
+  },
+  {
+    "date": "2026-03-04",
+    "commits": [
+      {
+        "sha": "fbf74f5",
+        "message": "Add docker-compose.override.yml to .dockerignore"
+      },
+      {
+        "sha": "7111770",
+        "message": "Redesign error pages to match dark dashboard theme"
+      },
+      {
+        "sha": "51d3af1",
+        "message": "Add GPL-3.0 license"
+      },
+      {
+        "sha": "de74a07",
+        "message": "Add compiled Go binary and reflector config dir to .gitignore"
+      },
+      {
+        "sha": "e263e7b",
+        "message": "Add SVXReflector config guide and CLI operations to wiki docs"
+      },
+      {
+        "sha": "0bfb48b",
+        "message": "Refactor audio bridge to support multiple concurrent sessions"
+      },
+      {
+        "sha": "a798573",
+        "message": "Add dismissible flash messages with auto-fade on login page"
+      },
+      {
+        "sha": "befe346",
+        "message": "Include callsign in audio channel disconnect and TX messages"
+      },
+      {
+        "sha": "c8ecc2e",
+        "message": "Add accordion UI, missing config sections, and field help popups to reflector config"
+      },
+      {
+        "sha": "8ec82bf",
+        "message": "Fix container name match to target svxreflector, not updater"
+      },
+      {
+        "sha": "0d82366",
+        "message": "Grant rails user Docker socket access for reflector restart"
+      },
+      {
+        "sha": "57a8e8c",
+        "message": "Fix Docker socket restart using raw HTTP/1.0 requests"
+      },
+      {
+        "sha": "568f59f",
+        "message": "Set seed admin as approved so login works immediately"
+      },
+      {
+        "sha": "f0a28ac",
+        "message": "Fix seed admin callsign to pass validation (ADM1N)"
+      },
+      {
+        "sha": "664332f",
+        "message": "Add SERVER_CERT section to default reflector config"
+      },
+      {
+        "sha": "4188123",
+        "message": "Mount reflector dir instead of file to avoid Docker dir-as-file bug"
+      },
+      {
+        "sha": "e58f69f",
+        "message": "Fix init container: remove dir-as-file and use inline printf"
+      },
+      {
+        "sha": "b9c216e",
+        "message": "Add init service to create default reflector config on fresh clone"
+      },
+      {
+        "sha": "8f2e9f5",
+        "message": "Add svxreflector service to Architecture wiki"
+      },
+      {
+        "sha": "20b7fb2",
+        "message": "Document SVXReflector web admin configuration UI"
+      },
+      {
+        "sha": "ca38970",
+        "message": "Update docs with S-meter and spectrum analyser features"
+      },
+      {
+        "sha": "fabf64d",
+        "message": "Fix Docker build by creating reflector dir before chown"
+      },
+      {
+        "sha": "6dc8469",
+        "message": "Add Matrix rain easter egg on brand name after 10 clicks"
+      },
+      {
+        "sha": "a6ba310",
+        "message": "Add S-meter and spectrum analyser to Tune In audio player"
+      },
+      {
+        "sha": "17a3704",
+        "message": "Add web admin UI for SVXReflector configuration"
+      }
+    ]
+  },
+  {
+    "date": "2026-03-03",
+    "commits": [
+      {
+        "sha": "62bfa6a",
+        "message": "Slim down README and add GitHub wiki pages"
+      },
+      {
+        "sha": "7ca1c0c",
+        "message": "Update README with audio bridge, user auth, and current architecture"
+      },
+      {
+        "sha": "3b3e4d4",
+        "message": "Remove admin CRUD for nodes, node_classes, talkgroups, and ctcss_tones"
+      },
+      {
+        "sha": "ceec7f3",
+        "message": "Build qth structure for web listeners so map shows their marker"
+      },
+      {
+        "sha": "261ea75",
+        "message": "Enrich web listener node card with browser/location info and fix PTT"
+      },
+      {
+        "sha": "5a58a2f",
+        "message": "Add PTT transmit, per-user reflector auth and on-demand bridge sessions"
+      },
+      {
+        "sha": "0a752af",
+        "message": "Add live TG audio monitoring with Go audio bridge"
+      }
+    ]
+  },
+  {
+    "date": "2026-03-01",
+    "commits": [
+      {
+        "sha": "e0ae8fd",
+        "message": "Increase TG matrix height on desktop to fill screen"
+      },
+      {
+        "sha": "ccf0331",
+        "message": "Remove top padding on map page for full-screen map on desktop"
+      },
+      {
+        "sha": "c86ed93",
+        "message": "Add top padding on large screens for sidebar layout"
+      },
+      {
+        "sha": "079caec",
+        "message": "Fix WS indicator losing js-ws-dot class on state change"
+      },
+      {
+        "sha": "36b2db9",
+        "message": "Disable ActionCable forgery protection in development"
+      },
+      {
+        "sha": "30e82cc",
+        "message": "Add admin CRUD for nodes, node classes, talkgroups, and CTCSS tones"
+      },
+      {
+        "sha": "ca9a0af",
+        "message": "Add ALLOWED_HOST env var for Rails host checking"
+      },
+      {
+        "sha": "a6b1b3e",
+        "message": "Fix runtime permissions for db, log, and tmp directories"
+      },
+      {
+        "sha": "08e47e5",
+        "message": "Add aarch64-linux platform to Gemfile.lock"
+      },
+      {
+        "sha": "e3579ca",
+        "message": "Set BUNDLE_FROZEN=true to prevent Gemfile.lock writes in production"
+      },
+      {
+        "sha": "a39a213",
+        "message": "Fix Gemfile.lock permission for non-root rails user"
+      },
+      {
+        "sha": "4fc2c87",
+        "message": "Add vertical sidebar navigation for large screens"
+      }
+    ]
+  },
+  {
+    "date": "2026-02-27",
+    "commits": [
+      {
+        "sha": "5b08df4",
+        "message": "Enforce minimum 8-character password policy"
+      },
+      {
+        "sha": "16eb4d3",
+        "message": "Add public user registration with admin approval workflow"
+      },
+      {
+        "sha": "803823d",
+        "message": "Navbar plain links with responsive mobile menu and admin-only activity log"
+      },
+      {
+        "sha": "46713e9",
+        "message": "Migrate from Bootstrap 5 to Tailwind CSS via CDN"
+      },
+      {
+        "sha": "8978e62",
+        "message": "Add CTCSS tones table with 50 standard EIA/TIA-603 tones seeded"
+      }
+    ]
+  },
+  {
+    "date": "2026-02-24",
+    "commits": [
+      {
+        "sha": "aeba799",
+        "message": "Fix SQLite readonly error on fresh deploys by fixing volume permissions"
+      },
+      {
+        "sha": "29c88a7",
+        "message": "Disable host authorization for self-hosted deployments"
+      }
+    ]
+  },
+  {
+    "date": "2026-02-23",
+    "commits": [
+      {
+        "sha": "6c271f7",
+        "message": "Add CHIRP CSV export to TG matrix page"
+      },
+      {
+        "sha": "1703449",
+        "message": "Add TX frequency and offset to TG matrix node column"
+      },
+      {
+        "sha": "58841b6",
+        "message": "Add consistent live indicator across all pages and UI improvements"
+      },
+      {
+        "sha": "42cd5fa",
+        "message": "Add configurable poll interval (1-10s) to admin settings"
+      },
+      {
+        "sha": "b0c52e3",
+        "message": "Show % for positive signal levels, remove decimals from dBm and %"
+      },
+      {
+        "sha": "c27bc99",
+        "message": "Only show dBm unit when signal level is negative"
+      },
+      {
+        "sha": "85ce7fe",
+        "message": "Add admin settings page for reflector URL and brand name"
+      },
+      {
+        "sha": "6f54fbd",
+        "message": "Fix action buttons layout in admin users table"
+      },
+      {
+        "sha": "dfc38c5",
+        "message": "Use production DB in dev override and auto-precompile assets"
+      },
+      {
+        "sha": "c2459d4",
+        "message": "Fix dev override: run as root and bind Puma to 0.0.0.0"
+      },
+      {
+        "sha": "9f26551",
+        "message": "Add docker-compose.override.yml for local development"
+      },
+      {
+        "sha": "fe1420d",
+        "message": "Prevent admins from changing their own role"
+      },
+      {
+        "sha": "b7b04e4",
+        "message": "Add name, email, mobile and telegram fields to users"
+      },
+      {
+        "sha": "fde83c0",
+        "message": "Read node data from Redis cache instead of blocking on reflector HTTP"
+      },
+      {
+        "sha": "908f486",
+        "message": "Add user authentication and admin panel"
+      },
+      {
+        "sha": "996404d",
+        "message": "Upgrade Rails from 7.1 to 8.x"
+      },
+      {
+        "sha": "501810a",
+        "message": "Add Claude Code instructions and improve Docker config"
+      }
+    ]
+  },
+  {
+    "date": "2026-02-19",
+    "commits": [
+      {
+        "sha": "eef3515",
+        "message": "Update clone command with actual repository URL"
+      },
+      {
+        "sha": "e097022",
+        "message": "Initial commit"
+      }
+    ]
+  }
+]
