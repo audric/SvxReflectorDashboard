@@ -3,6 +3,54 @@
     "date": "2026-03-08",
     "commits": [
       {
+        "sha": "b50f4db",
+        "message": "Auto-generate ACTIVATE_ON_ACTIVITY from CONNECT_LOGICS, remove from form"
+      },
+      {
+        "sha": "27051f6",
+        "message": "Add ACTIVATE_ON_ACTIVITY field to bridge TG mappings"
+      },
+      {
+        "sha": "d31b48f",
+        "message": "Fix missing TG Map icons for bridges monitoring multiple talkgroups"
+      },
+      {
+        "sha": "0209dcb",
+        "message": "Show counts on bridge filter tabs"
+      },
+      {
+        "sha": "960160c",
+        "message": "Add filter tabs to bridge index (All, Bridges, EchoLink)"
+      },
+      {
+        "sha": "3a3deb0",
+        "message": "Remove location from bridge index listing"
+      },
+      {
+        "sha": "354283d",
+        "message": "Move backup browser from bridge edit page to bridge index"
+      },
+      {
+        "sha": "7c0ea1b",
+        "message": "Add DEFAULT_ACTIVE toggle to EchoLink bridge config"
+      },
+      {
+        "sha": "283145c",
+        "message": "Add DEFAULT_ACTIVE toggle to bridge TG mappings"
+      },
+      {
+        "sha": "7f16749",
+        "message": "Add node type filter buttons to dashboard (all, repeaters, bridges, echolink)"
+      },
+      {
+        "sha": "37daa53",
+        "message": "Disable bridge delete button while container is running"
+      },
+      {
+        "sha": "cfc87aa",
+        "message": "Regenerate changelog.json"
+      },
+      {
         "sha": "6e7957c",
         "message": "Remove host port bindings from EchoLink bridge containers"
       },
