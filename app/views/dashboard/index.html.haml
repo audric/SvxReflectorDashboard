@@ -123,6 +123,7 @@
 
       .tone-table { font-size: .73rem; font-family: monospace; }
       .compact-nodes .node-detail { display: none !important; }
+      .filter-btn.active { background: #1f3a5f; color: #79c0ff; }
       .tone-row {
         display: flex;
         justify-content: space-between;
@@ -180,6 +181,19 @@
         %button#toggle-detail.ml-2.px-2.py-0.5.text-xs.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.hover:border-gray-500.cursor-pointer.transition-colors{type: "button", title: "Toggle node details"}
           %i.bi.bi-eye-fill#toggle-detail-icon
           %span#toggle-detail-label Detailed
+        .ml-3.inline-flex.rounded.border.border-ghborder.overflow-hidden#node-filters
+          %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", "data-filter" => "all"}
+            %i.bi.bi-grid.mr-1
+            All
+          %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "repeater"}
+            %i.bi.bi-arrow-repeat.mr-1
+            Repeaters
+          %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "bridge"}
+            %i.bi.bi-link-45deg.mr-1
+            Bridges
+          %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "echolink"}
+            %i.bi.bi-headset.mr-1
+            EchoLink
 
       .grid.grid-cols-1.sm:grid-cols-2.xl:grid-cols-3.2xl:grid-cols-5.gap-3#nodes-grid
         - visible = @nodes.reject { |_, n| n['hidden'] }
@@ -197,7 +211,7 @@
           - node_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'simplex' => 'bi-broadcast' }.fetch(node['nodeClass'].to_s, 'bi-broadcast')
           - rx_ports  = (node['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }
 
-          %div{id: "node-col-#{callsign}"}
+          %div{id: "node-col-#{callsign}", "data-node-class" => node['nodeClass'].to_s.downcase}
             .rounded-lg.node-card.h-full{class: st_cls, id: "node-#{callsign}", "data-callsign" => callsign}
 
               -# ── Card header: callsign + mic + status badge ──
@@ -682,6 +696,7 @@
 
           var colEl = document.createElement('div');
           colEl.id = 'node-col-' + callsign;
+          colEl.setAttribute('data-node-class', (n.nodeClass || '').toLowerCase());
           colEl.appendChild(card);
 
           var grid = document.getElementById('nodes-grid');
@@ -689,6 +704,9 @@
             // Remove the "no nodes connected" placeholder if present
             var empty = grid.querySelector('.text-center.py-5');
             if (empty) empty.remove();
+            // Apply current filter
+            var f = localStorage.getItem('nodes-filter') || 'all';
+            if (f !== 'all' && colEl.dataset.nodeClass !== f) colEl.style.display = 'none';
             grid.appendChild(colEl);
           }
         }
@@ -787,6 +805,24 @@
           compact = !compact;
           localStorage.setItem('nodes-compact', compact ? '1' : '0');
           applyCompact();
+        });
+
+        // ── Node class filter ──
+        var currentFilter = localStorage.getItem('nodes-filter') || 'all';
+        var filterBtns = document.querySelectorAll('.filter-btn');
+        function applyFilter() {
+          filterBtns.forEach(function(b) { b.classList.toggle('active', b.dataset.filter === currentFilter); });
+          grid.querySelectorAll('[data-node-class]').forEach(function(col) {
+            col.style.display = (currentFilter === 'all' || col.dataset.nodeClass === currentFilter) ? '' : 'none';
+          });
+        }
+        applyFilter();
+        filterBtns.forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            currentFilter = btn.dataset.filter;
+            localStorage.setItem('nodes-filter', currentFilter);
+            applyFilter();
+          });
         });
       })();
 
