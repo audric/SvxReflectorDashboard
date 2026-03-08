@@ -1,7 +1,7 @@
 -# Help texts from official svxlink.conf(5) and ModuleEchoLink.conf(5) man pages
 - help = {}
-- help["HOST"] = "The hostname or IP address of the SvxReflector server to connect to."
-- help["PORT"] = "The TCP/UDP port used when connecting to the SvxReflector server. The default is 5300."
+- help["HOST"] = "The hostname or IP address of the SvxReflector server to connect to. Multiple hosts can be specified separated by commas for failover."
+- help["PORT"] = "The TCP/UDP port used when connecting to the SvxReflector server. The default is 5300. Mapped to HOST_PORT in the generated config."
 - help["CALLSIGN"] = "The callsign used to identify this connection to the reflector. Must be unique on the reflector."
 - help["AUTH_KEY"] = "The authentication key (shared secret) used when connecting to the reflector."
 - help["DEFAULT_TG"] = "The default talk group to select when the connection to the reflector has been established."

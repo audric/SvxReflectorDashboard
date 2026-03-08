@@ -154,8 +154,8 @@ class Bridge < ApplicationRecord
 
     lines << "[ReflectorLogicLocal]"
     lines << "TYPE=ReflectorV2"
-    lines << "HOST=#{local_host}"
-    lines << "PORT=#{local_port}"
+    lines << "HOSTS=#{local_host}"
+    lines << "HOST_PORT=#{local_port}"
     lines << "CALLSIGN=#{local_callsign}"
     lines << "AUTH_KEY=#{local_auth_key}"
     lines << "DEFAULT_TG=#{local_default_tg}"
@@ -165,8 +165,8 @@ class Bridge < ApplicationRecord
 
     lines << "[ReflectorLogicRemote]"
     lines << "TYPE=ReflectorV2"
-    lines << "HOST=#{remote_host}"
-    lines << "PORT=#{remote_port}"
+    lines << "HOSTS=#{remote_host}"
+    lines << "HOST_PORT=#{remote_port}"
     lines << "CALLSIGN=#{remote_callsign}"
     lines << "AUTH_KEY=#{remote_auth_key}"
     lines << "DEFAULT_TG=#{remote_default_tg}"
@@ -226,8 +226,8 @@ class Bridge < ApplicationRecord
     # ReflectorLogic connects to our local reflector
     lines << "[ReflectorLogicLocal]"
     lines << "TYPE=ReflectorV2"
-    lines << "HOST=#{local_host}"
-    lines << "PORT=#{local_port}"
+    lines << "HOSTS=#{local_host}"
+    lines << "HOST_PORT=#{local_port}"
     lines << "CALLSIGN=#{local_callsign}"
     lines << "AUTH_KEY=#{local_auth_key}"
     lines << "DEFAULT_TG=#{local_default_tg}"
