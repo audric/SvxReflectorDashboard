@@ -394,10 +394,6 @@
   -# ── Save ──
   .flex.gap-2
     = f.submit class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
-    - if @bridge.persisted?
-      %button.px-4.py-2.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "openBackups()"}
-        %i.bi.bi-clock-history.mr-1
-        Backups
     = link_to "Cancel", admin_bridges_path, class: "px-4 py-2 rounded-md border border-gray-600 text-gray-400 hover:text-gray-200"
 
 :css
