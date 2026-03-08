@@ -3,6 +3,14 @@
     "date": "2026-03-08",
     "commits": [
       {
+        "sha": "0ea7441",
+        "message": "Fix changelog panels showing remote commits instead of local deployed ones"
+      },
+      {
+        "sha": "1047e15",
+        "message": "Show bridge sysop on admin bridges index page"
+      },
+      {
         "sha": "3b00d41",
         "message": "Add popup showing missing commits when update banner is clicked"
       },

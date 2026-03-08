@@ -334,17 +334,6 @@
         #changelog-content
           %span.text-ghmuted.text-sm Loading changelog…
 
-    -# ── Missing updates modal ──
-    #missing-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
-      .bg-ghcard.border.border-gray-600.rounded-lg.max-w-2xl.w-full.mx-4.shadow-xl.flex.flex-col{style: "max-height: 80vh"}
-        .flex.items-center.justify-between.px-5.py-4.border-b.border-ghborder.shrink-0
-          %h6.text-base.font-semibold.text-gray-100
-            %i.bi.bi-arrow-up-circle.mr-2
-            Available Updates
-          %button.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "closeMissing()"}
-            %i.bi.bi-x-lg
-        #missing-body.overflow-y-auto.px-5.py-4
-
     :javascript
       // ── Tab switching ──
       function switchTab(tab) {
@@ -568,26 +557,33 @@
       var changelogLoaded = false;
       var GITHUB_RAW = 'https://raw.githubusercontent.com/audric/SvxReflectorDashboard/main/public/';
 
-      function renderChangelog(days, localSha, remoteDays) {
+      function renderChangelog(localDays, localSha, remoteDays) {
         var container = document.getElementById('changelog-content');
         var html = '';
 
-        // Find how many remote commits are newer than local build
-        _missingCommits = [];
-        if (remoteDays && localSha) {
-          var found = false;
-          for (var ri = 0; ri < remoteDays.length && !found; ri++) {
-            for (var ci = 0; ci < remoteDays[ri].commits.length; ci++) {
-              if (localSha.indexOf(remoteDays[ri].commits[ci].sha) === 0) { found = true; break; }
-              _missingCommits.push(remoteDays[ri].commits[ci]);
-            }
-          }
-          if (_missingCommits.length > 0) {
-            html += '<div class="p-3 rounded border text-sm mb-4 border-yellow-700/50 text-yellow-400 bg-yellow-900/20 cursor-pointer" onclick="openMissing()">' +
+        // Build set of deployed SHAs from local changelog
+        var deployedShas = {};
+        localDays.forEach(function(day) {
+          day.commits.forEach(function(c) { deployedShas[c.sha] = true; });
+        });
+
+        // Use remote changelog if available, otherwise local
+        var days = remoteDays || localDays;
+        var hasRemote = !!remoteDays;
+
+        // Count missing commits
+        var missingCount = 0;
+        if (hasRemote) {
+          days.forEach(function(day) {
+            day.commits.forEach(function(c) {
+              if (!deployedShas[c.sha]) missingCount++;
+            });
+          });
+          if (missingCount > 0) {
+            html += '<div class="p-3 rounded border text-sm mb-4 border-yellow-700/50 text-yellow-400 bg-yellow-900/20">' +
                     '<div class="flex items-center gap-2"><i class="bi bi-arrow-up-circle"></i> ' +
-                    '<span><strong>' + _missingCommits.length + ' update' + (_missingCommits.length === 1 ? '' : 's') + '</strong> available. Pull the latest image to update.</span>' +
-                    '<span class="ml-auto text-xs text-yellow-500">Click to view</span></div></div>';
-          } else if (found) {
+                    '<span><strong>' + missingCount + ' update' + (missingCount === 1 ? '' : 's') + '</strong> available. Pull the latest image to update.</span></div></div>';
+          } else {
             html += '<div class="p-3 rounded border text-sm mb-4 flex items-center gap-2 border-green-700/50 text-green-400 bg-green-900/20">' +
                     '<i class="bi bi-check-circle"></i> You are up to date.</div>';
           }
@@ -595,16 +591,34 @@
 
         days.forEach(function(day, i) {
           var open = (i === 0);
+          // Count missing in this day
+          var dayMissing = 0;
+          if (hasRemote) {
+            day.commits.forEach(function(c) { if (!deployedShas[c.sha]) dayMissing++; });
+          }
           html += '<div class="rounded-lg border border-gray-600 bg-ghcard mb-3">';
           html += '<div class="px-4 py-3 flex items-center justify-between cursor-pointer" onclick="toggleChangelog(this)">';
-          html += '<h6 class="text-base font-semibold text-gray-100"><i class="bi bi-calendar3 mr-2"></i>' + esc(day.date) + '<span class="ml-2 text-sm font-normal text-ghmuted">(' + day.commits.length + ' commit' + (day.commits.length === 1 ? '' : 's') + ')</span></h6>';
+          html += '<h6 class="text-base font-semibold text-gray-100"><i class="bi bi-calendar3 mr-2"></i>' + esc(day.date);
+          html += '<span class="ml-2 text-sm font-normal text-ghmuted">(' + day.commits.length + ' commit' + (day.commits.length === 1 ? '' : 's') + ')</span>';
+          if (dayMissing > 0) {
+            html += '<span class="ml-2 text-sm font-normal text-yellow-400">(' + dayMissing + ' new)</span>';
+          }
+          html += '</h6>';
           html += '<i class="bi bi-chevron-down transition-transform duration-300' + (open ? ' rotate-180' : '') + '"></i>';
           html += '</div>';
           html += '<div class="px-4 overflow-hidden transition-all duration-300' + (open ? ' pb-4" style="max-height:5000px"' : '" style="max-height:0;padding-bottom:0"') + '>';
           day.commits.forEach(function(c) {
+            var isMissing = hasRemote && !deployedShas[c.sha];
             html += '<div class="flex items-start gap-3 py-2 border-t border-ghborder2">';
+            if (hasRemote) {
+              if (isMissing) {
+                html += '<i class="bi bi-arrow-up-circle text-yellow-400 shrink-0 mt-0.5" title="Not yet deployed"></i>';
+              } else {
+                html += '<i class="bi bi-check-circle text-green-500 shrink-0 mt-0.5" title="Deployed"></i>';
+              }
+            }
             html += '<a href="https://github.com/audric/SvxReflectorDashboard/commit/' + esc(c.sha) + '" target="_blank" rel="noopener" class="font-mono text-xs text-blue-400 hover:underline shrink-0 mt-0.5">' + esc(c.sha) + '</a>';
-            html += '<span class="text-sm text-gray-300">' + esc(c.message) + '</span>';
+            html += '<span class="text-sm ' + (isMissing ? 'text-gray-100' : 'text-gray-300') + '">' + esc(c.message) + '</span>';
             html += '</div>';
           });
           html += '</div></div>';
@@ -651,28 +665,6 @@
         }
       }
 
-      var _missingCommits = [];
-      function openMissing() {
-        var modal = document.getElementById('missing-modal');
-        var body = document.getElementById('missing-body');
-        var html = '';
-        _missingCommits.forEach(function(c) {
-          html += '<div class="flex items-start gap-3 py-2 border-b border-ghborder2">' +
-                  '<a href="https://github.com/audric/SvxReflectorDashboard/commit/' + esc(c.sha) + '" target="_blank" rel="noopener" class="font-mono text-xs text-blue-400 hover:underline shrink-0 mt-0.5">' + esc(c.sha) + '</a>' +
-                  '<span class="text-sm text-gray-300">' + esc(c.message) + '</span></div>';
-        });
-        body.innerHTML = html;
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-      }
-      function closeMissing() {
-        var modal = document.getElementById('missing-modal');
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-      }
-      document.getElementById('missing-modal').addEventListener('click', function(e) {
-        if (e.target === this) closeMissing();
-      });
 
       // Auto-load changelog if that tab is active
       if (document.getElementById('panel-changelog').classList.contains('active')) {
