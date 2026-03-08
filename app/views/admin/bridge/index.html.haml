@@ -144,8 +144,12 @@
                     %i.bi.bi-pencil
                   = button_to toggle_admin_bridge_path(bridge), method: :patch, class: "p-2 rounded-md hover:bg-ghborder2 cursor-pointer #{bridge.enabled? ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}", title: bridge.enabled? ? "Stop" : "Start" do
                     %i.bi{class: bridge.enabled? ? "bi-stop-fill" : "bi-play-fill"}
-                  %button.p-2.rounded-md.text-red-400.hover:text-red-300.hover:bg-ghborder2.cursor-pointer{type: "button", title: "Delete", onclick: "confirmDelete('#{j bridge.name}', '#{admin_bridge_path(bridge)}')"}
-                    %i.bi.bi-trash3
+                  - if running
+                    %button.p-2.rounded-md.text-gray-600.cursor-not-allowed{type: "button", title: "Stop the bridge before deleting", disabled: true}
+                      %i.bi.bi-trash3
+                  - else
+                    %button.p-2.rounded-md.text-red-400.hover:text-red-300.hover:bg-ghborder2.cursor-pointer{type: "button", title: "Delete", onclick: "confirmDelete('#{j bridge.name}', '#{admin_bridge_path(bridge)}')"}
+                      %i.bi.bi-trash3
 
     :javascript
       (function() {
