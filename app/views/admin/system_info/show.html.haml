@@ -608,7 +608,7 @@
 
         Promise.all([
           fetch('/changelog.json').then(function(r) { return r.json(); }).catch(function() { return []; }),
-          fetch('/REVISION').then(function(r) { return r.text(); }).then(function(t) { return t.trim(); }).catch(function() { return null; }),
+          fetch('/REVISION').then(function(r) { return r.ok ? r.text() : null; }).then(function(t) { return t ? t.trim() : null; }).catch(function() { return null; }),
           fetch(GITHUB_RAW + 'changelog.json').then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; })
         ]).then(function(results) {
           localChangelog = results[0];
