@@ -70,15 +70,21 @@
               %i.bi.bi-headset
               EchoLink Bridge
 
+      - count_all = @bridges.size
+      - count_reflector = @bridges.count(&:reflector?)
+      - count_echolink = @bridges.count(&:echolink?)
       .inline-flex.rounded.border.border-ghborder.overflow-hidden.mb-4#bridge-filters
         %button.bridge-filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", "data-filter" => "all"}
           All
+          %span.ml-1.text-xs.opacity-70= count_all
         %button.bridge-filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "reflector"}
           %i.bi.bi-diagram-3.mr-1
           Bridges
+          %span.ml-1.text-xs.opacity-70= count_reflector
         %button.bridge-filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "echolink"}
           %i.bi.bi-headset.mr-1
           EchoLink
+          %span.ml-1.text-xs.opacity-70= count_echolink
 
       - if @bridges.empty?
         .rounded-lg.border.border-gray-600.bg-ghcard.p-8.text-center
