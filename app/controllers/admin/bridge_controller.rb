@@ -122,7 +122,7 @@ module Admin
         :echolink_accept_incoming, :echolink_reject_incoming, :echolink_drop_incoming,
         :echolink_accept_outgoing, :echolink_reject_outgoing,
         :echolink_reject_conf, :echolink_use_gsm_only, :echolink_bind_addr,
-        :echolink_servers
+        :echolink_servers, :default_active
       )
     end
 

@@ -34,6 +34,7 @@
 - help["VERBOSE"] = "Set to 0 to reduce the amount of information printed to the log. Default is 1 (verbose logging enabled)."
 - help["UDP_HEARTBEAT_INTERVAL"] = "The number of seconds between UDP heartbeats. Default is 15 seconds."
 - help["REMOTE_CA_BUNDLE"] = "Paste the PEM-encoded CA certificate from the remote reflector if it uses a self-signed CA."
+- help["DEFAULT_ACTIVE"] = "When checked, the link between EchoLink and the reflector is active by default when SVXLink starts. If unchecked, the link must be activated manually."
 - help["CERT_SUBJ_C"] = "The ISO country code (C) included in the certificate signing request. Example: IT"
 - help["CERT_SUBJ_O"] = "The organization name (O) included in the certificate signing request."
 - help["CERT_SUBJ_OU"] = "The organizational unit (OU) included in the certificate signing request."
@@ -298,6 +299,12 @@
             %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('DEFAULT_TG')", title: "Help"}
               %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
           = f.number_field :local_default_tg, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", min: 1
+      .mt-3.mb-1.flex.items-center.gap-2
+        = f.check_box :default_active, class: "rounded border-gray-600 bg-[#0d1117]"
+        %label.text-sm.text-gray-400
+          DEFAULT_ACTIVE
+          %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('DEFAULT_ACTIVE')", title: "Help"}
+            %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
       .mt-3.mb-1
         %label.block.text-sm.text-gray-500.mb-1
           Remote CA Bundle

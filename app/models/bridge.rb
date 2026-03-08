@@ -238,7 +238,7 @@ class Bridge < ApplicationRecord
     # Link SimplexLogic (EchoLink) to ReflectorLogic
     lines << "[Link1]"
     lines << "CONNECT_LOGICS=SimplexLogic,ReflectorLogicLocal:#{local_default_tg}"
-    lines << "DEFAULT_CONNECT=1"
+    lines << "DEFAULT_ACTIVE=#{default_active != false ? 1 : 0}"
     lines << "TIMEOUT=0"
     lines << ""
 
