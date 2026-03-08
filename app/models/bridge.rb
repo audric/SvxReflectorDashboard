@@ -179,7 +179,6 @@ class Bridge < ApplicationRecord
       lines << "CONNECT_LOGICS=ReflectorLogicLocal:#{mapping.local_tg},ReflectorLogicRemote:#{mapping.remote_tg}"
       lines << "DEFAULT_ACTIVE=#{mapping.default_active != false ? 1 : 0}"
       lines << "TIMEOUT=#{mapping.timeout || 0}"
-      lines << "ACTIVATE_ON_ACTIVITY=ReflectorLogicLocal,ReflectorLogicRemote"
     end
 
     lines << ""
