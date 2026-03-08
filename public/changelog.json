@@ -3,6 +3,14 @@
     "date": "2026-03-08",
     "commits": [
       {
+        "sha": "6e7957c",
+        "message": "Remove host port bindings from EchoLink bridge containers"
+      },
+      {
+        "sha": "a57907a",
+        "message": "Replace missing updates popup with inline status icons in changelog"
+      },
+      {
         "sha": "0ea7441",
         "message": "Fix changelog panels showing remote commits instead of local deployed ones"
       },
