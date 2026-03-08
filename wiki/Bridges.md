@@ -8,7 +8,7 @@ SVXLink bridges connect two audio endpoints — typically a local reflector and 
 
 ### Reflector bridge
 
-Connects two SVXReflector instances by running two `ReflectorV2` logics linked together. Each bridge has configurable talkgroup mappings that define which local TG maps to which remote TG.
+Connects two SVXReflector instances by running two `ReflectorV2` logics linked together. Each bridge has configurable talkgroup mappings that define which local TG maps to which remote TG. The generated config uses `HOSTS` and `HOST_PORT` directives (the modern SVXLink syntax).
 
 Generated files:
 - `svxlink.conf` — main SVXLink configuration with both logic sections and link definitions
@@ -45,6 +45,10 @@ Each bridge writes a `node_info.json` file that the SVXLink process sends to the
 | `nodeLocation` | Custom location string, defaults to bridge name |
 | `hidden` | Always `false` |
 | `sysop` | Sysop name (optional) |
+| `links` | Array of `{localTg, remoteTg}` objects (reflector bridges only) |
+| `remoteHost` | Remote reflector hostname (reflector bridges only) |
+
+The `links` and `remoteHost` fields are displayed on the dashboard node cards and map popups, showing which talkgroups the bridge connects.
 
 ## Talkgroup mappings (reflector bridges)
 

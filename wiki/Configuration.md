@@ -82,6 +82,8 @@ The Certificates panel on the reflector edit page is split into a separate **Cer
 
 The `reflector_pki` volume is mounted read-only into the web container at `/rails/reflector_pki` for detection purposes.
 
+When certificates exist, the certificate form fields are disabled in the UI. The controller preserves existing certificate config sections (ROOT_CA, ISSUING_CA, SERVER_CERT) when saving, so they are not silently dropped from the configuration file.
+
 ## Bridge configuration
 
 SVXLink bridges are managed from `/admin/bridges`. Each bridge generates its own set of config files and runs as a separate Docker container. See the [[Bridges]] wiki page for full details on bridge types, config generation, backups, and archiving.
