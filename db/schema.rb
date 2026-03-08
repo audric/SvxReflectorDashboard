@@ -10,8 +10,9 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_08_145530) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_08_155042) do
   create_table "bridge_tg_mappings", force: :cascade do |t|
+    t.string "activate_on_activity"
     t.integer "bridge_id", null: false
     t.datetime "created_at", null: false
     t.boolean "default_active", default: true

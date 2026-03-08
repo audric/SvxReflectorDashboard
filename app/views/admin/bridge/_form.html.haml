@@ -27,6 +27,7 @@
 - help["REMOTE_TG"] = "The talk group number on the remote reflector side of this mapping."
 - help["TIMEOUT"] = "The number of seconds after which this link will automatically disconnect. A value of 0 means the link stays connected permanently."
 - help["DEFAULT_ACTIVE"] = "When checked, the link is active by default when SVXLink starts. If unchecked, the link must be activated manually (e.g. by DTMF command or activity on the talkgroup)."
+- help["ACTIVATE_ON_ACTIVITY"] = "A comma-separated list of logic names that will automatically activate this link when activity (squelch open, announcements, etc.) occurs on them. Example: ReflectorLogicLocal,ReflectorLogicRemote. Leave empty to disable."
 
 - if @bridge.errors.any?
   .p-3.rounded.border.border-red-700.text-red-400.text-sm.mb-4{class: "bg-red-900/30"}
@@ -299,9 +300,13 @@
               Active
               %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('DEFAULT_ACTIVE')", title: "Help"}
                 %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+            %th.pb-2.pr-2
+              Activate On
+              %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('ACTIVATE_ON_ACTIVITY')", title: "Help"}
+                %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
             %th.pb-2.w-10
         %tbody#mappings-tbody
-          - mappings = @bridge.persisted? ? @bridge.bridge_tg_mappings : [Struct.new(:local_tg, :remote_tg, :timeout, :default_active).new(1, 1, 0, true)]
+          - mappings = @bridge.persisted? ? @bridge.bridge_tg_mappings : [Struct.new(:local_tg, :remote_tg, :timeout, :default_active, :activate_on_activity).new(1, 1, 0, true, nil)]
           - mappings.each do |mapping|
             %tr.border-t.border-gray-700
               %td.py-2.pr-2
@@ -313,6 +318,8 @@
               %td.py-2.text-center
                 %input{type: "hidden", name: "bridge[mapping_default_actives][]", value: (mapping.default_active != false) ? "1" : "0", class: "default-active-val"}
                 %input.rounded.border-gray-600{class: "bg-[#0d1117]", type: "checkbox", checked: (mapping.default_active != false), onchange: "this.previousElementSibling.value = this.checked ? '1' : '0'"}
+              %td.py-2.pr-2
+                %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "bridge[mapping_activate_on_activities][]", value: mapping.activate_on_activity, placeholder: "e.g. ReflectorLogicLocal"}
               %td.py-2.text-center
                 %button.text-red-400.hover:text-red-300.cursor-pointer{type: "button", onclick: "removeMapping(this)"}
                   %i.bi.bi-x-lg
@@ -393,6 +400,7 @@
       '<td class="py-2 pr-2"><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="number" name="bridge[mapping_remote_tgs][]" min="1" value="1"></td>' +
       '<td class="py-2 pr-2"><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="number" name="bridge[mapping_timeouts][]" min="0" value="0"></td>' +
       '<td class="py-2 text-center"><input type="hidden" name="bridge[mapping_default_actives][]" value="1" class="default-active-val"><input class="rounded border-gray-600 bg-[#0d1117]" type="checkbox" checked onchange="this.previousElementSibling.value=this.checked?\'1\':\'0\'"></td>' +
+      '<td class="py-2 pr-2"><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="bridge[mapping_activate_on_activities][]" placeholder="e.g. ReflectorLogicLocal"></td>' +
       '<td class="py-2 text-center"><button type="button" class="text-red-400 hover:text-red-300 cursor-pointer" onclick="removeMapping(this)"><i class="bi bi-x-lg"></i></button></td>';
     tbody.appendChild(tr);
   }
