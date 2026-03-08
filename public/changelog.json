@@ -3,6 +3,14 @@
     "date": "2026-03-08",
     "commits": [
       {
+        "sha": "817d0b2",
+        "message": "Always write MUTE_FIRST_TX_LOC/REM to svxlink.conf (=0 when unchecked)"
+      },
+      {
+        "sha": "748e084",
+        "message": "Remove ACTIVATE_ON_ACTIVITY from bridge config (no effect in practice)"
+      },
+      {
         "sha": "b50f4db",
         "message": "Auto-generate ACTIVATE_ON_ACTIVITY from CONNECT_LOGICS, remove from form"
       },
