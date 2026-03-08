@@ -236,6 +236,18 @@
                     %span.inline-block.px-1.5.py-0.5.text-xs.rounded.border.border-gray-600.text-gray-500{class: "bg-[#0d1117]", title: "Maidenhead locator"}
                       = locator
 
+                -# Bridge links
+                - if node['links'].present?
+                  .mb-2.flex.flex-wrap.items-center.gap-2{id: "node-#{callsign}-links"}
+                    %i.bi.bi-diagram-3.text-gray-500
+                    - if node['remoteHost'].present?
+                      %span.text-gray-400= node['remoteHost']
+                    - node['links'].each do |link|
+                      %span.inline-block.px-1.5.py-0.5.text-xs.rounded.border.border-gray-600.text-gray-400{class: "bg-[#0d1117]"}
+                        TG #{link['localTg']}
+                        %i.bi.bi-arrow-left-right.mx-1.text-gray-500
+                        TG #{link['remoteTg']}
+
                 -# Frequencies
                 - if rx_freq.to_f > 0 || tx_freq.to_f > 0
                   .mb-2.flex.gap-3
@@ -583,6 +595,18 @@
           h += '<span class="truncate' + (n.nodeLocation ? '' : ' hidden') + '" title="' + esc(n.nodeLocation || '') + '"><i class="bi bi-geo-alt mr-1"></i><span id="node-' + cs + '-location">' + esc(n.nodeLocation || '') + '</span></span>';
           if (locator)        h += '<span class="inline-block px-1.5 py-0.5 text-xs rounded border border-gray-600 text-gray-500 bg-[#0d1117]" title="Maidenhead locator">' + esc(locator) + '</span>';
           h += '</div>';
+
+          // Bridge links
+          if (n.links && n.links.length > 0) {
+            h += '<div class="mb-2 flex flex-wrap items-center gap-2" id="node-' + cs + '-links">';
+            h += '<i class="bi bi-diagram-3 text-gray-500"></i>';
+            if (n.remoteHost) h += '<span class="text-gray-400">' + esc(n.remoteHost) + '</span>';
+            n.links.forEach(function(lk) {
+              h += '<span class="inline-block px-1.5 py-0.5 text-xs rounded border border-gray-600 text-gray-400 bg-[#0d1117]">' +
+                   'TG ' + lk.localTg + ' <i class="bi bi-arrow-left-right mx-1 text-gray-500"></i> TG ' + lk.remoteTg + '</span>';
+            });
+            h += '</div>';
+          }
 
           // Frequencies
           if ((rxFreq && rxFreq > 0) || (txFreq && txFreq > 0)) {

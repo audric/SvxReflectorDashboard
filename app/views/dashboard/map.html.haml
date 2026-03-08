@@ -283,6 +283,14 @@
           if (rxFreq && rxFreq > 0) html += '<div class="popup-row">RX <span class="font-mono">' + rxFreq.toFixed(4) + ' MHz</span></div>';
           if (txFreq && txFreq > 0) html += '<div class="popup-row">TX <span class="font-mono">' + txFreq.toFixed(4) + ' MHz</span></div>';
           if (node.sysop)        html += '<div class="popup-row"><i class="bi bi-person mr-1"></i><span>' + esc(node.sysop) + '</span></div>';
+          if (node.links && node.links.length > 0) {
+            html += '<div class="popup-row"><i class="bi bi-diagram-3 mr-1"></i>';
+            if (node.remoteHost) html += '<span>' + esc(node.remoteHost) + '</span> ';
+            node.links.forEach(function(lk) {
+              html += '<span style="margin-left:.25rem">TG ' + lk.localTg + ' ↔ ' + lk.remoteTg + '</span>';
+            });
+            html += '</div>';
+          }
 
           // Tone → TG mapping table
           var ttg = node.toneToTalkgroup;
@@ -348,6 +356,14 @@
           if (rxFreq && rxFreq > 0) html += '<div class="popup-row">RX <span class="font-mono">' + rxFreq.toFixed(4) + ' MHz</span></div>';
           if (txFreq && txFreq > 0) html += '<div class="popup-row">TX <span class="font-mono">' + txFreq.toFixed(4) + ' MHz</span></div>';
           if (node.sysop)        html += '<div class="popup-row"><i class="bi bi-person mr-1"></i><span>' + esc(node.sysop) + '</span></div>';
+          if (node.links && node.links.length > 0) {
+            html += '<div class="popup-row"><i class="bi bi-diagram-3 mr-1"></i>';
+            if (node.remoteHost) html += '<span>' + esc(node.remoteHost) + '</span> ';
+            node.links.forEach(function(lk) {
+              html += '<span style="margin-left:.25rem">TG ' + lk.localTg + ' ↔ ' + lk.remoteTg + '</span>';
+            });
+            html += '</div>';
+          }
           var ttg = node.toneToTalkgroup;
           var activeTg = (node.isTalker && node.tg) ? node.tg : null;
           if (ttg && Object.keys(ttg).length > 0) {

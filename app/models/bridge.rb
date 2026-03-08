@@ -78,6 +78,14 @@ class Bridge < ApplicationRecord
       hidden: false,
       sysop: sysop.presence
     }.compact
+
+    if reflector? && bridge_tg_mappings.any?
+      info[:links] = bridge_tg_mappings.reload.map do |m|
+        { localTg: m.local_tg, remoteTg: m.remote_tg }
+      end
+      info[:remoteHost] = remote_host if remote_host.present?
+    end
+
     File.write(node_info_path, JSON.pretty_generate(info))
   end
 
