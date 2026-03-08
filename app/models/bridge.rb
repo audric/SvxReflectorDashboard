@@ -177,7 +177,7 @@ class Bridge < ApplicationRecord
       lines << ""
       lines << "[Link#{i + 1}]"
       lines << "CONNECT_LOGICS=ReflectorLogicLocal:#{mapping.local_tg},ReflectorLogicRemote:#{mapping.remote_tg}"
-      lines << "DEFAULT_CONNECT=1"
+      lines << "DEFAULT_ACTIVE=#{mapping.default_active != false ? 1 : 0}"
       lines << "TIMEOUT=#{mapping.timeout || 0}"
     end
 

@@ -131,9 +131,13 @@ module Admin
       local_tgs = Array(params.dig(:bridge, :mapping_local_tgs))
       remote_tgs = Array(params.dig(:bridge, :mapping_remote_tgs))
       timeouts = Array(params.dig(:bridge, :mapping_timeouts))
-      local_tgs.zip(remote_tgs, timeouts).each do |local_tg, remote_tg, tout|
+      default_actives = Array(params.dig(:bridge, :mapping_default_actives))
+      local_tgs.zip(remote_tgs, timeouts, default_actives).each do |local_tg, remote_tg, tout, active|
         next if local_tg.blank? || remote_tg.blank?
-        bridge.bridge_tg_mappings.create(local_tg: local_tg.to_i, remote_tg: remote_tg.to_i, timeout: tout.to_i)
+        bridge.bridge_tg_mappings.create(
+          local_tg: local_tg.to_i, remote_tg: remote_tg.to_i,
+          timeout: tout.to_i, default_active: active == "1"
+        )
       end
     end
 

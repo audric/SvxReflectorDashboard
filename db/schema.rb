@@ -10,10 +10,11 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_07_021958) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_08_145303) do
   create_table "bridge_tg_mappings", force: :cascade do |t|
     t.integer "bridge_id", null: false
     t.datetime "created_at", null: false
+    t.boolean "default_active", default: true
     t.integer "local_tg"
     t.integer "remote_tg"
     t.integer "timeout"
