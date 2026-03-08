@@ -27,6 +27,7 @@
     %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
     :css
       body { background: #0d1117; }
+      .bridge-filter-btn.active { background: #1f3a5f; color: #79c0ff; }
 
   %body.text-ghtext
     = render 'shared/navbar', active: 'admin'
@@ -69,6 +70,16 @@
               %i.bi.bi-headset
               EchoLink Bridge
 
+      .inline-flex.rounded.border.border-ghborder.overflow-hidden.mb-4#bridge-filters
+        %button.bridge-filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", "data-filter" => "all"}
+          All
+        %button.bridge-filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "reflector"}
+          %i.bi.bi-diagram-3.mr-1
+          Bridges
+        %button.bridge-filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "echolink"}
+          %i.bi.bi-headset.mr-1
+          EchoLink
+
       - if @bridges.empty?
         .rounded-lg.border.border-gray-600.bg-ghcard.p-8.text-center
           %i.bi.bi-diagram-3.text-3xl.text-ghdim.block.mb-2
@@ -80,7 +91,7 @@
           - @bridges.each do |bridge|
             - status = @container_statuses[bridge.id]
             - running = status == "running"
-            .rounded-lg.border.border-gray-600.bg-ghcard.p-4
+            .rounded-lg.border.border-gray-600.bg-ghcard.p-4{"data-bridge-type" => bridge.bridge_type}
               .flex.items-start.justify-between
                 .flex-1
                   .flex.items-center.gap-3.mb-2
@@ -263,3 +274,21 @@
           if (i === 0) btn.click();
         });
       }
+
+      (function() {
+        var filterBtns = document.querySelectorAll('.bridge-filter-btn');
+        var current = 'all';
+        function applyFilter() {
+          filterBtns.forEach(function(b) { b.classList.toggle('active', b.dataset.filter === current); });
+          document.querySelectorAll('[data-bridge-type]').forEach(function(card) {
+            card.style.display = (current === 'all' || card.dataset.bridgeType === current) ? '' : 'none';
+          });
+        }
+        applyFilter();
+        filterBtns.forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            current = btn.dataset.filter;
+            applyFilter();
+          });
+        });
+      })();
