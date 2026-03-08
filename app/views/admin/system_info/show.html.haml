@@ -334,6 +334,17 @@
         #changelog-content
           %span.text-ghmuted.text-sm Loading changelog…
 
+    -# ── Missing updates modal ──
+    #missing-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
+      .bg-ghcard.border.border-gray-600.rounded-lg.max-w-2xl.w-full.mx-4.shadow-xl.flex.flex-col{style: "max-height: 80vh"}
+        .flex.items-center.justify-between.px-5.py-4.border-b.border-ghborder.shrink-0
+          %h6.text-base.font-semibold.text-gray-100
+            %i.bi.bi-arrow-up-circle.mr-2
+            Available Updates
+          %button.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "closeMissing()"}
+            %i.bi.bi-x-lg
+        #missing-body.overflow-y-auto.px-5.py-4
+
     :javascript
       // ── Tab switching ──
       function switchTab(tab) {
@@ -562,19 +573,20 @@
         var html = '';
 
         // Find how many remote commits are newer than local build
+        _missingCommits = [];
         if (remoteDays && localSha) {
-          var newCommits = 0;
           var found = false;
           for (var ri = 0; ri < remoteDays.length && !found; ri++) {
             for (var ci = 0; ci < remoteDays[ri].commits.length; ci++) {
               if (localSha.indexOf(remoteDays[ri].commits[ci].sha) === 0) { found = true; break; }
-              newCommits++;
+              _missingCommits.push(remoteDays[ri].commits[ci]);
             }
           }
-          if (newCommits > 0) {
-            html += '<div class="p-3 rounded border text-sm mb-4 flex items-center gap-2 border-yellow-700/50 text-yellow-400 bg-yellow-900/20">' +
-                    '<i class="bi bi-arrow-up-circle"></i> ' +
-                    '<span><strong>' + newCommits + ' update' + (newCommits === 1 ? '' : 's') + '</strong> available. Pull the latest image to update.</span></div>';
+          if (_missingCommits.length > 0) {
+            html += '<div class="p-3 rounded border text-sm mb-4 border-yellow-700/50 text-yellow-400 bg-yellow-900/20 cursor-pointer" onclick="openMissing()">' +
+                    '<div class="flex items-center gap-2"><i class="bi bi-arrow-up-circle"></i> ' +
+                    '<span><strong>' + _missingCommits.length + ' update' + (_missingCommits.length === 1 ? '' : 's') + '</strong> available. Pull the latest image to update.</span>' +
+                    '<span class="ml-auto text-xs text-yellow-500">Click to view</span></div></div>';
           } else if (found) {
             html += '<div class="p-3 rounded border text-sm mb-4 flex items-center gap-2 border-green-700/50 text-green-400 bg-green-900/20">' +
                     '<i class="bi bi-check-circle"></i> You are up to date.</div>';
@@ -638,6 +650,29 @@
           chevron.classList.remove('rotate-180');
         }
       }
+
+      var _missingCommits = [];
+      function openMissing() {
+        var modal = document.getElementById('missing-modal');
+        var body = document.getElementById('missing-body');
+        var html = '';
+        _missingCommits.forEach(function(c) {
+          html += '<div class="flex items-start gap-3 py-2 border-b border-ghborder2">' +
+                  '<a href="https://github.com/audric/SvxReflectorDashboard/commit/' + esc(c.sha) + '" target="_blank" rel="noopener" class="font-mono text-xs text-blue-400 hover:underline shrink-0 mt-0.5">' + esc(c.sha) + '</a>' +
+                  '<span class="text-sm text-gray-300">' + esc(c.message) + '</span></div>';
+        });
+        body.innerHTML = html;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+      function closeMissing() {
+        var modal = document.getElementById('missing-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+      document.getElementById('missing-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeMissing();
+      });
 
       // Auto-load changelog if that tab is active
       if (document.getElementById('panel-changelog').classList.contains('active')) {

@@ -3,6 +3,10 @@
     "date": "2026-03-08",
     "commits": [
       {
+        "sha": "14d2b95",
+        "message": "Fall back to local changelog SHA when REVISION file is missing"
+      },
+      {
         "sha": "2a57b0c",
         "message": "Update wiki: bridge link info, HOSTS/HOST_PORT, changelog tab, cert preservation"
       },
