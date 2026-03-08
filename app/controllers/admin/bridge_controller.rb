@@ -202,17 +202,6 @@ module Admin
         }
       }
 
-      # EchoLink needs UDP 5198-5199 and TCP 5200 exposed to the host
-      if bridge.echolink?
-        body[:ExposedPorts] = {
-          "5198/udp" => {}, "5199/udp" => {}, "5200/tcp" => {}
-        }
-        body[:HostConfig][:PortBindings] = {
-          "5198/udp" => [{ HostPort: "5198" }],
-          "5199/udp" => [{ HostPort: "5199" }],
-          "5200/tcp" => [{ HostPort: "5200" }]
-        }
-      end
 
       body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
 
