@@ -244,7 +244,7 @@
                     - @visible_nodes.each do |cs, node|
                       - ttg = node['toneToTalkgroup'] || {}
                       - tone = ttg.find { |t, tg| tg == tg_num }&.first&.to_f
-                      - on_tg = node['tg'].to_i == tg_num
+                      - on_tg = node['tg'].to_i == tg_num || Array(node['monitoredTGs']).map(&:to_i).include?(tg_num)
                       %td
                         - if tone
                           %span.tone-pill
@@ -470,7 +470,7 @@
                 Object.keys(ttg).forEach(function (toneStr) {
                   if (ttg[toneStr] === tgRec.tg) tone = parseFloat(toneStr);
                 });
-                var onTg = (row.node.tg || 0) === tgRec.tg;
+                var onTg = (row.node.tg || 0) === tgRec.tg || (row.node.monitoredTGs || []).indexOf(tgRec.tg) !== -1;
                 if (tone !== undefined) {
                   var pill = document.createElement('span');
                   pill.className = 'tone-pill';
