@@ -120,8 +120,8 @@ class Bridge < ApplicationRecord
     shared_lines << "JITTER_BUFFER_DELAY=#{jitter_buffer_delay}" if jitter_buffer_delay.present?
     shared_lines << "MONITOR_TGS=#{monitor_tgs}" if monitor_tgs.present?
     shared_lines << "TG_SELECT_TIMEOUT=#{tg_select_timeout}" if tg_select_timeout.present?
-    shared_lines << "MUTE_FIRST_TX_LOC=1" if mute_first_tx_loc?
-    shared_lines << "MUTE_FIRST_TX_REM=1" if mute_first_tx_rem?
+    shared_lines << "MUTE_FIRST_TX_LOC=#{mute_first_tx_loc? ? 1 : 0}"
+    shared_lines << "MUTE_FIRST_TX_REM=#{mute_first_tx_rem? ? 1 : 0}"
     shared_lines << "VERBOSE=0" if verbose == false
     shared_lines << "UDP_HEARTBEAT_INTERVAL=#{udp_heartbeat_interval}" if udp_heartbeat_interval.present?
     shared_lines << "CA_BUNDLE_FILE=/var/lib/svxlink/pki/ca-bundle.crt" if has_ca_bundle
