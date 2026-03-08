@@ -614,6 +614,10 @@
           localChangelog = results[0];
           localSha = results[1];
           remoteChangelog = results[2];
+          // Fall back to first SHA in local changelog if REVISION is missing
+          if (!localSha && localChangelog.length > 0 && localChangelog[0].commits.length > 0) {
+            localSha = localChangelog[0].commits[0].sha;
+          }
           renderChangelog(remoteChangelog || localChangelog, localSha, remoteChangelog);
         }).catch(function(err) {
           document.getElementById('changelog-content').innerHTML =

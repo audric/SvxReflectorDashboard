@@ -3,6 +3,18 @@
     "date": "2026-03-08",
     "commits": [
       {
+        "sha": "2a57b0c",
+        "message": "Update wiki: bridge link info, HOSTS/HOST_PORT, changelog tab, cert preservation"
+      },
+      {
+        "sha": "5945879",
+        "message": "Fix false update count when REVISION file is missing"
+      },
+      {
+        "sha": "9241c06",
+        "message": "Add Changelog tab to System Info with update detection"
+      },
+      {
         "sha": "8e522bb",
         "message": "Use HOSTS/HOST_PORT instead of deprecated HOST/PORT in bridge configs"
       },
