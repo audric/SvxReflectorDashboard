@@ -248,6 +248,7 @@ module Admin
 
     def update
       config = ReflectorConfig.new
+      existing = ReflectorConfig.load
 
       # Global settings
       (params.dig(:config, :global) || {}).each do |key, value|
@@ -255,9 +256,16 @@ module Admin
       end
 
       # Certificate sections (ROOT_CA, ISSUING_CA, SERVER_CERT)
+      # When certs exist, these fields are disabled in the form and not submitted.
+      # Preserve existing values so they aren't silently dropped from the config file.
       %w[root_ca issuing_ca server_cert].each do |section|
-        (params.dig(:config, section.to_sym) || {}).each do |key, value|
-          config.send(section)[key] = value if value.present?
+        submitted = params.dig(:config, section.to_sym)
+        if submitted.present?
+          submitted.each do |key, value|
+            config.send(section)[key] = value if value.present?
+          end
+        else
+          config.send("#{section}=", existing.send(section))
         end
       end
 
