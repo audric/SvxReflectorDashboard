@@ -115,6 +115,10 @@
                       .flex.items-center.gap-2
                         %span.text-ghmuted Reflector:
                         %span.text-gray-300.font-mono= "#{bridge.local_callsign}@#{bridge.local_host}:#{bridge.local_port} TG#{bridge.local_default_tg}"
+                      - if bridge.sysop.present?
+                        .flex.items-center.gap-2
+                          %span.text-ghmuted Sysop:
+                          %span.text-gray-300= bridge.sysop
                       - if bridge.echolink_location.present?
                         .flex.items-center.gap-2
                           %span.text-ghmuted Location:
@@ -126,6 +130,10 @@
                       .flex.items-center.gap-2
                         %span.text-ghmuted Remote:
                         %span.text-gray-300.font-mono= "#{bridge.remote_callsign}@#{bridge.remote_host}:#{bridge.remote_port}"
+                      - if bridge.sysop.present?
+                        .flex.items-center.gap-2
+                          %span.text-ghmuted Sysop:
+                          %span.text-gray-300= bridge.sysop
                       .flex.items-center.gap-2.mt-1
                         %span.text-ghmuted Mappings:
                         - bridge.bridge_tg_mappings.each do |m|
