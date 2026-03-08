@@ -119,10 +119,6 @@
                         .flex.items-center.gap-2
                           %span.text-ghmuted Sysop:
                           %span.text-gray-300= bridge.sysop
-                      - if bridge.echolink_location.present?
-                        .flex.items-center.gap-2
-                          %span.text-ghmuted Location:
-                          %span.text-gray-300= bridge.echolink_location
                     - else
                       .flex.items-center.gap-2
                         %span.text-ghmuted Local:
