@@ -630,7 +630,7 @@
           if (!localSha && localChangelog.length > 0 && localChangelog[0].commits.length > 0) {
             localSha = localChangelog[0].commits[0].sha;
           }
-          renderChangelog(remoteChangelog || localChangelog, localSha, remoteChangelog);
+          renderChangelog(localChangelog, localSha, remoteChangelog);
         }).catch(function(err) {
           document.getElementById('changelog-content').innerHTML =
             '<div class="p-3 rounded border border-red-700 text-red-400 text-sm bg-red-900/30">Failed to load changelog: ' + esc(err.message) + '</div>';
