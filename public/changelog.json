@@ -3,8 +3,16 @@
     "date": "2026-03-18",
     "commits": [
       {
-        "sha": "",
-        "message": "XLX bridge: show originating repeater callsign to D-STAR users via MYCALL header and slow data text"
+        "sha": "3bf72f0",
+        "message": "Show D-STAR RX metadata on XLX bridge dashboard cards"
+      },
+      {
+        "sha": "4bb206b",
+        "message": "Show originating repeater callsign to D-STAR users via XLX bridge"
+      },
+      {
+        "sha": "0d9e167",
+        "message": "Regenerate changelog.json"
       },
       {
         "sha": "8b6e2f2",
