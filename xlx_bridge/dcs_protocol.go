@@ -23,6 +23,60 @@ var dstarSilenceAMBE = [9]byte{0xDC, 0x8E, 0x0A, 0x40, 0xAD, 0xED, 0xAD, 0x39, 0
 // DV slow data sync bytes for frame 0
 var dvSlowDataSync = [3]byte{0x55, 0x2D, 0x16}
 
+// DV slow data filler for unused frames
+var dvSlowDataFiller = [3]byte{0x16, 0x29, 0xF5}
+
+// SlowDataEncoder holds pre-computed slow data bytes for all 21 frames in a superframe.
+type SlowDataEncoder struct {
+	frames [DCSFramesPerSuperframe][3]byte
+}
+
+// Frame returns the 3 slow data bytes for the given frame index (0-20).
+func (e *SlowDataEncoder) Frame(id int) [3]byte {
+	if id < 0 || id >= DCSFramesPerSuperframe {
+		return [3]byte{}
+	}
+	return e.frames[id]
+}
+
+// NewSlowDataText creates a slow data encoder for a 20-character D-STAR text message.
+// The message is displayed on receiving D-STAR radios.
+//
+// Format: 4 mini-packets of 6 bytes (1 header + 5 text), each spanning 2 voice frames.
+//   - Frame 0: sync (0x55, 0x2D, 0x16)
+//   - Frames 1-8: text data (4 blocks × 2 frames)
+//   - Frames 9-20: filler
+func NewSlowDataText(text string) *SlowDataEncoder {
+	enc := &SlowDataEncoder{}
+
+	// Pad or truncate to exactly 20 characters
+	msg := make([]byte, 20)
+	for i := range msg {
+		msg[i] = ' '
+	}
+	copy(msg, []byte(text))
+
+	// Frame 0: sync
+	enc.frames[0] = dvSlowDataSync
+
+	// 4 blocks of (1 header + 5 text bytes), each block spans 2 frames
+	for block := 0; block < 4; block++ {
+		header := byte(0x40 | (3 - block))
+		t := msg[block*5 : block*5+5]
+		f := 1 + block*2
+
+		enc.frames[f] = [3]byte{header, t[0], t[1]}
+		enc.frames[f+1] = [3]byte{t[2], t[3], t[4]}
+	}
+
+	// Frames 9-20: filler
+	for i := 9; i < DCSFramesPerSuperframe; i++ {
+		enc.frames[i] = dvSlowDataFiller
+	}
+
+	return enc
+}
+
 // padCallsign pads a callsign to exactly 8 characters with spaces.
 func padCallsign(cs string, length int) []byte {
 	b := make([]byte, length)

@@ -27,6 +27,8 @@ type DCSClient struct {
 	txStreamID uint16
 	txSeq      uint32
 	txFrameID  int
+	txMycall   string          // dynamic MYCALL for current TX (originating callsign)
+	txSlowData *SlowDataEncoder // slow data text for current TX
 
 	// Callbacks
 	onVoiceFrame func(frame *DCSVoiceFrame)
@@ -118,6 +120,23 @@ func (c *DCSClient) Connect() error {
 	return fmt.Errorf("unexpected response (%d bytes): %q", len(resp), resp[:min(len(resp), 20)])
 }
 
+// SetTXOrigin sets the originating callsign for the next transmission.
+// This updates MYCALL in the DCS header and generates a slow data text
+// message (e.g. "Via VE3ABC") visible on D-STAR radios.
+func (c *DCSClient) SetTXOrigin(callsign string) {
+	cs := strings.TrimSpace(callsign)
+	text := "Via " + cs
+	if len(text) > 20 {
+		text = text[:20]
+	}
+
+	c.mu.Lock()
+	c.txMycall = cs
+	c.txSlowData = NewSlowDataText(text)
+	c.mu.Unlock()
+	log.Printf("[DCS] TX origin set: MYCALL=%s slow_data=%q", cs, text)
+}
+
 // StartTX begins a new voice transmission.
 func (c *DCSClient) StartTX() {
 	c.mu.Lock()
@@ -142,17 +161,26 @@ func (c *DCSClient) SendVoice(ambe [9]byte) error {
 	c.txSeq++
 	frameID := c.txFrameID
 	c.txFrameID = (c.txFrameID + 1) % DCSFramesPerSuperframe
+	slowDataEnc := c.txSlowData
+	mycall := c.txMycall
 	c.mu.Unlock()
 
-	// Build slow data
+	// Use dynamic MYCALL if set, otherwise fall back to configured default
+	if mycall == "" {
+		mycall = c.mycall
+	}
+
+	// Build slow data from encoder, or use defaults
 	var slowData [3]byte
-	if frameID == 0 {
+	if slowDataEnc != nil {
+		slowData = slowDataEnc.Frame(frameID)
+	} else if frameID == 0 {
 		slowData = dvSlowDataSync
 	}
 
 	rpt := c.rptCallsign()
 
-	pkt := BuildDCSVoice(rpt, rpt, "CQCQCQ", c.mycall, c.mycallSuffix, streamID, byte(frameID), ambe, slowData, seq)
+	pkt := BuildDCSVoice(rpt, rpt, "CQCQCQ", mycall, c.mycallSuffix, streamID, byte(frameID), ambe, slowData, seq)
 	_, err := c.conn.Write(pkt)
 	return err
 }
@@ -163,13 +191,21 @@ func (c *DCSClient) StopTX() error {
 	streamID := c.txStreamID
 	seq := c.txSeq
 	c.txSeq++
+	mycall := c.txMycall
+	// Clear TX origin for next transmission
+	c.txMycall = ""
+	c.txSlowData = nil
 	c.mu.Unlock()
+
+	if mycall == "" {
+		mycall = c.mycall
+	}
 
 	rpt := c.rptCallsign()
 
 	// Last frame: packetID has bit 6 set, AMBE is silence
 	packetID := byte(0x40) // last frame flag
-	pkt := BuildDCSVoice(rpt, rpt, "CQCQCQ", c.mycall, c.mycallSuffix, streamID, packetID, dstarSilenceAMBE, [3]byte{}, seq)
+	pkt := BuildDCSVoice(rpt, rpt, "CQCQCQ", mycall, c.mycallSuffix, streamID, packetID, dstarSilenceAMBE, [3]byte{}, seq)
 	_, err := c.conn.Write(pkt)
 	if err != nil {
 		return err

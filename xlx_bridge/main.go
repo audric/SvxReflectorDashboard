@@ -193,6 +193,8 @@ func runBridge(
 		ambeBuffer = ambeBuffer[:0]
 		ambeBufMu.Unlock()
 
+		// Set originating callsign as MYCALL and slow data text for D-STAR users
+		dcs.SetTXOrigin(cs)
 		dcs.StartTX()
 	})
 
