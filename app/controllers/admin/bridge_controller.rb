@@ -185,7 +185,7 @@ module Admin
     def start_xlx_container(bridge)
       network = docker_network
       body = {
-        Image: "xlx_bridge_test",
+        Image: "ghcr.io/audric/svxreflectordashboard-xlx-bridge",
         Labels: {
           "svx.bridge" => "true",
           "svx.bridge.id" => bridge.id.to_s,

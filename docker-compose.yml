@@ -101,6 +101,11 @@ services:
       - svxreflector
     restart: unless-stopped
 
+  xlx_bridge:
+    image: ghcr.io/audric/svxreflectordashboard-xlx-bridge
+    build: ./xlx_bridge
+    profiles: ["build-only"]
+
   redis:
     image: redis:7-alpine
     ports:
