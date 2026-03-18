@@ -33,6 +33,8 @@
     .max-w-3xl.mx-auto.px-4.pb-12
       - if @bridge.echolink?
         = render 'form_echolink'
+      - elsif @bridge.xlx?
+        = render 'form_xlx'
       - else
         = render 'form'
 

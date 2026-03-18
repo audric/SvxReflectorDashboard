@@ -1,7 +1,7 @@
 class Bridge < ApplicationRecord
   has_many :bridge_tg_mappings, dependent: :destroy
 
-  BRIDGE_TYPES = %w[reflector echolink].freeze
+  BRIDGE_TYPES = %w[reflector echolink xlx].freeze
 
   validates :name, presence: true, uniqueness: true
   validates :bridge_type, presence: true, inclusion: { in: BRIDGE_TYPES }
@@ -26,6 +26,19 @@ class Bridge < ApplicationRecord
     validates :echolink_password, presence: true
   end
 
+  # XLX-specific validations
+  with_options if: :xlx? do
+    validates :xlx_host, presence: true
+    validates :xlx_module, presence: true, format: { with: /\A[A-Z]\z/, message: "must be a letter A-Z" }
+    validates :xlx_callsign, presence: true, length: { maximum: 7 }
+    validates :xlx_callsign_suffix, presence: true, format: { with: /\A[A-Z]\z/, message: "must be a letter A-Z" }
+  end
+
+  # Returns the 8-char DCS callsign: base callsign (space-padded to 7) + suffix letter.
+  def dcs_callsign
+    "%-7s%s" % [xlx_callsign.to_s.upcase, xlx_callsign_suffix.to_s.upcase]
+  end
+
   after_save :generate_config
   after_destroy :cleanup
 
@@ -37,6 +50,10 @@ class Bridge < ApplicationRecord
     bridge_type == "echolink"
   end
 
+  def xlx?
+    bridge_type == "xlx"
+  end
+
   def config_dir
     Rails.root.join("bridge", id.to_s)
   end
@@ -46,21 +63,23 @@ class Bridge < ApplicationRecord
   end
 
   def container_name
-    "svxlink-bridge-#{id}"
+    xlx? ? "xlx-bridge-#{id}" : "svxlink-bridge-#{id}"
   end
 
   MAX_BACKUPS = 10
 
   def generate_config
-    FileUtils.mkdir_p(config_dir)
+    FileUtils.mkdir_p(config_dir, mode: 0o755)
     backup_configs
 
-    if echolink?
+    if xlx?
+      generate_xlx_config
+    elsif echolink?
       generate_echolink_config
     else
       generate_reflector_config
     end
-    write_node_info
+    write_node_info unless xlx?
   end
 
   def echolink_conf_path
@@ -137,6 +156,27 @@ class Bridge < ApplicationRecord
     cert_lines << "CERT_EMAIL=#{cert_email}" if cert_email.present?
 
     { shared: shared_lines, cert: cert_lines }
+  end
+
+  def generate_xlx_config
+    lines = []
+    lines << "# XLX Bridge configuration (passed as env vars to container)"
+    lines << "REFLECTOR_HOST=#{local_host}"
+    lines << "REFLECTOR_PORT=#{local_port}"
+    lines << "REFLECTOR_AUTH_KEY=#{local_auth_key}"
+    lines << "REFLECTOR_TG=#{local_default_tg}"
+    lines << "CALLSIGN=#{local_callsign}"
+    lines << "XLX_HOST=#{xlx_host}"
+    lines << "XLX_PORT=#{xlx_port || 30051}"
+    lines << "XLX_MODULE=#{xlx_module}"
+    lines << "XLX_REFLECTOR_NAME=#{name.split(' ').first}"
+    lines << "DCS_CALLSIGN=#{dcs_callsign}"
+    lines << "DCS_MYCALL=#{xlx_mycall}" if xlx_mycall.present?
+    lines << "DCS_MYCALL_SUFFIX=#{xlx_mycall_suffix.presence || 'AMBE'}"
+    lines << "NODE_LOCATION=#{node_location.presence || name}"
+    lines << "SYSOP=#{sysop}" if sysop.present?
+    lines << ""
+    File.write(config_dir.join("xlx_bridge.env"), lines.join("\n"))
   end
 
   def generate_reflector_config
@@ -379,7 +419,7 @@ class Bridge < ApplicationRecord
   def backup_configs
     self.class.purge_old_archives
 
-    files = [config_path, node_info_path, echolink_conf_path].select(&:exist?)
+    files = [config_path, node_info_path, echolink_conf_path, config_dir.join("xlx_bridge.env")].select(&:exist?)
     return if files.empty?
 
     migrate_legacy_backups if Dir.glob(config_dir.join("*.bak")).any?

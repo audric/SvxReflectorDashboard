@@ -56,7 +56,7 @@ module Admin
       project = containers.filter_map { |c| c.dig("Labels", "com.docker.compose.project").presence }.first
       bridge_ids = Set.new(
         containers
-          .select { |c| c["Names"]&.any? { |n| n =~ /\A\/svxlink-bridge-\d+\z/ } }
+          .select { |c| c["Names"]&.any? { |n| n =~ /\A\/(?:svxlink|xlx)-bridge-\d+\z/ } }
           .map { |c| c["Id"] }
       )
 
@@ -68,9 +68,9 @@ module Admin
 
       bridge_names = Bridge.pluck(:id, :name).to_h
       containers
-        .select { |c| c["Names"]&.any? { |n| n =~ /\A\/svxlink-bridge-\d+\z/ } }
+        .select { |c| c["Names"]&.any? { |n| n =~ /\A\/(?:svxlink|xlx)-bridge-\d+\z/ } }
         .each { |c|
-          container_name = c["Names"].find { |n| n =~ /svxlink-bridge/ }&.delete_prefix("/")
+          container_name = c["Names"].find { |n| n =~ /(?:svxlink|xlx)-bridge/ }&.delete_prefix("/")
           bridge_id = container_name&.match(/(\d+)\z/)&.[](1)&.to_i
           label = bridge_names[bridge_id] ? "bridge: #{bridge_names[bridge_id]}" : container_name
           results << { id: c["Id"], name: label, state: c["State"] }
@@ -209,7 +209,7 @@ module Admin
 
       bridge_ids = Set.new(
         containers
-          .select { |c| c["Names"]&.any? { |n| n =~ /\A\/svxlink-bridge-\d+\z/ } }
+          .select { |c| c["Names"]&.any? { |n| n =~ /\A\/(?:svxlink|xlx)-bridge-\d+\z/ } }
           .map { |c| c["Id"] }
       )
 
@@ -223,9 +223,9 @@ module Admin
       # Include dynamically-created bridge containers with friendly names
       bridge_names = Bridge.pluck(:id, :name).to_h
       bridge_containers = containers
-        .select { |c| c["Names"]&.any? { |n| n =~ /\A\/svxlink-bridge-\d+\z/ } }
+        .select { |c| c["Names"]&.any? { |n| n =~ /\A\/(?:svxlink|xlx)-bridge-\d+\z/ } }
         .map { |c|
-          container_name = c["Names"].find { |n| n =~ /svxlink-bridge/ }&.delete_prefix("/")
+          container_name = c["Names"].find { |n| n =~ /(?:svxlink|xlx)-bridge/ }&.delete_prefix("/")
           bridge_id = container_name&.match(/(\d+)\z/)&.[](1)&.to_i
           label = bridge_names[bridge_id] ? "bridge: #{bridge_names[bridge_id]}" : container_name
           { service: label, image: c["Image"], state: c["State"], status: c["Status"],
@@ -258,7 +258,7 @@ module Admin
       end
 
       # Style all nodes by state
-      all_services = SERVICE_DEPS.keys + Bridge.pluck(:id).map { |bid| "svxlink-bridge-#{bid}" }
+      all_services = SERVICE_DEPS.keys + Bridge.all.map(&:container_name)
       all_services.each do |svc|
         id = svc.tr("-", "_")
         case state_map[svc]

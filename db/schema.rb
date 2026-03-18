@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_08_155042) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_18_100000) do
   create_table "bridge_tg_mappings", force: :cascade do |t|
     t.string "activate_on_activity"
     t.integer "bridge_id", null: false
@@ -83,6 +83,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_08_155042) do
     t.integer "udp_heartbeat_interval"
     t.datetime "updated_at", null: false
     t.boolean "verbose"
+    t.string "xlx_callsign"
+    t.string "xlx_callsign_suffix"
+    t.integer "xlx_dmr_id"
+    t.string "xlx_host"
+    t.string "xlx_module"
+    t.string "xlx_mycall"
+    t.integer "xlx_port"
   end
 
   create_table "ctcss_tones", force: :cascade do |t|

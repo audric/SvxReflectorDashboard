@@ -66,13 +66,17 @@
             = link_to new_admin_bridge_path(type: "reflector"), class: "flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-ghborder2 rounded-t-md" do
               %i.bi.bi-diagram-3
               Reflector Bridge
-            = link_to new_admin_bridge_path(type: "echolink"), class: "flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-ghborder2 rounded-b-md" do
+            = link_to new_admin_bridge_path(type: "echolink"), class: "flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-ghborder2" do
               %i.bi.bi-headset
               EchoLink Bridge
+            = link_to new_admin_bridge_path(type: "xlx"), class: "flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-ghborder2 rounded-b-md" do
+              %i.bi.bi-globe
+              XLX Bridge
 
       - count_all = @bridges.size
       - count_reflector = @bridges.count(&:reflector?)
       - count_echolink = @bridges.count(&:echolink?)
+      - count_xlx = @bridges.count(&:xlx?)
       .inline-flex.rounded.border.border-ghborder.overflow-hidden.mb-4#bridge-filters
         %button.bridge-filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", "data-filter" => "all"}
           All
@@ -85,6 +89,10 @@
           %i.bi.bi-headset.mr-1
           EchoLink
           %span.ml-1.text-xs.opacity-70= count_echolink
+        %button.bridge-filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "xlx"}
+          %i.bi.bi-globe.mr-1
+          XLX
+          %span.ml-1.text-xs.opacity-70= count_xlx
 
       - if @bridges.empty?
         .rounded-lg.border.border-gray-600.bg-ghcard.p-8.text-center
@@ -106,6 +114,10 @@
                       %span.inline-flex.items-center.gap-1.px-2.py-0.5.rounded-full.text-xs.font-medium.bg-purple-900.text-purple-400.border.border-purple-700
                         %i.bi.bi-headset{style: "font-size: 0.6rem"}
                         EchoLink
+                    - elsif bridge.xlx?
+                      %span.inline-flex.items-center.gap-1.px-2.py-0.5.rounded-full.text-xs.font-medium.bg-emerald-900.text-emerald-400.border.border-emerald-700
+                        %i.bi.bi-globe{style: "font-size: 0.6rem"}
+                        XLX
                     - else
                       %span.inline-flex.items-center.gap-1.px-2.py-0.5.rounded-full.text-xs.font-medium.bg-blue-900.text-blue-400.border.border-blue-700
                         %i.bi.bi-diagram-3{style: "font-size: 0.6rem"}
@@ -136,6 +148,13 @@
                         .flex.items-center.gap-2
                           %span.text-ghmuted Sysop:
                           %span.text-gray-300= bridge.sysop
+                    - elsif bridge.xlx?
+                      .flex.items-center.gap-2
+                        %span.text-ghmuted XLX:
+                        %span.text-gray-300.font-mono= "#{bridge.xlx_host}:#{bridge.xlx_port || 30051} Module #{bridge.xlx_module}"
+                      .flex.items-center.gap-2
+                        %span.text-ghmuted Reflector:
+                        %span.text-gray-300.font-mono= "#{bridge.local_callsign}@#{bridge.local_host}:#{bridge.local_port} TG#{bridge.local_default_tg}"
                     - else
                       .flex.items-center.gap-2
                         %span.text-ghmuted Local:

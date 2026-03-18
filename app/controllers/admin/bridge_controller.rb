@@ -24,6 +24,11 @@ module Admin
           echolink_link_idle_timeout: 300,
           echolink_servers: "servers.echolink.org"
         )
+      elsif bridge_type == "xlx"
+        defaults.merge!(
+          xlx_port: 30051,
+          xlx_module: "A"
+        )
       else
         defaults.merge!(
           remote_port: 5300,
@@ -122,7 +127,8 @@ module Admin
         :echolink_accept_incoming, :echolink_reject_incoming, :echolink_drop_incoming,
         :echolink_accept_outgoing, :echolink_reject_outgoing,
         :echolink_reject_conf, :echolink_use_gsm_only, :echolink_bind_addr,
-        :echolink_servers, :default_active
+        :echolink_servers, :default_active,
+        :xlx_host, :xlx_port, :xlx_module, :xlx_callsign, :xlx_callsign_suffix, :xlx_mycall, :xlx_mycall_suffix
       )
     end
 
@@ -163,15 +169,62 @@ module Admin
     def start_or_recreate_container(bridge)
       existing = find_container(bridge, all: true)
       if existing
-        # Always recreate to pick up config/mount changes
         stop_container(bridge) if existing["State"] == "running"
         remove_container(bridge)
       end
 
-      # Create new container
+      if bridge.xlx?
+        start_xlx_container(bridge)
+      else
+        start_svxlink_container(bridge)
+      end
+    rescue => e
+      Rails.logger.error "[Bridge] Failed to start container: #{e.class} #{e.message}"
+    end
+
+    def start_xlx_container(bridge)
+      network = docker_network
+      body = {
+        Image: "xlx_bridge_test",
+        Labels: {
+          "svx.bridge" => "true",
+          "svx.bridge.id" => bridge.id.to_s,
+          "svx.bridge.name" => bridge.name,
+          "com.docker.compose.project" => "",
+          "com.docker.compose.service" => ""
+        },
+        Env: [
+          "REFLECTOR_HOST=#{bridge.local_host}",
+          "REFLECTOR_PORT=#{bridge.local_port}",
+          "REFLECTOR_AUTH_KEY=#{bridge.local_auth_key}",
+          "REFLECTOR_TG=#{bridge.local_default_tg}",
+          "XLX_HOST=#{bridge.xlx_host}",
+          "XLX_PORT=#{bridge.xlx_port || 30051}",
+          "XLX_MODULE=#{bridge.xlx_module}",
+          "XLX_REFLECTOR_NAME=#{bridge.name.split(' ').first}",
+          "CALLSIGN=#{bridge.local_callsign}",
+          "DCS_CALLSIGN=#{bridge.dcs_callsign}",
+          "DCS_MYCALL=#{bridge.xlx_mycall}",
+          "DCS_MYCALL_SUFFIX=#{bridge.xlx_mycall_suffix.presence || 'AMBE'}",
+          "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
+          "SYSOP=#{bridge.sysop}"
+        ],
+        HostConfig: {
+          RestartPolicy: { Name: "unless-stopped" }
+        }
+      }
+      body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
+
+      result = docker_api_post_json("/containers/create?name=#{bridge.container_name}", body)
+      if result && result["Id"]
+        docker_api_post("/containers/#{result["Id"]}/start")
+        Rails.logger.info "[Bridge] Created and started XLX container #{bridge.container_name}"
+      end
+    end
+
+    def start_svxlink_container(bridge)
       bridge.generate_config
       network = docker_network
-      config_host_path = File.join(bridge_host_dir, bridge.id.to_s, "svxlink.conf")
 
       bridge_dir = File.join(bridge_host_dir, bridge.id.to_s)
       binds = [
@@ -205,8 +258,6 @@ module Admin
           RestartPolicy: { Name: "unless-stopped" }
         }
       }
-
-
       body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
 
       result = docker_api_post_json("/containers/create?name=#{bridge.container_name}", body)
@@ -214,8 +265,6 @@ module Admin
         docker_api_post("/containers/#{result["Id"]}/start")
         Rails.logger.info "[Bridge] Created and started container #{bridge.container_name}"
       end
-    rescue => e
-      Rails.logger.error "[Bridge] Failed to start container: #{e.class} #{e.message}"
     end
 
     def stop_container(bridge)
@@ -262,7 +311,7 @@ module Admin
       statuses = {}
       containers.each do |c|
         c["Names"].each do |n|
-          if n =~ /\A\/svxlink-bridge-(\d+)\z/
+          if n =~ /\A\/(?:svxlink|xlx)-bridge-(\d+)\z/
             statuses[Regexp.last_match(1).to_i] = c["State"]
           end
         end

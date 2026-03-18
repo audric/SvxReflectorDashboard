@@ -194,6 +194,9 @@
           %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "echolink"}
             %i.bi.bi-headset.mr-1
             EchoLink
+          %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "xlx"}
+            %i.bi.bi-globe.mr-1
+            XLX
 
       .grid.grid-cols-1.sm:grid-cols-2.xl:grid-cols-3.2xl:grid-cols-5.gap-3#nodes-grid
         - visible = @nodes.reject { |_, n| n['hidden'] }
@@ -208,7 +211,7 @@
           - rx_freq   = qth['rx']&.values&.first&.dig('freq')
           - tx_freq   = qth['tx']&.values&.first&.dig('freq')
           - locator   = qth.dig('pos', 'loc')
-          - node_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'simplex' => 'bi-broadcast' }.fetch(node['nodeClass'].to_s, 'bi-broadcast')
+          - node_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'xlx' => 'bi-globe', 'simplex' => 'bi-broadcast' }.fetch(node['nodeClass'].to_s, 'bi-broadcast')
           - rx_ports  = (node['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }
 
           %div{id: "node-col-#{callsign}", "data-node-class" => node['nodeClass'].to_s.downcase}
@@ -572,7 +575,7 @@
           var stCol    = isTalker ? 'green' : (tg !== 0 ? 'blue' : 'gray');
           var cs       = esc(callsign);
 
-          var iconMap = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', simplex: 'bi-broadcast' };
+          var iconMap = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', simplex: 'bi-broadcast' };
           var iconCls = iconMap[n.nodeClass] || 'bi-broadcast';
           var qth     = (n.qth && n.qth[0]) || {};
           var rxFreq  = qth.rx && Object.values(qth.rx)[0] && Object.values(qth.rx)[0].freq;
