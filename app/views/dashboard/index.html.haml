@@ -267,9 +267,12 @@
 
                 -# D-STAR RX info (XLX bridges)
                 - dstar = node['dstar_rx']
-                .mb-2.flex.items-center.gap-2{id: "node-#{callsign}-dstar-rx", class: (dstar ? '' : 'hidden')}
+                .mb-2.flex.items-center.gap-2.flex-wrap{id: "node-#{callsign}-dstar-rx", class: (dstar ? '' : 'hidden')}
                   %i.bi.bi-broadcast.text-purple-400
                   %span.text-purple-300.font-mono.font-semibold{id: "node-#{callsign}-dstar-mycall"}= dstar&.dig('mycall')
+                  %span.text-gray-500.text-xs{id: "node-#{callsign}-dstar-rpt", class: (dstar&.dig('rpt').present? ? '' : 'hidden')}
+                    via
+                    %span.text-gray-400= dstar&.dig('rpt')
                   %span.text-gray-400.text-xs.truncate{id: "node-#{callsign}-dstar-text", title: dstar&.dig('text').to_s, class: (dstar&.dig('text').present? ? '' : 'hidden')}= dstar&.dig('text')
 
                 -# Frequencies
@@ -555,6 +558,11 @@
               dstarRow.classList.remove('hidden');
               var mycallEl = document.getElementById('node-' + callsign + '-dstar-mycall');
               if (mycallEl) mycallEl.textContent = dr.mycall;
+              var rptEl = document.getElementById('node-' + callsign + '-dstar-rpt');
+              if (rptEl) {
+                if (dr.rpt) { rptEl.classList.remove('hidden'); rptEl.querySelector('span').textContent = dr.rpt; }
+                else { rptEl.classList.add('hidden'); }
+              }
               var textEl = document.getElementById('node-' + callsign + '-dstar-text');
               if (textEl) {
                 if (dr.text) { textEl.textContent = dr.text; textEl.title = dr.text; textEl.classList.remove('hidden'); }
@@ -652,14 +660,11 @@
 
           // D-STAR RX info
           var dr = n.dstar_rx;
-          h += '<div class="mb-2 flex items-center gap-2' + (dr && dr.mycall ? '' : ' hidden') + '" id="node-' + cs + '-dstar-rx">';
+          h += '<div class="mb-2 flex items-center gap-2 flex-wrap' + (dr && dr.mycall ? '' : ' hidden') + '" id="node-' + cs + '-dstar-rx">';
           h += '<i class="bi bi-broadcast text-purple-400"></i>';
           h += '<span class="text-purple-300 font-mono font-semibold" id="node-' + cs + '-dstar-mycall">' + (dr && dr.mycall ? esc(dr.mycall) : '') + '</span>';
-          if (dr && dr.text) {
-            h += '<span class="text-gray-400 text-xs truncate" id="node-' + cs + '-dstar-text" title="' + esc(dr.text) + '">' + esc(dr.text) + '</span>';
-          } else {
-            h += '<span class="text-gray-400 text-xs truncate hidden" id="node-' + cs + '-dstar-text"></span>';
-          }
+          h += '<span class="text-gray-500 text-xs' + (dr && dr.rpt ? '' : ' hidden') + '" id="node-' + cs + '-dstar-rpt">via <span class="text-gray-400">' + (dr && dr.rpt ? esc(dr.rpt) : '') + '</span></span>';
+          h += '<span class="text-gray-400 text-xs truncate' + (dr && dr.text ? '' : ' hidden') + '" id="node-' + cs + '-dstar-text" title="' + (dr && dr.text ? esc(dr.text) : '') + '">' + (dr && dr.text ? esc(dr.text) : '') + '</span>';
           h += '</div>';
 
           // Frequencies

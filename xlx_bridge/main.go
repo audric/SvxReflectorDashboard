@@ -270,7 +270,8 @@ func runBridge(
 
 			srcCS := strings.TrimSpace(frame.MYCall)
 			srcSuffix := strings.TrimSpace(frame.MYSuffix)
-			log.Printf("[XLX→SVX] Voice from %s (stream %04X)", srcCS, frame.StreamID)
+			srcRpt := strings.TrimSpace(frame.RPT1)
+			log.Printf("[XLX→SVX] Voice from %s via %s (stream %04X)", srcCS, srcRpt, frame.StreamID)
 			svx.SendTalkerStart(svxTG, callsign)
 
 			agcXlxToSvx.Reset()
@@ -282,7 +283,7 @@ func runBridge(
 			slowDecoder.Reset()
 			lastSlowText = ""
 			if redisCli != nil && srcCS != "" {
-				val := `{"mycall":"` + srcCS + `","suffix":"` + srcSuffix + `"}`
+				val := dstarRxJSON(srcCS, srcSuffix, srcRpt, "")
 				if err := redisCli.SetEX(redisKey, 30, val); err != nil {
 					log.Printf("[Redis] SETEX error: %v", err)
 				}
@@ -300,7 +301,8 @@ func runBridge(
 				if redisCli != nil {
 					srcCS := strings.TrimSpace(frame.MYCall)
 					srcSuffix := strings.TrimSpace(frame.MYSuffix)
-					val := `{"mycall":"` + srcCS + `","suffix":"` + srcSuffix + `","text":"` + text + `"}`
+					srcRpt := strings.TrimSpace(frame.RPT1)
+					val := dstarRxJSON(srcCS, srcSuffix, srcRpt, text)
 					if err := redisCli.SetEX(redisKey, 30, val); err != nil {
 						log.Printf("[Redis] SETEX error: %v", err)
 					}
@@ -422,6 +424,14 @@ func runBridge(
 	}
 
 	return result
+}
+
+func dstarRxJSON(mycall, suffix, rpt, text string) string {
+	s := `{"mycall":"` + mycall + `","suffix":"` + suffix + `","rpt":"` + rpt + `"`
+	if text != "" {
+		s += `,"text":"` + text + `"`
+	}
+	return s + `}`
 }
 
 func envRequired(key string) string {
