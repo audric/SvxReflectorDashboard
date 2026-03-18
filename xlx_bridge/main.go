@@ -122,6 +122,9 @@ func runBridge(
 		// Buffer PCM samples for OPUS encoding
 		pcmBuffer []int16
 		pcmBufMu  sync.Mutex
+		// AGC instances for each direction
+		agcSvxToXlx = NewAGC()
+		agcXlxToSvx = NewAGC()
 	)
 
 	svx := NewSVXLinkClient(svxHost, svxPort, svxAuthKey, callsign, nodeLocation, sysop)
@@ -150,6 +153,9 @@ func runBridge(
 			return
 		}
 		pcm = pcm[:n]
+
+		// Normalize audio level before AMBE encoding
+		agcSvxToXlx.Process(pcm)
 
 		ambeBufMu.Lock()
 		ambeBuffer = append(ambeBuffer, pcm...)
@@ -182,6 +188,7 @@ func runBridge(
 
 		log.Printf("[SVX→XLX] Talker start: %s on TG %d", cs, tg)
 
+		agcSvxToXlx.Reset()
 		ambeBufMu.Lock()
 		ambeBuffer = ambeBuffer[:0]
 		ambeBufMu.Unlock()
@@ -244,6 +251,7 @@ func runBridge(
 			log.Printf("[XLX→SVX] Voice from %s (stream %04X)", srcCS, frame.StreamID)
 			svx.SendTalkerStart(svxTG, callsign)
 
+			agcXlxToSvx.Reset()
 			pcmBufMu.Lock()
 			pcmBuffer = pcmBuffer[:0]
 			pcmBufMu.Unlock()
@@ -282,11 +290,13 @@ func runBridge(
 			return
 		}
 
-		// Decode AMBE to PCM
+		// Decode AMBE to PCM and normalize level
 		pcm := voc.Decode(frame.AMBE)
+		pcmSlice := pcm[:]
+		agcXlxToSvx.Process(pcmSlice)
 
 		pcmBufMu.Lock()
-		pcmBuffer = append(pcmBuffer, pcm[:]...)
+		pcmBuffer = append(pcmBuffer, pcmSlice...)
 
 		// Encode to OPUS in 60ms chunks (480 samples)
 		if len(pcmBuffer) >= 480 {
