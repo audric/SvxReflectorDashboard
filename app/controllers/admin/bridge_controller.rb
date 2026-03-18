@@ -22,12 +22,41 @@ module Admin
           echolink_max_qsos: 10,
           echolink_max_connections: 11,
           echolink_link_idle_timeout: 300,
-          echolink_servers: "servers.echolink.org"
+          echolink_servers: "servers.echolink.org",
+          echolink_proxy_port: 8100,
+          echolink_proxy_password: "PUBLIC"
         )
       elsif bridge_type == "xlx"
         defaults.merge!(
           xlx_port: 30051,
           xlx_module: "A"
+        )
+      elsif bridge_type == "dmr"
+        defaults.merge!(
+          dmr_port: 62030,
+          dmr_timeslot: 2,
+          dmr_color_code: 1
+        )
+      elsif bridge_type == "ysf"
+        defaults.merge!(
+          ysf_port: 42000
+        )
+      elsif bridge_type == "m17"
+        defaults.merge!(
+          m17_port: 17000,
+          m17_module: "A"
+        )
+      elsif bridge_type == "nxdn"
+        defaults.merge!(
+          nxdn_port: 41400
+        )
+      elsif bridge_type == "p25"
+        defaults.merge!(
+          p25_port: 41000
+        )
+      elsif bridge_type == "allstar"
+        defaults.merge!(
+          allstar_port: 4569
         )
       else
         defaults.merge!(
@@ -128,7 +157,13 @@ module Admin
         :echolink_accept_outgoing, :echolink_reject_outgoing,
         :echolink_reject_conf, :echolink_use_gsm_only, :echolink_bind_addr,
         :echolink_servers, :default_active,
-        :xlx_host, :xlx_port, :xlx_module, :xlx_callsign, :xlx_callsign_suffix, :xlx_mycall, :xlx_mycall_suffix, :xlx_reflector_name
+        :xlx_host, :xlx_port, :xlx_module, :xlx_callsign, :xlx_callsign_suffix, :xlx_mycall, :xlx_mycall_suffix, :xlx_reflector_name,
+        :dmr_host, :dmr_port, :dmr_id, :dmr_password, :dmr_talkgroup, :dmr_timeslot, :dmr_color_code, :dmr_callsign,
+        :ysf_host, :ysf_port, :ysf_callsign, :ysf_description,
+        :m17_host, :m17_port, :m17_callsign, :m17_module,
+        :nxdn_host, :nxdn_port, :nxdn_id, :nxdn_talkgroup,
+        :p25_host, :p25_port, :p25_id, :p25_talkgroup,
+        :allstar_node, :allstar_password, :allstar_server, :allstar_port
       )
     end
 
@@ -175,6 +210,18 @@ module Admin
 
       if bridge.xlx?
         start_xlx_container(bridge)
+      elsif bridge.dmr?
+        start_dmr_container(bridge)
+      elsif bridge.ysf?
+        start_ysf_container(bridge)
+      elsif bridge.m17?
+        start_m17_container(bridge)
+      elsif bridge.nxdn?
+        start_nxdn_container(bridge)
+      elsif bridge.p25?
+        start_p25_container(bridge)
+      elsif bridge.allstar?
+        start_allstar_container(bridge)
       else
         start_svxlink_container(bridge)
       end
@@ -220,6 +267,238 @@ module Admin
       if result && result["Id"]
         docker_api_post("/containers/#{result["Id"]}/start")
         Rails.logger.info "[Bridge] Created and started XLX container #{bridge.container_name}"
+      end
+    end
+
+    def start_dmr_container(bridge)
+      network = docker_network
+      body = {
+        Image: "ghcr.io/audric/svxreflectordashboard-dmr-bridge",
+        Labels: {
+          "svx.bridge" => "true",
+          "svx.bridge.id" => bridge.id.to_s,
+          "svx.bridge.name" => bridge.name,
+          "com.docker.compose.project" => "",
+          "com.docker.compose.service" => ""
+        },
+        Env: [
+          "REFLECTOR_HOST=#{bridge.local_host}",
+          "REFLECTOR_PORT=#{bridge.local_port}",
+          "REFLECTOR_AUTH_KEY=#{bridge.local_auth_key}",
+          "REFLECTOR_TG=#{bridge.local_default_tg}",
+          "CALLSIGN=#{bridge.local_callsign}",
+          "DMR_HOST=#{bridge.dmr_host}",
+          "DMR_PORT=#{bridge.dmr_port || 62030}",
+          "DMR_ID=#{bridge.dmr_id}",
+          "DMR_PASSWORD=#{bridge.dmr_password}",
+          "DMR_TALKGROUP=#{bridge.dmr_talkgroup}",
+          "DMR_TIMESLOT=#{bridge.dmr_timeslot || 2}",
+          "DMR_COLOR_CODE=#{bridge.dmr_color_code || 1}",
+          "DMR_CALLSIGN=#{bridge.dmr_callsign.presence || bridge.local_callsign}",
+          "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
+          "SYSOP=#{bridge.sysop}",
+          "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
+        ],
+        HostConfig: {
+          RestartPolicy: { Name: "unless-stopped" }
+        }
+      }
+      body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
+
+      result = docker_api_post_json("/containers/create?name=#{bridge.container_name}", body)
+      if result && result["Id"]
+        docker_api_post("/containers/#{result["Id"]}/start")
+        Rails.logger.info "[Bridge] Created and started DMR container #{bridge.container_name}"
+      end
+    end
+
+    def start_ysf_container(bridge)
+      network = docker_network
+      body = {
+        Image: "ghcr.io/audric/svxreflectordashboard-ysf-bridge",
+        Labels: {
+          "svx.bridge" => "true",
+          "svx.bridge.id" => bridge.id.to_s,
+          "svx.bridge.name" => bridge.name,
+          "com.docker.compose.project" => "",
+          "com.docker.compose.service" => ""
+        },
+        Env: [
+          "REFLECTOR_HOST=#{bridge.local_host}",
+          "REFLECTOR_PORT=#{bridge.local_port}",
+          "REFLECTOR_AUTH_KEY=#{bridge.local_auth_key}",
+          "REFLECTOR_TG=#{bridge.local_default_tg}",
+          "CALLSIGN=#{bridge.local_callsign}",
+          "YSF_HOST=#{bridge.ysf_host}",
+          "YSF_PORT=#{bridge.ysf_port || 42000}",
+          "YSF_CALLSIGN=#{bridge.ysf_callsign.presence || bridge.local_callsign}",
+          "YSF_DESCRIPTION=#{bridge.ysf_description}",
+          "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
+          "SYSOP=#{bridge.sysop}",
+          "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
+        ],
+        HostConfig: {
+          RestartPolicy: { Name: "unless-stopped" }
+        }
+      }
+      body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
+
+      result = docker_api_post_json("/containers/create?name=#{bridge.container_name}", body)
+      if result && result["Id"]
+        docker_api_post("/containers/#{result["Id"]}/start")
+        Rails.logger.info "[Bridge] Created and started YSF container #{bridge.container_name}"
+      end
+    end
+
+    def start_m17_container(bridge)
+      network = docker_network
+      body = {
+        Image: "ghcr.io/audric/svxreflectordashboard-m17-bridge",
+        Labels: {
+          "svx.bridge" => "true",
+          "svx.bridge.id" => bridge.id.to_s,
+          "svx.bridge.name" => bridge.name,
+          "com.docker.compose.project" => "",
+          "com.docker.compose.service" => ""
+        },
+        Env: [
+          "REFLECTOR_HOST=#{bridge.local_host}",
+          "REFLECTOR_PORT=#{bridge.local_port}",
+          "REFLECTOR_AUTH_KEY=#{bridge.local_auth_key}",
+          "REFLECTOR_TG=#{bridge.local_default_tg}",
+          "CALLSIGN=#{bridge.local_callsign}",
+          "M17_HOST=#{bridge.m17_host}",
+          "M17_PORT=#{bridge.m17_port || 17000}",
+          "M17_CALLSIGN=#{bridge.m17_callsign}",
+          "M17_MODULE=#{bridge.m17_module}",
+          "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
+          "SYSOP=#{bridge.sysop}",
+          "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
+        ],
+        HostConfig: {
+          RestartPolicy: { Name: "unless-stopped" }
+        }
+      }
+      body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
+
+      result = docker_api_post_json("/containers/create?name=#{bridge.container_name}", body)
+      if result && result["Id"]
+        docker_api_post("/containers/#{result["Id"]}/start")
+        Rails.logger.info "[Bridge] Created and started M17 container #{bridge.container_name}"
+      end
+    end
+
+    def start_nxdn_container(bridge)
+      network = docker_network
+      body = {
+        Image: "ghcr.io/audric/svxreflectordashboard-nxdn-bridge",
+        Labels: {
+          "svx.bridge" => "true",
+          "svx.bridge.id" => bridge.id.to_s,
+          "svx.bridge.name" => bridge.name,
+          "com.docker.compose.project" => "",
+          "com.docker.compose.service" => ""
+        },
+        Env: [
+          "REFLECTOR_HOST=#{bridge.local_host}",
+          "REFLECTOR_PORT=#{bridge.local_port}",
+          "REFLECTOR_AUTH_KEY=#{bridge.local_auth_key}",
+          "REFLECTOR_TG=#{bridge.local_default_tg}",
+          "CALLSIGN=#{bridge.local_callsign}",
+          "NXDN_HOST=#{bridge.nxdn_host}",
+          "NXDN_PORT=#{bridge.nxdn_port || 41400}",
+          "NXDN_ID=#{bridge.nxdn_id}",
+          "NXDN_TALKGROUP=#{bridge.nxdn_talkgroup}",
+          "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
+          "SYSOP=#{bridge.sysop}",
+          "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
+        ],
+        HostConfig: {
+          RestartPolicy: { Name: "unless-stopped" }
+        }
+      }
+      body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
+
+      result = docker_api_post_json("/containers/create?name=#{bridge.container_name}", body)
+      if result && result["Id"]
+        docker_api_post("/containers/#{result["Id"]}/start")
+        Rails.logger.info "[Bridge] Created and started NXDN container #{bridge.container_name}"
+      end
+    end
+
+    def start_p25_container(bridge)
+      network = docker_network
+      body = {
+        Image: "ghcr.io/audric/svxreflectordashboard-p25-bridge",
+        Labels: {
+          "svx.bridge" => "true",
+          "svx.bridge.id" => bridge.id.to_s,
+          "svx.bridge.name" => bridge.name,
+          "com.docker.compose.project" => "",
+          "com.docker.compose.service" => ""
+        },
+        Env: [
+          "REFLECTOR_HOST=#{bridge.local_host}",
+          "REFLECTOR_PORT=#{bridge.local_port}",
+          "REFLECTOR_AUTH_KEY=#{bridge.local_auth_key}",
+          "REFLECTOR_TG=#{bridge.local_default_tg}",
+          "CALLSIGN=#{bridge.local_callsign}",
+          "P25_HOST=#{bridge.p25_host}",
+          "P25_PORT=#{bridge.p25_port || 41000}",
+          "P25_ID=#{bridge.p25_id}",
+          "P25_TALKGROUP=#{bridge.p25_talkgroup}",
+          "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
+          "SYSOP=#{bridge.sysop}",
+          "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
+        ],
+        HostConfig: {
+          RestartPolicy: { Name: "unless-stopped" }
+        }
+      }
+      body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
+
+      result = docker_api_post_json("/containers/create?name=#{bridge.container_name}", body)
+      if result && result["Id"]
+        docker_api_post("/containers/#{result["Id"]}/start")
+        Rails.logger.info "[Bridge] Created and started P25 container #{bridge.container_name}"
+      end
+    end
+
+    def start_allstar_container(bridge)
+      network = docker_network
+      body = {
+        Image: "ghcr.io/audric/svxreflectordashboard-allstar-bridge",
+        Labels: {
+          "svx.bridge" => "true",
+          "svx.bridge.id" => bridge.id.to_s,
+          "svx.bridge.name" => bridge.name,
+          "com.docker.compose.project" => "",
+          "com.docker.compose.service" => ""
+        },
+        Env: [
+          "REFLECTOR_HOST=#{bridge.local_host}",
+          "REFLECTOR_PORT=#{bridge.local_port}",
+          "REFLECTOR_AUTH_KEY=#{bridge.local_auth_key}",
+          "REFLECTOR_TG=#{bridge.local_default_tg}",
+          "CALLSIGN=#{bridge.local_callsign}",
+          "ALLSTAR_NODE=#{bridge.allstar_node}",
+          "ALLSTAR_PASSWORD=#{bridge.allstar_password}",
+          "ALLSTAR_SERVER=#{bridge.allstar_server}",
+          "ALLSTAR_PORT=#{bridge.allstar_port || 4569}",
+          "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
+          "SYSOP=#{bridge.sysop}",
+          "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
+        ],
+        HostConfig: {
+          RestartPolicy: { Name: "unless-stopped" }
+        }
+      }
+      body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
+
+      result = docker_api_post_json("/containers/create?name=#{bridge.container_name}", body)
+      if result && result["Id"]
+        docker_api_post("/containers/#{result["Id"]}/start")
+        Rails.logger.info "[Bridge] Created and started AllStar container #{bridge.container_name}"
       end
     end
 
@@ -312,7 +591,7 @@ module Admin
       statuses = {}
       containers.each do |c|
         c["Names"].each do |n|
-          if n =~ /\A\/(?:svxlink|xlx)-bridge-(\d+)\z/
+          if n =~ /\A\/(?:svxlink|xlx|dmr|ysf|m17|nxdn|p25|allstar)-bridge-(\d+)\z/
             statuses[Regexp.last_match(1).to_i] = c["State"]
           end
         end

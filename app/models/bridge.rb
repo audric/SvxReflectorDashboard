@@ -1,7 +1,7 @@
 class Bridge < ApplicationRecord
   has_many :bridge_tg_mappings, dependent: :destroy
 
-  BRIDGE_TYPES = %w[reflector echolink xlx].freeze
+  BRIDGE_TYPES = %w[reflector echolink xlx dmr ysf m17 nxdn p25 allstar].freeze
 
   validates :name, presence: true, uniqueness: true
   validates :bridge_type, presence: true, inclusion: { in: BRIDGE_TYPES }
@@ -34,6 +34,49 @@ class Bridge < ApplicationRecord
     validates :xlx_callsign_suffix, presence: true, format: { with: /\A[A-Z]\z/, message: "must be a letter A-Z" }
   end
 
+  # DMR-specific validations
+  with_options if: :dmr? do
+    validates :dmr_host, presence: true
+    validates :dmr_id, presence: true, numericality: { greater_than: 0 }
+    validates :dmr_password, presence: true
+    validates :dmr_talkgroup, presence: true, numericality: { greater_than: 0 }
+    validates :dmr_timeslot, presence: true, inclusion: { in: [1, 2], message: "must be 1 or 2" }
+    validates :dmr_color_code, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 15, message: "must be 0-15" }, allow_nil: true
+  end
+
+  # YSF-specific validations
+  with_options if: :ysf? do
+    validates :ysf_host, presence: true
+  end
+
+  # M17-specific validations
+  with_options if: :m17? do
+    validates :m17_host, presence: true
+    validates :m17_callsign, presence: true
+    validates :m17_module, format: { with: /\A[A-Z]\z/, message: "must be a letter A-Z" }, allow_blank: true
+  end
+
+  # NXDN-specific validations
+  with_options if: :nxdn? do
+    validates :nxdn_host, presence: true
+    validates :nxdn_id, presence: true, numericality: { greater_than: 0 }
+    validates :nxdn_talkgroup, presence: true, numericality: { greater_than: 0 }
+  end
+
+  # P25-specific validations
+  with_options if: :p25? do
+    validates :p25_host, presence: true
+    validates :p25_id, presence: true, numericality: { greater_than: 0 }
+    validates :p25_talkgroup, presence: true, numericality: { greater_than: 0 }
+  end
+
+  # AllStar-specific validations
+  with_options if: :allstar? do
+    validates :allstar_node, presence: true
+    validates :allstar_password, presence: true
+    validates :allstar_server, presence: true
+  end
+
   # Returns the 8-char DCS callsign: base callsign (space-padded to 7) + suffix letter.
   def dcs_callsign
     "%-7s%s" % [xlx_callsign.to_s.upcase, xlx_callsign_suffix.to_s.upcase]
@@ -54,6 +97,30 @@ class Bridge < ApplicationRecord
     bridge_type == "xlx"
   end
 
+  def dmr?
+    bridge_type == "dmr"
+  end
+
+  def ysf?
+    bridge_type == "ysf"
+  end
+
+  def m17?
+    bridge_type == "m17"
+  end
+
+  def nxdn?
+    bridge_type == "nxdn"
+  end
+
+  def p25?
+    bridge_type == "p25"
+  end
+
+  def allstar?
+    bridge_type == "allstar"
+  end
+
   def config_dir
     Rails.root.join("bridge", id.to_s)
   end
@@ -63,7 +130,23 @@ class Bridge < ApplicationRecord
   end
 
   def container_name
-    xlx? ? "xlx-bridge-#{id}" : "svxlink-bridge-#{id}"
+    if xlx?
+      "xlx-bridge-#{id}"
+    elsif dmr?
+      "dmr-bridge-#{id}"
+    elsif ysf?
+      "ysf-bridge-#{id}"
+    elsif m17?
+      "m17-bridge-#{id}"
+    elsif nxdn?
+      "nxdn-bridge-#{id}"
+    elsif p25?
+      "p25-bridge-#{id}"
+    elsif allstar?
+      "allstar-bridge-#{id}"
+    else
+      "svxlink-bridge-#{id}"
+    end
   end
 
   MAX_BACKUPS = 10
@@ -74,12 +157,24 @@ class Bridge < ApplicationRecord
 
     if xlx?
       generate_xlx_config
+    elsif dmr?
+      generate_dmr_config
+    elsif ysf?
+      generate_ysf_config
+    elsif m17?
+      generate_m17_config
+    elsif nxdn?
+      generate_nxdn_config
+    elsif p25?
+      generate_p25_config
+    elsif allstar?
+      generate_allstar_config
     elsif echolink?
       generate_echolink_config
     else
       generate_reflector_config
     end
-    write_node_info unless xlx?
+    write_node_info unless xlx? || dmr? || ysf? || m17? || nxdn? || p25? || allstar?
   end
 
   def echolink_conf_path
@@ -177,6 +272,118 @@ class Bridge < ApplicationRecord
     lines << "SYSOP=#{sysop}" if sysop.present?
     lines << ""
     File.write(config_dir.join("xlx_bridge.env"), lines.join("\n"))
+  end
+
+  def generate_dmr_config
+    lines = []
+    lines << "# DMR Bridge configuration (passed as env vars to container)"
+    lines << "REFLECTOR_HOST=#{local_host}"
+    lines << "REFLECTOR_PORT=#{local_port}"
+    lines << "REFLECTOR_AUTH_KEY=#{local_auth_key}"
+    lines << "REFLECTOR_TG=#{local_default_tg}"
+    lines << "CALLSIGN=#{local_callsign}"
+    lines << "DMR_HOST=#{dmr_host}"
+    lines << "DMR_PORT=#{dmr_port || 62030}"
+    lines << "DMR_ID=#{dmr_id}"
+    lines << "DMR_PASSWORD=#{dmr_password}"
+    lines << "DMR_TALKGROUP=#{dmr_talkgroup}"
+    lines << "DMR_TIMESLOT=#{dmr_timeslot || 2}"
+    lines << "DMR_COLOR_CODE=#{dmr_color_code || 1}"
+    lines << "DMR_CALLSIGN=#{dmr_callsign}" if dmr_callsign.present?
+    lines << "NODE_LOCATION=#{node_location.presence || name}"
+    lines << "SYSOP=#{sysop}" if sysop.present?
+    lines << ""
+    File.write(config_dir.join("dmr_bridge.env"), lines.join("\n"))
+  end
+
+  def generate_ysf_config
+    lines = []
+    lines << "# YSF Bridge configuration (passed as env vars to container)"
+    lines << "REFLECTOR_HOST=#{local_host}"
+    lines << "REFLECTOR_PORT=#{local_port}"
+    lines << "REFLECTOR_AUTH_KEY=#{local_auth_key}"
+    lines << "REFLECTOR_TG=#{local_default_tg}"
+    lines << "CALLSIGN=#{local_callsign}"
+    lines << "YSF_HOST=#{ysf_host}"
+    lines << "YSF_PORT=#{ysf_port || 42000}"
+    lines << "YSF_CALLSIGN=#{ysf_callsign.presence || local_callsign}"
+    lines << "YSF_DESCRIPTION=#{ysf_description}" if ysf_description.present?
+    lines << "NODE_LOCATION=#{node_location.presence || name}"
+    lines << "SYSOP=#{sysop}" if sysop.present?
+    lines << ""
+    File.write(config_dir.join("ysf_bridge.env"), lines.join("\n"))
+  end
+
+  def generate_m17_config
+    lines = []
+    lines << "# M17 Bridge configuration (passed as env vars to container)"
+    lines << "REFLECTOR_HOST=#{local_host}"
+    lines << "REFLECTOR_PORT=#{local_port}"
+    lines << "REFLECTOR_AUTH_KEY=#{local_auth_key}"
+    lines << "REFLECTOR_TG=#{local_default_tg}"
+    lines << "CALLSIGN=#{local_callsign}"
+    lines << "M17_HOST=#{m17_host}"
+    lines << "M17_PORT=#{m17_port || 17000}"
+    lines << "M17_CALLSIGN=#{m17_callsign}"
+    lines << "M17_MODULE=#{m17_module}" if m17_module.present?
+    lines << "NODE_LOCATION=#{node_location.presence || name}"
+    lines << "SYSOP=#{sysop}" if sysop.present?
+    lines << ""
+    File.write(config_dir.join("m17_bridge.env"), lines.join("\n"))
+  end
+
+  def generate_nxdn_config
+    lines = []
+    lines << "# NXDN Bridge configuration (passed as env vars to container)"
+    lines << "REFLECTOR_HOST=#{local_host}"
+    lines << "REFLECTOR_PORT=#{local_port}"
+    lines << "REFLECTOR_AUTH_KEY=#{local_auth_key}"
+    lines << "REFLECTOR_TG=#{local_default_tg}"
+    lines << "CALLSIGN=#{local_callsign}"
+    lines << "NXDN_HOST=#{nxdn_host}"
+    lines << "NXDN_PORT=#{nxdn_port || 41400}"
+    lines << "NXDN_ID=#{nxdn_id}"
+    lines << "NXDN_TALKGROUP=#{nxdn_talkgroup}"
+    lines << "NODE_LOCATION=#{node_location.presence || name}"
+    lines << "SYSOP=#{sysop}" if sysop.present?
+    lines << ""
+    File.write(config_dir.join("nxdn_bridge.env"), lines.join("\n"))
+  end
+
+  def generate_p25_config
+    lines = []
+    lines << "# P25 Bridge configuration (passed as env vars to container)"
+    lines << "REFLECTOR_HOST=#{local_host}"
+    lines << "REFLECTOR_PORT=#{local_port}"
+    lines << "REFLECTOR_AUTH_KEY=#{local_auth_key}"
+    lines << "REFLECTOR_TG=#{local_default_tg}"
+    lines << "CALLSIGN=#{local_callsign}"
+    lines << "P25_HOST=#{p25_host}"
+    lines << "P25_PORT=#{p25_port || 41000}"
+    lines << "P25_ID=#{p25_id}"
+    lines << "P25_TALKGROUP=#{p25_talkgroup}"
+    lines << "NODE_LOCATION=#{node_location.presence || name}"
+    lines << "SYSOP=#{sysop}" if sysop.present?
+    lines << ""
+    File.write(config_dir.join("p25_bridge.env"), lines.join("\n"))
+  end
+
+  def generate_allstar_config
+    lines = []
+    lines << "# AllStar Bridge configuration (passed as env vars to container)"
+    lines << "REFLECTOR_HOST=#{local_host}"
+    lines << "REFLECTOR_PORT=#{local_port}"
+    lines << "REFLECTOR_AUTH_KEY=#{local_auth_key}"
+    lines << "REFLECTOR_TG=#{local_default_tg}"
+    lines << "CALLSIGN=#{local_callsign}"
+    lines << "ALLSTAR_NODE=#{allstar_node}"
+    lines << "ALLSTAR_PASSWORD=#{allstar_password}"
+    lines << "ALLSTAR_SERVER=#{allstar_server}"
+    lines << "ALLSTAR_PORT=#{allstar_port || 4569}"
+    lines << "NODE_LOCATION=#{node_location.presence || name}"
+    lines << "SYSOP=#{sysop}" if sysop.present?
+    lines << ""
+    File.write(config_dir.join("allstar_bridge.env"), lines.join("\n"))
   end
 
   def generate_reflector_config
@@ -419,7 +626,11 @@ class Bridge < ApplicationRecord
   def backup_configs
     self.class.purge_old_archives
 
-    files = [config_path, node_info_path, echolink_conf_path, config_dir.join("xlx_bridge.env")].select(&:exist?)
+    files = [config_path, node_info_path, echolink_conf_path,
+             config_dir.join("xlx_bridge.env"), config_dir.join("dmr_bridge.env"),
+             config_dir.join("ysf_bridge.env"), config_dir.join("m17_bridge.env"),
+             config_dir.join("nxdn_bridge.env"), config_dir.join("p25_bridge.env"),
+             config_dir.join("allstar_bridge.env")].select(&:exist?)
     return if files.empty?
 
     migrate_legacy_backups if Dir.glob(config_dir.join("*.bak")).any?

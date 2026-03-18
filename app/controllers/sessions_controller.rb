@@ -9,6 +9,7 @@ class SessionsController < ApplicationController
 
     if user&.authenticate(params[:password])
       if user.approved?
+        user.update_column(:last_sign_in_at, Time.current)
         session[:user_id] = user.id
         redirect_to root_path, notice: "Logged in as #{user.callsign}"
       else

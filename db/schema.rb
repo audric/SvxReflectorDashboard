@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_18_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_18_234739) do
   create_table "bridge_tg_mappings", force: :cascade do |t|
     t.string "activate_on_activity"
     t.integer "bridge_id", null: false
@@ -24,6 +24,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_18_100000) do
   end
 
   create_table "bridges", force: :cascade do |t|
+    t.string "allstar_node"
+    t.string "allstar_password"
+    t.integer "allstar_port"
+    t.string "allstar_server"
     t.integer "bridge_local_tg"
     t.integer "bridge_remote_tg"
     t.string "bridge_type", default: "reflector", null: false
@@ -37,6 +41,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_18_100000) do
     t.string "cert_subj_st"
     t.datetime "created_at", null: false
     t.boolean "default_active", default: true
+    t.string "dmr_callsign"
+    t.integer "dmr_color_code"
+    t.string "dmr_host"
+    t.integer "dmr_id"
+    t.string "dmr_password"
+    t.integer "dmr_port"
+    t.integer "dmr_talkgroup"
+    t.integer "dmr_timeslot"
     t.string "echolink_accept_incoming"
     t.string "echolink_accept_outgoing"
     t.string "echolink_autocon_echolink_id"
@@ -66,11 +78,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_18_100000) do
     t.integer "local_default_tg"
     t.string "local_host"
     t.integer "local_port"
+    t.string "m17_callsign"
+    t.string "m17_host"
+    t.string "m17_module"
+    t.integer "m17_port"
     t.string "monitor_tgs"
     t.boolean "mute_first_tx_loc"
     t.boolean "mute_first_tx_rem"
     t.string "name"
     t.string "node_location"
+    t.string "nxdn_host"
+    t.integer "nxdn_id"
+    t.integer "nxdn_port"
+    t.integer "nxdn_talkgroup"
+    t.string "p25_host"
+    t.integer "p25_id"
+    t.integer "p25_port"
+    t.integer "p25_talkgroup"
     t.string "remote_auth_key"
     t.text "remote_ca_bundle"
     t.string "remote_callsign"
@@ -89,7 +113,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_18_100000) do
     t.string "xlx_host"
     t.string "xlx_module"
     t.string "xlx_mycall"
+    t.string "xlx_mycall_suffix"
     t.integer "xlx_port"
+    t.string "xlx_reflector_name"
+    t.string "ysf_callsign"
+    t.string "ysf_description"
+    t.string "ysf_host"
+    t.integer "ysf_port"
   end
 
   create_table "ctcss_tones", force: :cascade do |t|
@@ -202,6 +232,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_18_100000) do
     t.datetime "created_at", null: false
     t.boolean "cw_roger_beep", default: false, null: false
     t.string "email"
+    t.datetime "last_sign_in_at"
     t.string "mobile"
     t.string "name"
     t.string "password_digest", null: false

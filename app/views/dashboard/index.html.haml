@@ -275,6 +275,32 @@
                     %span.text-gray-400= dstar&.dig('rpt')
                   %span.text-gray-400.text-xs.truncate{id: "node-#{callsign}-dstar-text", title: dstar&.dig('text').to_s, class: (dstar&.dig('text').present? ? '' : 'hidden')}= dstar&.dig('text')
 
+                -# DMR RX info (DMR bridges)
+                - dmr = node['dmr_rx']
+                .mb-2.flex.items-center.gap-2.flex-wrap{id: "node-#{callsign}-dmr-rx", class: (dmr ? '' : 'hidden')}
+                  %i.bi.bi-broadcast-pin.text-amber-400
+                  %span.text-amber-300.font-mono.font-semibold{id: "node-#{callsign}-dmr-srcid"}= dmr&.dig('src_id')
+                  %span.text-gray-500.text-xs{id: "node-#{callsign}-dmr-tg"}
+                    TG
+                    %span.text-gray-400= dmr&.dig('talkgroup')
+                  %span.text-gray-500.text-xs{id: "node-#{callsign}-dmr-ts"}
+                    TS
+                    %span.text-gray-400= dmr&.dig('timeslot')
+
+                -# YSF RX info (YSF bridges)
+                - ysf = node['ysf_rx']
+                .mb-2.flex.items-center.gap-2.flex-wrap{id: "node-#{callsign}-ysf-rx", class: (ysf ? '' : 'hidden')}
+                  %i.bi.bi-soundwave.text-cyan-400
+                  %span.text-cyan-300.font-mono.font-semibold{id: "node-#{callsign}-ysf-callsign"}= ysf&.dig('callsign')
+                  - if ysf&.dig('location').present?
+                    %span.text-gray-400.text-xs.truncate{id: "node-#{callsign}-ysf-location"}= ysf&.dig('location')
+
+                -# M17 RX info (M17 bridges)
+                - m17 = node['m17_rx']
+                .mb-2.flex.items-center.gap-2.flex-wrap{id: "node-#{callsign}-m17-rx", class: (m17 ? '' : 'hidden')}
+                  %i.bi.bi-signpost-2.text-rose-400
+                  %span.text-rose-300.font-mono.font-semibold{id: "node-#{callsign}-m17-callsign"}= m17&.dig('callsign')
+
                 -# Frequencies
                 - if rx_freq.to_f > 0 || tx_freq.to_f > 0
                   .mb-2.flex.gap-3
@@ -573,6 +599,51 @@
             }
           }
 
+          // DMR RX info
+          var dmrRow = document.getElementById('node-' + callsign + '-dmr-rx');
+          if (dmrRow) {
+            var dmr = n.dmr_rx;
+            if (dmr && dmr.src_id) {
+              dmrRow.classList.remove('hidden');
+              var srcEl = document.getElementById('node-' + callsign + '-dmr-srcid');
+              if (srcEl) srcEl.textContent = dmr.src_id;
+              var tgEl = document.getElementById('node-' + callsign + '-dmr-tg');
+              if (tgEl) tgEl.querySelector('span').textContent = dmr.talkgroup;
+              var tsEl = document.getElementById('node-' + callsign + '-dmr-ts');
+              if (tsEl) tsEl.querySelector('span').textContent = dmr.timeslot;
+            } else {
+              dmrRow.classList.add('hidden');
+            }
+          }
+
+          // YSF RX info
+          var ysfRow = document.getElementById('node-' + callsign + '-ysf-rx');
+          if (ysfRow) {
+            var ysf = n.ysf_rx;
+            if (ysf && ysf.callsign) {
+              ysfRow.classList.remove('hidden');
+              var ysfCsEl = document.getElementById('node-' + callsign + '-ysf-callsign');
+              if (ysfCsEl) ysfCsEl.textContent = ysf.callsign;
+              var ysfLocEl = document.getElementById('node-' + callsign + '-ysf-location');
+              if (ysfLocEl) { ysfLocEl.textContent = ysf.location || ''; }
+            } else {
+              ysfRow.classList.add('hidden');
+            }
+          }
+
+          // M17 RX info
+          var m17Row = document.getElementById('node-' + callsign + '-m17-rx');
+          if (m17Row) {
+            var m17 = n.m17_rx;
+            if (m17 && m17.callsign) {
+              m17Row.classList.remove('hidden');
+              var m17CsEl = document.getElementById('node-' + callsign + '-m17-callsign');
+              if (m17CsEl) m17CsEl.textContent = m17.callsign;
+            } else {
+              m17Row.classList.add('hidden');
+            }
+          }
+
           // Node location
           var locEl = document.getElementById('node-' + callsign + '-location');
           if (locEl && n.nodeLocation) { locEl.textContent = n.nodeLocation; locEl.parentElement.title = n.nodeLocation; locEl.parentElement.classList.remove('hidden'); }
@@ -665,6 +736,30 @@
           h += '<span class="text-purple-300 font-mono font-semibold" id="node-' + cs + '-dstar-mycall">' + (dr && dr.mycall ? esc(dr.mycall) : '') + '</span>';
           h += '<span class="text-gray-500 text-xs' + (dr && dr.rpt ? '' : ' hidden') + '" id="node-' + cs + '-dstar-rpt">via <span class="text-gray-400">' + (dr && dr.rpt ? esc(dr.rpt) : '') + '</span></span>';
           h += '<span class="text-gray-400 text-xs truncate' + (dr && dr.text ? '' : ' hidden') + '" id="node-' + cs + '-dstar-text" title="' + (dr && dr.text ? esc(dr.text) : '') + '">' + (dr && dr.text ? esc(dr.text) : '') + '</span>';
+          h += '</div>';
+
+          // DMR RX info
+          var dmr = n.dmr_rx;
+          h += '<div class="mb-2 flex items-center gap-2 flex-wrap' + (dmr && dmr.src_id ? '' : ' hidden') + '" id="node-' + cs + '-dmr-rx">';
+          h += '<i class="bi bi-broadcast-pin text-amber-400"></i>';
+          h += '<span class="text-amber-300 font-mono font-semibold" id="node-' + cs + '-dmr-srcid">' + (dmr && dmr.src_id ? dmr.src_id : '') + '</span>';
+          h += '<span class="text-gray-500 text-xs" id="node-' + cs + '-dmr-tg">TG <span class="text-gray-400">' + (dmr && dmr.talkgroup ? dmr.talkgroup : '') + '</span></span>';
+          h += '<span class="text-gray-500 text-xs" id="node-' + cs + '-dmr-ts">TS <span class="text-gray-400">' + (dmr && dmr.timeslot ? dmr.timeslot : '') + '</span></span>';
+          h += '</div>';
+
+          // YSF RX info
+          var ysf = n.ysf_rx;
+          h += '<div class="mb-2 flex items-center gap-2 flex-wrap' + (ysf && ysf.callsign ? '' : ' hidden') + '" id="node-' + cs + '-ysf-rx">';
+          h += '<i class="bi bi-soundwave text-cyan-400"></i>';
+          h += '<span class="text-cyan-300 font-mono font-semibold" id="node-' + cs + '-ysf-callsign">' + (ysf && ysf.callsign ? esc(ysf.callsign) : '') + '</span>';
+          h += '<span class="text-gray-400 text-xs truncate" id="node-' + cs + '-ysf-location">' + (ysf && ysf.location ? esc(ysf.location) : '') + '</span>';
+          h += '</div>';
+
+          // M17 RX info
+          var m17 = n.m17_rx;
+          h += '<div class="mb-2 flex items-center gap-2 flex-wrap' + (m17 && m17.callsign ? '' : ' hidden') + '" id="node-' + cs + '-m17-rx">';
+          h += '<i class="bi bi-signpost-2 text-rose-400"></i>';
+          h += '<span class="text-rose-300 font-mono font-semibold" id="node-' + cs + '-m17-callsign">' + (m17 && m17.callsign ? esc(m17.callsign) : '') + '</span>';
           h += '</div>';
 
           // Frequencies

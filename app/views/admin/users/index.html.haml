@@ -66,6 +66,7 @@
               %th.py-2 Monitor
               %th.py-2 TX
               %th.py-2 Status
+              %th.py-2 Last Login
               %th.py-2.text-right.pr-3 Actions
           %tbody
             - @users.each do |user|
@@ -98,6 +99,11 @@
                     %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-green-700.text-green-100 approved
                   - else
                     %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-orange-600.text-orange-100 pending
+                %td.py-2.text-sm.text-ghmuted
+                  - if user.last_sign_in_at.present?
+                    %span{title: user.last_sign_in_at.strftime("%Y-%m-%d %H:%M:%S UTC")}= time_ago_in_words(user.last_sign_in_at) + " ago"
+                  - else
+                    %span.text-ghdim never
                 %td.py-2.text-right.pr-3
                   .inline-flex.gap-1.justify-end
                     - unless user.approved?

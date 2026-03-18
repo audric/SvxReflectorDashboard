@@ -1,0 +1,119 @@
+- if @bridge.errors.any?
+  .p-3.rounded.border.border-red-700.text-red-400.text-sm.mb-4{class: "bg-red-900/30"}
+    %p.font-semibold.mb-1= "#{@bridge.errors.count} error(s):"
+    %ul.list-disc.ml-4
+      - @bridge.errors.full_messages.each do |msg|
+        %li= msg
+
+= form_with model: [:admin, @bridge], local: true do |f|
+  = f.hidden_field :bridge_type, value: "dmr"
+
+  -# ── Name ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4.p-4
+    %label.block.text-sm.font-semibold.text-gray-400.mb-2 Bridge Name
+    = f.text_field :name, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. BrandMeister TG 310"
+    - if @bridge.persisted?
+      #name-warn.p-2.rounded.border.text-sm.mt-2.items-center.gap-2.hidden{class: "border-yellow-700/50 text-yellow-400 bg-yellow-900/20"}
+        %i.bi.bi-exclamation-triangle.mr-1
+        Changing the name will recreate the container.
+
+  -# ── DMR Network ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-broadcast-pin.mr-2
+        DMR Network
+    .px-4.py-4
+      .grid.grid-cols-1.md:grid-cols-2.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 HOST
+          = f.text_field :dmr_host, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. master.brandmeister.network"
+          %p.text-xs.text-ghmuted.mt-1 DMR master server hostname or IP
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 PORT
+          = f.number_field :dmr_port, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "62030"
+          %p.text-xs.text-ghmuted.mt-1 MMDVM Homebrew port (default 62030)
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 DMR ID
+          = f.number_field :dmr_id, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. 1234567"
+          %p.text-xs.text-ghmuted.mt-1 Your registered DMR ID (7 digits)
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 PASSWORD
+          = f.text_field :dmr_password, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "Hotspot security password"
+          %p.text-xs.text-ghmuted.mt-1 Hotspot password from the DMR network
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 TALKGROUP
+          = f.number_field :dmr_talkgroup, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. 310"
+          %p.text-xs.text-ghmuted.mt-1 DMR talkgroup to bridge (e.g. 9990 for parrot)
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 TIMESLOT
+          = f.select :dmr_timeslot, [[1, 1], [2, 2]], {}, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext"
+          %p.text-xs.text-ghmuted.mt-1 DMR timeslot (1 or 2)
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 COLOR CODE
+          = f.select :dmr_color_code, (0..15).map { |c| [c, c] }, {}, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext"
+          %p.text-xs.text-ghmuted.mt-1 DMR color code (0-15, default 1)
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 CALLSIGN
+          = f.text_field :dmr_callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext uppercase", placeholder: "e.g. F1ABC", style: "text-transform: uppercase"
+          %p.text-xs.text-ghmuted.mt-1 Callsign reported to DMR network (defaults to local callsign)
+
+  -# ── node_info.json ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-info-circle.mr-2
+        node_info.json
+    .px-4.py-4
+      .grid.grid-cols-1.md:grid-cols-2.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 NODE_LOCATION
+          = f.text_field :node_location, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. Milan, Italy (shown on dashboard)"
+          %p.text-xs.text-ghmuted.mt-1 Defaults to bridge name if empty.
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 SYSOP
+          = f.text_field :sysop, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. F1ABC"
+
+  -# ── Local Reflector ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-broadcast.mr-2
+        Local SVXReflector
+    .px-4.py-4
+      .grid.grid-cols-1.md:grid-cols-2.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 HOST
+          = f.text_field :local_host, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "svxreflector"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 PORT
+          = f.number_field :local_port, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "5300"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 CALLSIGN
+          = f.text_field :local_callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. F4ABC-DMR"
+          %p.text-xs.text-ghmuted.mt-1 Callsign for the bridge on the local reflector
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 AUTH_KEY
+          = f.text_field :local_auth_key, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "Shared secret"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 TALKGROUP
+          = f.number_field :local_default_tg, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "1"
+          %p.text-xs.text-ghmuted.mt-1 TG to bridge to the DMR talkgroup
+
+  -# ── Save ──
+  .flex.items-center.justify-between
+    = link_to admin_bridges_path, class: "px-4 py-2 rounded-md border border-gray-600 text-sm text-gray-300 hover:text-gray-100" do
+      %i.bi.bi-arrow-left.mr-1
+      Cancel
+    = f.submit(@bridge.persisted? ? "Update Bridge" : "Create Bridge", class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold cursor-pointer")
+
+- if @bridge.persisted?
+  :javascript
+    (function() {
+      var inp = document.querySelector('input[name="bridge[name]"]');
+      if (!inp) return;
+      var orig = inp.dataset.original;
+      inp.addEventListener('input', function() {
+        document.getElementById('name-warn').classList.toggle('hidden', inp.value === orig);
+      });
+    })();

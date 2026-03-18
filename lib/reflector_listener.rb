@@ -24,6 +24,15 @@ class ReflectorListener
           # Enrich XLX bridge nodes with D-STAR RX metadata
           enrich_dstar_rx(curr)
 
+          # Enrich DMR bridge nodes with DMR RX metadata
+          enrich_dmr_rx(curr)
+
+          # Enrich YSF bridge nodes with YSF RX metadata
+          enrich_ysf_rx(curr)
+
+          # Enrich M17 bridge nodes with M17 RX metadata
+          enrich_m17_rx(curr)
+
           changed = curr.select do |cs, node|
             p = prev[cs]
             next true if p.nil?
@@ -31,6 +40,9 @@ class ReflectorListener
             next true if node['sw'] != p['sw'] || node['swVer'] != p['swVer']
             next true if node['nodeLocation'] != p['nodeLocation']
             next true if node['dstar_rx'] != p['dstar_rx']
+            next true if node['dmr_rx'] != p['dmr_rx']
+            next true if node['ysf_rx'] != p['ysf_rx']
+            next true if node['m17_rx'] != p['m17_rx']
             # Also trigger when any RX squelch opens/closes (gives fresh siglev data)
             node_rx = node.dig('qth', 0, 'rx') || {}
             prev_rx = p.dig('qth', 0, 'rx') || {}
@@ -113,7 +125,7 @@ class ReflectorListener
     return if keys.empty?
 
     keys.each do |key|
-      callsign = key.sub('dstar_rx:', '')
+      callsign = key.sub('dstar_rx:', '').strip
       next unless nodes.key?(callsign)
       val = redis.get(key)
       next unless val
@@ -122,6 +134,57 @@ class ReflectorListener
     end
   rescue => e
     STDERR.puts "[Poller] D-STAR RX enrich error: #{e.message}"
+  end
+
+  def self.enrich_dmr_rx(nodes)
+    redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
+    keys = redis.keys('dmr_rx:*')
+    return if keys.empty?
+
+    keys.each do |key|
+      callsign = key.sub('dmr_rx:', '').strip
+      next unless nodes.key?(callsign)
+      val = redis.get(key)
+      next unless val
+      data = JSON.parse(val) rescue next
+      nodes[callsign]['dmr_rx'] = data
+    end
+  rescue => e
+    STDERR.puts "[Poller] DMR RX enrich error: #{e.message}"
+  end
+
+  def self.enrich_ysf_rx(nodes)
+    redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
+    keys = redis.keys('ysf_rx:*')
+    return if keys.empty?
+
+    keys.each do |key|
+      callsign = key.sub('ysf_rx:', '').strip
+      next unless nodes.key?(callsign)
+      val = redis.get(key)
+      next unless val
+      data = JSON.parse(val) rescue next
+      nodes[callsign]['ysf_rx'] = data
+    end
+  rescue => e
+    STDERR.puts "[Poller] YSF RX enrich error: #{e.message}"
+  end
+
+  def self.enrich_m17_rx(nodes)
+    redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
+    keys = redis.keys('m17_rx:*')
+    return if keys.empty?
+
+    keys.each do |key|
+      callsign = key.sub('m17_rx:', '').strip
+      next unless nodes.key?(callsign)
+      val = redis.get(key)
+      next unless val
+      data = JSON.parse(val) rescue next
+      nodes[callsign]['m17_rx'] = data
+    end
+  rescue => e
+    STDERR.puts "[Poller] M17 RX enrich error: #{e.message}"
   end
 
   def self.enrich_web_nodes(nodes)
