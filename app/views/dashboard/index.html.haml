@@ -265,6 +265,13 @@
                         %i.bi.bi-arrow-left-right.mx-1.text-gray-500
                         TG #{link['remoteTg']}
 
+                -# D-STAR RX info (XLX bridges)
+                - dstar = node['dstar_rx']
+                .mb-2.flex.items-center.gap-2{id: "node-#{callsign}-dstar-rx", class: (dstar ? '' : 'hidden')}
+                  %i.bi.bi-broadcast.text-purple-400
+                  %span.text-purple-300.font-mono.font-semibold{id: "node-#{callsign}-dstar-mycall"}= dstar&.dig('mycall')
+                  %span.text-gray-400.text-xs.truncate{id: "node-#{callsign}-dstar-text", title: dstar&.dig('text').to_s, class: (dstar&.dig('text').present? ? '' : 'hidden')}= dstar&.dig('text')
+
                 -# Frequencies
                 - if rx_freq.to_f > 0 || tx_freq.to_f > 0
                   .mb-2.flex.gap-3
@@ -540,6 +547,24 @@
             });
           }
 
+          // D-STAR RX info
+          var dstarRow = document.getElementById('node-' + callsign + '-dstar-rx');
+          if (dstarRow) {
+            var dr = n.dstar_rx;
+            if (dr && dr.mycall) {
+              dstarRow.classList.remove('hidden');
+              var mycallEl = document.getElementById('node-' + callsign + '-dstar-mycall');
+              if (mycallEl) mycallEl.textContent = dr.mycall;
+              var textEl = document.getElementById('node-' + callsign + '-dstar-text');
+              if (textEl) {
+                if (dr.text) { textEl.textContent = dr.text; textEl.title = dr.text; textEl.classList.remove('hidden'); }
+                else { textEl.textContent = ''; textEl.classList.add('hidden'); }
+              }
+            } else {
+              dstarRow.classList.add('hidden');
+            }
+          }
+
           // Node location
           var locEl = document.getElementById('node-' + callsign + '-location');
           if (locEl && n.nodeLocation) { locEl.textContent = n.nodeLocation; locEl.parentElement.title = n.nodeLocation; locEl.parentElement.classList.remove('hidden'); }
@@ -624,6 +649,18 @@
             });
             h += '</div>';
           }
+
+          // D-STAR RX info
+          var dr = n.dstar_rx;
+          h += '<div class="mb-2 flex items-center gap-2' + (dr && dr.mycall ? '' : ' hidden') + '" id="node-' + cs + '-dstar-rx">';
+          h += '<i class="bi bi-broadcast text-purple-400"></i>';
+          h += '<span class="text-purple-300 font-mono font-semibold" id="node-' + cs + '-dstar-mycall">' + (dr && dr.mycall ? esc(dr.mycall) : '') + '</span>';
+          if (dr && dr.text) {
+            h += '<span class="text-gray-400 text-xs truncate" id="node-' + cs + '-dstar-text" title="' + esc(dr.text) + '">' + esc(dr.text) + '</span>';
+          } else {
+            h += '<span class="text-gray-400 text-xs truncate hidden" id="node-' + cs + '-dstar-text"></span>';
+          }
+          h += '</div>';
 
           // Frequencies
           if ((rxFreq && rxFreq > 0) || (txFreq && txFreq > 0)) {

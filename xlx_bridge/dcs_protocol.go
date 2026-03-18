@@ -1,5 +1,7 @@
 package main
 
+import "strings"
+
 // DCS protocol constants
 const (
 	DCSPort = 30051
@@ -75,6 +77,76 @@ func NewSlowDataText(text string) *SlowDataEncoder {
 	}
 
 	return enc
+}
+
+// SlowDataDecoder accumulates slow data bytes from received voice frames
+// and extracts the 20-character D-STAR text message.
+type SlowDataDecoder struct {
+	blocks [4][5]byte // 4 blocks of 5 text bytes each
+	got    [4]bool    // which blocks have been received
+	buf    [6]byte    // current mini-packet accumulator (header + 5 bytes)
+	bufPos int        // bytes accumulated in current mini-packet
+}
+
+// Reset clears the decoder state for a new stream.
+func (d *SlowDataDecoder) Reset() {
+	d.got = [4]bool{}
+	d.bufPos = 0
+}
+
+// Feed processes the 3 slow data bytes from a voice frame.
+// frameIndex is 0-20 within the superframe.
+func (d *SlowDataDecoder) Feed(data [3]byte, frameIndex int) {
+	// Frame 0 is sync — skip it
+	if frameIndex == 0 {
+		d.bufPos = 0
+		return
+	}
+	// Frames 9-20 are filler
+	if frameIndex > 8 {
+		return
+	}
+
+	// Accumulate bytes into 6-byte mini-packets
+	for _, b := range data {
+		if d.bufPos < 6 {
+			d.buf[d.bufPos] = b
+			d.bufPos++
+		}
+		if d.bufPos == 6 {
+			d.processMiniPacket()
+			d.bufPos = 0
+		}
+	}
+}
+
+func (d *SlowDataDecoder) processMiniPacket() {
+	header := d.buf[0]
+	// Text message headers are 0x40-0x43
+	if header < 0x40 || header > 0x43 {
+		return
+	}
+	block := int(0x43 - header) // 0x43→block 0, 0x42→block 1, 0x41→block 2, 0x40→block 3
+	if block < 0 || block > 3 {
+		return
+	}
+	copy(d.blocks[block][:], d.buf[1:6])
+	d.got[block] = true
+}
+
+// Text returns the decoded 20-char message if all 4 blocks have been received.
+// Returns empty string if incomplete.
+func (d *SlowDataDecoder) Text() string {
+	for _, g := range d.got {
+		if !g {
+			return ""
+		}
+	}
+	var msg [20]byte
+	for i := 0; i < 4; i++ {
+		copy(msg[i*5:i*5+5], d.blocks[i][:])
+	}
+	return strings.TrimRight(string(msg[:]), " \x00")
 }
 
 // padCallsign pads a callsign to exactly 8 characters with spaces.

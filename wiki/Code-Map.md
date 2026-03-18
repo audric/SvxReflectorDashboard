@@ -53,7 +53,7 @@ All templates use **HAML** (not ERB).
 
 | File | Purpose |
 |---|---|
-| `lib/reflector_listener.rb` | Polls reflector status API, diffs state, broadcasts updates, persists events, enriches web listener nodes |
+| `lib/reflector_listener.rb` | Polls reflector status API, diffs state, broadcasts updates, persists events, enriches web listener and D-STAR RX nodes |
 
 ## Audio bridge (Go)
 
@@ -63,6 +63,19 @@ All templates use **HAML** (not ERB).
 | `audio_bridge/client.go` | TCP/UDP reflector client — handshake, heartbeats, audio I/O |
 | `audio_bridge/protocol.go` | Wire format builders and parsers for SVXReflector protocol V2 |
 | `audio_bridge/Dockerfile` | Multi-stage Go build for production |
+
+## XLX bridge (Go)
+
+| File | Purpose |
+|---|---|
+| `xlx_bridge/main.go` | Entry point, bridge loop, SVX↔XLX audio routing, Redis D-STAR RX publishing |
+| `xlx_bridge/dcs_client.go` | DCS/UDP client — connect, keepalive, voice TX/RX, stream management |
+| `xlx_bridge/dcs_protocol.go` | DCS wire format, slow data encoder/decoder, voice frame parser/builder |
+| `xlx_bridge/svxlink_client.go` | SVXReflector protocol V2 TCP/UDP client |
+| `xlx_bridge/svxlink_protocol.go` | SVXReflector wire format builders and parsers |
+| `xlx_bridge/vocoder.go` | D-STAR AMBE vocoder (encode/decode PCM↔AMBE) |
+| `xlx_bridge/agc.go` | Automatic gain control for audio normalization |
+| `xlx_bridge/redis_client.go` | Minimal RESP Redis client (SETEX, DEL) for D-STAR RX metadata |
 
 ## Infrastructure
 

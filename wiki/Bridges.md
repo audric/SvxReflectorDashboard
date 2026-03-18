@@ -23,6 +23,34 @@ Generated files:
 - `ModuleEchoLink.conf` — EchoLink module settings (callsign, password, proxy, access control, description)
 - `node_info.json` — node metadata
 
+### XLX bridge
+
+Connects a local SVXReflector to an XLX reflector via the DCS protocol. Runs as a standalone Go binary (`xlx-bridge-<id>`) that transcodes audio between OPUS (SVXReflector) and AMBE (D-STAR/DCS).
+
+Key features:
+- **Audio transcoding** — OPUS ↔ AMBE via the D-STAR vocoder
+- **AGC** — automatic gain control on both audio paths
+- **D-STAR metadata** — the originating SVXReflector callsign is set as MYCALL and slow data text (visible on D-STAR radios)
+- **D-STAR RX display** — when a D-STAR station transmits through the XLX reflector, the bridge publishes MYCALL and slow data text to Redis (`dstar_rx:<callsign>`), which the dashboard displays on the node card in real time
+
+Environment variables passed to the container:
+
+| Variable | Purpose |
+|---|---|
+| `REFLECTOR_HOST` | Local SVXReflector hostname |
+| `REFLECTOR_PORT` | Local SVXReflector port |
+| `REFLECTOR_AUTH_KEY` | Authentication key for the local reflector |
+| `REFLECTOR_TG` | Talkgroup to bridge |
+| `XLX_HOST` | XLX reflector hostname |
+| `XLX_PORT` | DCS port (default 30051) |
+| `XLX_MODULE` | Target module (A-Z) |
+| `XLX_REFLECTOR_NAME` | Reflector name (e.g. XLX585) |
+| `CALLSIGN` | Bridge callsign on the local reflector |
+| `DCS_CALLSIGN` | DCS callsign for the XLX connection |
+| `DCS_MYCALL` | MYCALL field in DCS voice headers |
+| `DCS_MYCALL_SUFFIX` | MYCALL suffix (default "AMBE") |
+| `REDIS_URL` | Redis connection for D-STAR RX metadata publishing |
+
 ## Config auto-generation
 
 Every time a bridge is saved (`after_save`), the app:

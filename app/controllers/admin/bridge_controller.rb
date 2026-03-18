@@ -207,7 +207,8 @@ module Admin
           "DCS_MYCALL=#{bridge.xlx_mycall}",
           "DCS_MYCALL_SUFFIX=#{bridge.xlx_mycall_suffix.presence || 'AMBE'}",
           "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
-          "SYSOP=#{bridge.sysop}"
+          "SYSOP=#{bridge.sysop}",
+          "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
         ],
         HostConfig: {
           RestartPolicy: { Name: "unless-stopped" }

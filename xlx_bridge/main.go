@@ -41,6 +41,8 @@ func main() {
 	nodeLocation := envDefault("NODE_LOCATION", "")
 	sysop := envDefault("SYSOP", "")
 
+	redisURL := os.Getenv("REDIS_URL")
+
 	log.Printf("Config: SVX=%s:%d TG=%d | XLX=%s:%d module=%c (%s) | svx_cs=%s dcs_cs=%q mycall=%s",
 		svxHost, svxPort, svxTG, xlxHost, xlxPort, xlxModule, xlxReflectorName, callsign, dcsCallsign, dcsMycall)
 
@@ -76,7 +78,7 @@ func main() {
 	for {
 		err := runBridge(svxHost, svxPort, svxAuthKey, svxTG, callsign, nodeLocation, sysop,
 			xlxHost, xlxPort, xlxModule, xlxReflectorName, dcsCallsign, dcsMycall, dcsMycallSuffix,
-			voc, opusDec, opusEnc, sigCh)
+			redisURL, voc, opusDec, opusEnc, sigCh)
 
 		if err == errShutdown {
 			log.Println("Goodbye")
@@ -107,7 +109,7 @@ var errShutdown = fmt.Errorf("shutdown")
 func runBridge(
 	svxHost string, svxPort int, svxAuthKey string, svxTG uint32, callsign string, nodeLocation string, sysop string,
 	xlxHost string, xlxPort int, xlxModule byte, xlxReflectorName string, dcsCallsign string, dcsMycall string, dcsMycallSuffix string,
-	voc *Vocoder, opusDec *opus.Decoder, opusEnc *opus.Encoder,
+	redisURL string, voc *Vocoder, opusDec *opus.Decoder, opusEnc *opus.Encoder,
 	sigCh <-chan os.Signal,
 ) error {
 
@@ -126,6 +128,21 @@ func runBridge(
 		agcSvxToXlx = NewAGC()
 		agcXlxToSvx = NewAGC()
 	)
+
+	// --- Redis client for D-STAR RX metadata ---
+	var redisCli *RedisClient
+	if redisURL != "" {
+		rc, err := ParseRedisURL(redisURL)
+		if err != nil {
+			log.Printf("[Redis] URL parse error: %v (D-STAR RX publishing disabled)", err)
+		} else if err := rc.Connect(); err != nil {
+			log.Printf("[Redis] Connect error: %v (D-STAR RX publishing disabled)", err)
+		} else {
+			redisCli = rc
+			log.Println("[Redis] Connected for D-STAR RX publishing")
+		}
+	}
+	redisKey := "dstar_rx:" + strings.TrimSpace(callsign)
 
 	svx := NewSVXLinkClient(svxHost, svxPort, svxAuthKey, callsign, nodeLocation, sysop)
 	svx.SetExtraNodeInfo(map[string]interface{}{
@@ -233,6 +250,8 @@ func runBridge(
 	// --- XLX → SVXReflector audio path ---
 	// AMBE → PCM → OPUS (one frame at a time)
 	var xlxCurrentStream uint16
+	var slowDecoder SlowDataDecoder
+	var lastSlowText string
 
 	dcs.SetVoiceCallback(func(frame *DCSVoiceFrame) {
 		svxTalkMu.Lock()
@@ -250,6 +269,7 @@ func runBridge(
 			xlxTalkMu.Unlock()
 
 			srcCS := strings.TrimSpace(frame.MYCall)
+			srcSuffix := strings.TrimSpace(frame.MYSuffix)
 			log.Printf("[XLX→SVX] Voice from %s (stream %04X)", srcCS, frame.StreamID)
 			svx.SendTalkerStart(svxTG, callsign)
 
@@ -257,8 +277,35 @@ func runBridge(
 			pcmBufMu.Lock()
 			pcmBuffer = pcmBuffer[:0]
 			pcmBufMu.Unlock()
+
+			// Reset slow data decoder and publish initial RX info
+			slowDecoder.Reset()
+			lastSlowText = ""
+			if redisCli != nil && srcCS != "" {
+				val := `{"mycall":"` + srcCS + `","suffix":"` + srcSuffix + `"}`
+				if err := redisCli.SetEX(redisKey, 30, val); err != nil {
+					log.Printf("[Redis] SETEX error: %v", err)
+				}
+			}
 		} else {
 			xlxTalkMu.Unlock()
+		}
+
+		// Feed slow data to decoder (every frame except last)
+		if !frame.IsLastFrame() {
+			slowDecoder.Feed(frame.SlowData, frame.FrameIndex())
+			if text := slowDecoder.Text(); text != "" && text != lastSlowText {
+				lastSlowText = text
+				log.Printf("[XLX→SVX] Slow data text: %q", text)
+				if redisCli != nil {
+					srcCS := strings.TrimSpace(frame.MYCall)
+					srcSuffix := strings.TrimSpace(frame.MYSuffix)
+					val := `{"mycall":"` + srcCS + `","suffix":"` + srcSuffix + `","text":"` + text + `"}`
+					if err := redisCli.SetEX(redisKey, 30, val); err != nil {
+						log.Printf("[Redis] SETEX error: %v", err)
+					}
+				}
+			}
 		}
 
 		// Last frame = end of transmission
@@ -268,6 +315,13 @@ func runBridge(
 			xlxTalkMu.Unlock()
 
 			log.Printf("[XLX→SVX] Voice end (stream %04X)", frame.StreamID)
+
+			// Clear D-STAR RX data from Redis
+			if redisCli != nil {
+				if err := redisCli.Del(redisKey); err != nil {
+					log.Printf("[Redis] DEL error: %v", err)
+				}
+			}
 
 			// Flush remaining PCM
 			pcmBufMu.Lock()
@@ -362,6 +416,10 @@ func runBridge(
 
 	dcs.Close()
 	svx.Close()
+	if redisCli != nil {
+		redisCli.Del(redisKey)
+		redisCli.Close()
+	}
 
 	return result
 }

@@ -21,12 +21,16 @@ class ReflectorListener
           # Enrich web listener nodes with browser/location metadata stored by AudioChannel
           enrich_web_nodes(curr)
 
+          # Enrich XLX bridge nodes with D-STAR RX metadata
+          enrich_dstar_rx(curr)
+
           changed = curr.select do |cs, node|
             p = prev[cs]
             next true if p.nil?
             next true if node['tg'] != p['tg'] || node['isTalker'] != p['isTalker']
             next true if node['sw'] != p['sw'] || node['swVer'] != p['swVer']
             next true if node['nodeLocation'] != p['nodeLocation']
+            next true if node['dstar_rx'] != p['dstar_rx']
             # Also trigger when any RX squelch opens/closes (gives fresh siglev data)
             node_rx = node.dig('qth', 0, 'rx') || {}
             prev_rx = p.dig('qth', 0, 'rx') || {}
@@ -101,6 +105,23 @@ class ReflectorListener
     end
   rescue => e
     STDERR.puts "[Poller] DB error: #{e.message}"
+  end
+
+  def self.enrich_dstar_rx(nodes)
+    redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
+    keys = redis.keys('dstar_rx:*')
+    return if keys.empty?
+
+    keys.each do |key|
+      callsign = key.sub('dstar_rx:', '')
+      next unless nodes.key?(callsign)
+      val = redis.get(key)
+      next unless val
+      data = JSON.parse(val) rescue next
+      nodes[callsign]['dstar_rx'] = data
+    end
+  rescue => e
+    STDERR.puts "[Poller] D-STAR RX enrich error: #{e.message}"
   end
 
   def self.enrich_web_nodes(nodes)

@@ -50,6 +50,7 @@ SVXReflector HTTP /status API
 ReflectorListener (updater service)
         ├─→ Diff against previous snapshot
         ├─→ Enrich web listener nodes with browser metadata from Redis
+        ├─→ Enrich XLX bridge nodes with D-STAR RX data from Redis
         ├─→ Persist events to node_events table (SQLite)
         ├─→ Cache snapshot in Redis (reflector:snapshot)
         └─→ Broadcast changed nodes via ActionCable → Redis → browsers
@@ -100,6 +101,7 @@ Browser mic → MediaStreamTrackProcessor → Opus encoder
 |---|---|---|
 | `reflector:snapshot` | String (JSON) | Latest reflector status snapshot |
 | `web_node_info` | Hash | Per-callsign browser metadata for web listeners |
+| `dstar_rx:<callsign>` | String (JSON) | D-STAR RX metadata from XLX bridges (MYCALL, suffix, slow data text). Set with 30s TTL on voice start, updated with decoded text each superframe, deleted on stream end. |
 
 ## Web listener node enrichment
 
