@@ -116,6 +116,70 @@ class ReflectorConfig
     File.write(path, lines.join("\n"))
   end
 
+  # Syncs all users with a reflector_auth_key into the [USERS] and [PASSWORDS]
+  # sections of svxreflector.conf. Adds CALLSIGN-WEB entries, removes stale ones.
+  def self.sync_web_users
+    config = load
+    existing_web_callsigns = config.users.keys.select { |k| k.end_with?("-WEB") }
+
+    # Build the desired state from the database
+    desired = {}
+    User.where.not(reflector_auth_key: [nil, ""]).where(can_monitor: true).find_each do |user|
+      web_cs = "#{user.callsign.upcase}-WEB"
+      desired[web_cs] = user.reflector_auth_key
+    end
+
+    changed = false
+
+    # Add or update entries
+    desired.each do |web_cs, auth_key|
+      # Use the callsign (without -WEB) as the password group name
+      group = web_cs
+      unless config.users[web_cs] == group && config.passwords[group] == auth_key
+        config.users[web_cs] = group
+        config.passwords[group] = auth_key
+        changed = true
+      end
+    end
+
+    # Remove stale -WEB entries
+    existing_web_callsigns.each do |web_cs|
+      unless desired.key?(web_cs)
+        config.users.delete(web_cs)
+        config.passwords.delete(web_cs)
+        changed = true
+      end
+    end
+
+    if changed
+      config.save
+      Rails.logger.info "[ReflectorConfig] Synced #{desired.size} web user(s)"
+    end
+
+    changed
+  end
+
+  # Restarts the svxreflector container to pick up config changes.
+  def self.restart_svxreflector
+    require "socket"
+    sock = UNIXSocket.new("/var/run/docker.sock")
+    sock.write("GET /containers/json HTTP/1.0\r\nHost: localhost\r\n\r\n")
+    response = sock.read
+    sock.close
+    body = response.split("\r\n\r\n", 2).last
+    containers = JSON.parse(body)
+    container = containers.find { |c| c["Names"].any? { |n| n =~ /-svxreflector-\d+$/ } }
+    return unless container
+
+    sock = UNIXSocket.new("/var/run/docker.sock")
+    sock.write("POST /containers/#{container["Id"]}/restart?t=5 HTTP/1.0\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n")
+    sock.read
+    sock.close
+    Rails.logger.info "[ReflectorConfig] Restarted svxreflector"
+  rescue => e
+    Rails.logger.error "[ReflectorConfig] Failed to restart svxreflector: #{e.message}"
+  end
+
   private
 
   def backup(path)

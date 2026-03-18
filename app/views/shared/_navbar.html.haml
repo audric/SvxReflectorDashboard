@@ -189,19 +189,22 @@
 
 -# ── Mobile audio bar (fixed bottom, below lg) ──
 - if logged_in? && current_user.can_monitor? && current_user.reflector_auth_key.present?
-  #audio-bar-mobile.fixed.bottom-0.left-0.right-0.z-50.bg-ghcard.border-t.border-ghborder.px-4.py-2.lg:hidden.hidden{"data-turbo-permanent" => ""}
+  #audio-bar-mobile.fixed.bottom-0.left-0.right-0.z-50.bg-ghcard.border-t.border-ghborder.px-4.py-3.lg:hidden.hidden{"data-turbo-permanent" => ""}
+    -# Row 1: buttons + TG selector + volume
     .flex.items-center.gap-3
-      %button#audio-play-btn-mobile.flex.items-center.justify-center.w-8.h-8.rounded-full.bg-ghborder2.text-gray-300.hover:text-green-400.transition-colors.cursor-pointer{type: "button"}
+      %button#audio-play-btn-mobile.flex.items-center.justify-center.w-12.h-12.rounded-full.bg-ghborder2.text-gray-300.hover:text-green-400.transition-colors.cursor-pointer.text-xl.shrink-0{type: "button"}
         %i.bi.bi-play-fill
       - if current_user.can_transmit?
-        %button#audio-ptt-btn-mobile.hidden.flex.items-center.justify-center.w-8.h-8.rounded-full.bg-ghborder2.text-gray-300.hover:text-red-400.transition-colors.cursor-pointer{type: "button"}
+        %button#audio-ptt-btn-mobile.hidden.flex.items-center.justify-center.w-12.h-12.rounded-full.bg-ghborder2.text-gray-300.hover:text-red-400.transition-colors.cursor-pointer.text-xl.shrink-0{type: "button"}
           %i.bi.bi-mic-fill
-      %select#audio-tg-select-mobile.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-1.cursor-pointer{style: "outline:none;flex:0 0 auto;"}
+      %select#audio-tg-select-mobile.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-2.cursor-pointer{style: "outline:none;flex:0 0 auto;min-width:60px;"}
         %option{value: ""} TG...
-      %input#audio-volume-mobile.flex-1{type: "range", min: "0", max: "100", value: "70", style: "accent-color:#3fb950;height:4px;cursor:pointer;"}
-      #s-meter-mobile.hidden{style: "height:4px;border-radius:2px;background:#21262d;overflow:hidden;flex:1 1 40px;"}
-        #s-meter-fill-mobile{style: "height:100%;width:100%;border-radius:2px;background:linear-gradient(to right,#3fb950,#d29922,#f85149);transform:scaleX(0);transform-origin:left;transition:transform 50ms;"}
-      %canvas#spectrum-mobile.hidden{width: "120", height: "24", style: "height:24px;border-radius:3px;flex:1 1 50px;"}
+      %input#audio-volume-mobile.flex-1.min-w-0{type: "range", min: "0", max: "100", value: "70", style: "accent-color:#3fb950;height:4px;cursor:pointer;"}
+    -# Row 2: s-meter + spectrum (only visible when playing)
+    .flex.items-center.gap-3.mt-2
+      #s-meter-mobile.hidden{style: "height:6px;border-radius:3px;background:#21262d;overflow:hidden;flex:1 1 auto;"}
+        #s-meter-fill-mobile{style: "height:100%;width:100%;border-radius:3px;background:linear-gradient(to right,#3fb950,#d29922,#f85149);transform:scaleX(0);transform-origin:left;transition:transform 50ms;"}
+      %canvas#spectrum-mobile.hidden{width: "120", height: "24", style: "height:24px;border-radius:3px;flex:1 1 auto;"}
 
 
 :css
