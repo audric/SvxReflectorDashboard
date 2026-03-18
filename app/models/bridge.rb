@@ -169,7 +169,7 @@ class Bridge < ApplicationRecord
     lines << "XLX_HOST=#{xlx_host}"
     lines << "XLX_PORT=#{xlx_port || 30051}"
     lines << "XLX_MODULE=#{xlx_module}"
-    lines << "XLX_REFLECTOR_NAME=#{name.split(' ').first}"
+    lines << "XLX_REFLECTOR_NAME=#{xlx_reflector_name.presence || 'XLX000'}"
     lines << "DCS_CALLSIGN=#{dcs_callsign}"
     lines << "DCS_MYCALL=#{xlx_mycall}" if xlx_mycall.present?
     lines << "DCS_MYCALL_SUFFIX=#{xlx_mycall_suffix.presence || 'AMBE'}"

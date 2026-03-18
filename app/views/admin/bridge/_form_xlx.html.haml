@@ -26,6 +26,10 @@
     .px-4.py-4
       .grid.grid-cols-1.md:grid-cols-2.gap-4
         .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 REFLECTOR NAME
+          = f.text_field :xlx_reflector_name, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext uppercase", placeholder: "e.g. XLX585", maxlength: 8, style: "text-transform: uppercase"
+          %p.text-xs.text-ghmuted.mt-1 Reflector identifier (e.g. XLX585, DCS585). Used in DCS protocol.
+        .mb-1
           %label.block.text-sm.text-gray-500.mb-1 HOST
           = f.text_field :xlx_host, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. xlx585.example.com"
           %p.text-xs.text-ghmuted.mt-1 Hostname or IP of the XLX reflector

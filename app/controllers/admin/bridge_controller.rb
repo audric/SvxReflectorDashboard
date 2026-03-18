@@ -128,7 +128,7 @@ module Admin
         :echolink_accept_outgoing, :echolink_reject_outgoing,
         :echolink_reject_conf, :echolink_use_gsm_only, :echolink_bind_addr,
         :echolink_servers, :default_active,
-        :xlx_host, :xlx_port, :xlx_module, :xlx_callsign, :xlx_callsign_suffix, :xlx_mycall, :xlx_mycall_suffix
+        :xlx_host, :xlx_port, :xlx_module, :xlx_callsign, :xlx_callsign_suffix, :xlx_mycall, :xlx_mycall_suffix, :xlx_reflector_name
       )
     end
 
@@ -201,7 +201,7 @@ module Admin
           "XLX_HOST=#{bridge.xlx_host}",
           "XLX_PORT=#{bridge.xlx_port || 30051}",
           "XLX_MODULE=#{bridge.xlx_module}",
-          "XLX_REFLECTOR_NAME=#{bridge.name.split(' ').first}",
+          "XLX_REFLECTOR_NAME=#{bridge.xlx_reflector_name.presence || 'XLX000'}",
           "CALLSIGN=#{bridge.local_callsign}",
           "DCS_CALLSIGN=#{bridge.dcs_callsign}",
           "DCS_MYCALL=#{bridge.xlx_mycall}",
