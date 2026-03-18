@@ -1,7 +1,40 @@
 [
   {
+    "date": "2026-03-18",
+    "commits": [
+      {
+        "sha": "8b6e2f2",
+        "message": "Auto-sync web users to reflector config, enlarge mobile audio buttons"
+      },
+      {
+        "sha": "3d17b26",
+        "message": "Add AGC to XLX bridge audio path"
+      },
+      {
+        "sha": "b3ef0c4",
+        "message": "Add XLX_REFLECTOR_NAME as explicit form field"
+      },
+      {
+        "sha": "6dd2fe6",
+        "message": "Add XLX bridge to CI: auto-build and push to GHCR"
+      },
+      {
+        "sha": "0885dd1",
+        "message": "Use GHCR image for XLX bridge containers"
+      },
+      {
+        "sha": "fd9d9d7",
+        "message": "Add XLX bridge: D-STAR DCS bridge to XLX/XLXD reflectors"
+      }
+    ]
+  },
+  {
     "date": "2026-03-08",
     "commits": [
+      {
+        "sha": "695abbb",
+        "message": "Regenerate changelog.json"
+      },
       {
         "sha": "817d0b2",
         "message": "Always write MUTE_FIRST_TX_LOC/REM to svxlink.conf (=0 when unchecked)"
@@ -9,6 +42,10 @@
       {
         "sha": "748e084",
         "message": "Remove ACTIVATE_ON_ACTIVITY from bridge config (no effect in practice)"
+      },
+      {
+        "sha": "463707d",
+        "message": "Regenerate changelog.json"
       },
       {
         "sha": "b50f4db",
