@@ -111,6 +111,11 @@ services:
     build: ./dmr_bridge
     profiles: ["build-only"]
 
+  ysf_bridge:
+    image: ghcr.io/audric/svxreflectordashboard-ysf-bridge
+    build: ./ysf_bridge
+    profiles: ["build-only"]
+
   redis:
     image: redis:7-alpine
     ports:
