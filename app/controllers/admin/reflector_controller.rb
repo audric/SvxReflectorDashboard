@@ -101,9 +101,8 @@ module Admin
         return
       end
 
-      # Sanitize callsign to prevent command injection
       safe_callsign = callsign.gsub(/[^A-Za-z0-9\-_]/, "")
-      docker_exec(container["Id"], ["sh", "-c", "printf 'CA SIGN #{safe_callsign}\\n' > /dev/shm/reflector_ctrl"])
+      docker_exec(container["Id"], ["sh", "-c", "printf '%s\\n' \"$1\" > /dev/shm/reflector_ctrl", "--", "CA SIGN #{safe_callsign}"])
       render json: { ok: true, callsign: safe_callsign }
     rescue => e
       Rails.logger.error "[ReflectorConfig] Failed to sign CSR: #{e.class} #{e.message}"
@@ -204,7 +203,7 @@ module Admin
         return
       end
 
-      docker_exec(container["Id"], ["sh", "-c", "printf 'NODE BLOCK #{callsign} #{seconds}\\n' > /dev/shm/reflector_ctrl"])
+      docker_exec(container["Id"], ["sh", "-c", "printf '%s\\n' \"$1\" > /dev/shm/reflector_ctrl", "--", "NODE BLOCK #{callsign} #{seconds}"])
       render json: { ok: true, callsign: callsign, seconds: seconds }
     rescue => e
       Rails.logger.error "[ReflectorConfig] Failed to block node: #{e.class} #{e.message}"
@@ -224,7 +223,7 @@ module Admin
         return
       end
 
-      docker_exec(container["Id"], ["sh", "-c", "printf 'CA RM #{callsign}\\n' > /dev/shm/reflector_ctrl"])
+      docker_exec(container["Id"], ["sh", "-c", "printf '%s\\n' \"$1\" > /dev/shm/reflector_ctrl", "--", "CA RM #{callsign}"])
       render json: { ok: true, callsign: callsign }
     rescue => e
       Rails.logger.error "[ReflectorConfig] Failed to revoke certificate: #{e.class} #{e.message}"
