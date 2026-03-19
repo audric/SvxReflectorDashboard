@@ -200,6 +200,34 @@
                             = svc[:state]
                       %td.px-4.py-2.text-ghmuted.text-xs= svc[:status]
 
+        -# ── Docker Stats (live via AJAX) ──
+        .mb-6
+          .flex.items-center.justify-between.mb-3
+            .flex.items-center.gap-2
+              %i.bi.bi-speedometer2.text-ghmuted
+              %h3.text-base.font-semibold.text-gray-100 Docker Stats
+              %span.text-xs.text-ghdim.ml-2 (live)
+            .flex.items-center.gap-2
+              %span.text-xs.text-ghdim#docker-stats-status Connecting…
+              %button#docker-stats-refresh.text-xs.px-2.py-1.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.cursor-pointer{type: "button", title: "Refresh"}
+                %i.bi.bi-arrow-clockwise
+          .rounded-lg.border.border-gray-600.bg-ghcard.overflow-hidden
+            .overflow-x-auto
+              %table.w-full.text-sm#docker-stats-table
+                %thead
+                  %tr.border-b.border-ghborder
+                    %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Container
+                    %th.px-4.py-2.text-right.text-xs.uppercase.tracking-wider.text-ghdim CPU %
+                    %th.px-4.py-2.text-left.text-xs.uppercase.tracking-wider.text-ghdim Memory
+                    %th.px-4.py-2.text-right.text-xs.uppercase.tracking-wider.text-ghdim MEM %
+                    %th.px-4.py-2.text-right.text-xs.uppercase.tracking-wider.text-ghdim Net I/O
+                    %th.px-4.py-2.text-right.text-xs.uppercase.tracking-wider.text-ghdim Block I/O
+                %tbody#docker-stats-tbody
+                  %tr
+                    %td.px-4.py-3.text-ghmuted.text-center{colspan: "6"}
+                      %i.bi.bi-hourglass-split.mr-1
+                      Fetching stats…
+
         -# ── Service Dependencies graph ──
         - if @service_graph.present?
           .mb-6
@@ -686,3 +714,101 @@
       if (document.getElementById('panel-changelog').classList.contains('active')) {
         loadChangelog();
       }
+
+      // ── Docker Stats (ActionCable) ──
+      (function() {
+        var tbody = document.getElementById('docker-stats-tbody');
+        var status = document.getElementById('docker-stats-status');
+        var refreshBtn = document.getElementById('docker-stats-refresh');
+        if (!tbody) return;
+
+        function fmtBytes(b) {
+          if (b === 0) return '0 B';
+          var units = ['B','KB','MB','GB','TB'];
+          var i = Math.floor(Math.log(b) / Math.log(1024));
+          if (i >= units.length) i = units.length - 1;
+          return (b / Math.pow(1024, i)).toFixed(1) + ' ' + units[i];
+        }
+
+        function renderStats(data) {
+          if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-3 text-ghmuted text-center">No running containers</td></tr>';
+            status.textContent = 'No data';
+            return;
+          }
+          var html = '';
+          data.forEach(function(s) {
+            var stopped = s.state && s.state !== 'running';
+            var dimClass = stopped ? ' opacity-50' : '';
+            var memBar = s.mem_pct.toFixed(1);
+            var memColor = s.mem_pct >= 90 ? '#f85149' : s.mem_pct >= 70 ? '#d29922' : '#3fb950';
+            html += '<tr class="border-b border-ghborder2' + dimClass + '">';
+            html += '<td class="px-4 py-2 font-mono font-semibold whitespace-nowrap">';
+            if (stopped) {
+              html += '<span class="text-red-400">' + esc(s.name) + '</span>';
+              html += '<span class="ml-2 text-xs text-red-400/70">(' + esc(s.state) + ')</span>';
+            } else {
+              html += '<span class="text-gray-200">' + esc(s.name) + '</span>';
+            }
+            html += '</td>';
+            if (stopped) {
+              html += '<td class="px-4 py-2 text-right font-mono text-ghmuted">-</td>';
+              html += '<td class="px-4 py-2 text-ghmuted">-</td>';
+              html += '<td class="px-4 py-2 text-right font-mono text-xs text-ghmuted">-</td>';
+              html += '<td class="px-4 py-2 text-right font-mono text-xs text-ghmuted">-</td>';
+              html += '<td class="px-4 py-2 text-right font-mono text-xs text-ghmuted">-</td>';
+            } else {
+              html += '<td class="px-4 py-2 text-right font-mono">' + s.cpu_pct.toFixed(2) + '%</td>';
+              html += '<td class="px-4 py-2 whitespace-nowrap">';
+              html += '<div class="flex items-center gap-2">';
+              html += '<div style="width:80px;height:8px;border-radius:4px;background:#21262d;overflow:hidden;flex-shrink:0;">';
+              html += '<div style="width:' + memBar + '%;height:100%;background:' + memColor + ';border-radius:4px;"></div></div>';
+              html += '<span class="font-mono text-xs text-gray-300">' + fmtBytes(s.mem_used) + ' / ' + fmtBytes(s.mem_limit) + '</span>';
+              html += '</div></td>';
+              html += '<td class="px-4 py-2 text-right font-mono text-xs">' + s.mem_pct.toFixed(1) + '%</td>';
+              html += '<td class="px-4 py-2 text-right font-mono text-xs text-ghmuted whitespace-nowrap">' + fmtBytes(s.net_rx) + ' / ' + fmtBytes(s.net_tx) + '</td>';
+              html += '<td class="px-4 py-2 text-right font-mono text-xs text-ghmuted whitespace-nowrap">' + fmtBytes(s.blk_read) + ' / ' + fmtBytes(s.blk_write) + '</td>';
+            }
+            html += '</tr>';
+          });
+          tbody.innerHTML = html;
+          status.textContent = 'Live \u2022 ' + new Date().toLocaleTimeString();
+        }
+
+        // ActionCable WebSocket
+        var proto = location.protocol === 'https:' ? 'wss' : 'ws';
+        var statsWs = new WebSocket(proto + '://' + location.host + '/cable');
+        var identifier = JSON.stringify({ channel: 'DockerStatsChannel' });
+
+        statsWs.onopen = function() {
+          statsWs.send(JSON.stringify({ command: 'subscribe', identifier: identifier }));
+          status.textContent = 'Connected';
+        };
+
+        statsWs.onmessage = function(ev) {
+          var envelope = JSON.parse(ev.data);
+          if (!envelope.message) return;
+          if (envelope.message.stats) renderStats(envelope.message.stats);
+        };
+
+        statsWs.onclose = function() {
+          status.textContent = 'Disconnected';
+          status.classList.add('text-red-400');
+        };
+
+        // Manual refresh: unsubscribe + resubscribe to trigger immediate broadcast
+        refreshBtn.addEventListener('click', function() {
+          if (statsWs.readyState === WebSocket.OPEN) {
+            statsWs.send(JSON.stringify({ command: 'unsubscribe', identifier: identifier }));
+            statsWs.send(JSON.stringify({ command: 'subscribe', identifier: identifier }));
+          }
+        });
+
+        // Cleanup on page navigation
+        document.addEventListener('turbo:before-cache', function() {
+          if (statsWs) { statsWs.onclose = null; statsWs.close(); }
+        });
+        window.addEventListener('beforeunload', function() {
+          if (statsWs) { statsWs.onclose = null; statsWs.close(); }
+        });
+      })();
