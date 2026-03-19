@@ -46,13 +46,18 @@ func main() {
 	log.Printf("Config: SVX=%s:%d TG=%d | XLX=%s:%d module=%c (%s) | svx_cs=%s dcs_cs=%q mycall=%s",
 		svxHost, svxPort, svxTG, xlxHost, xlxPort, xlxModule, xlxReflectorName, callsign, dcsCallsign, dcsMycall)
 
-	// --- Initialize vocoder ---
-	voc, err := NewVocoder()
+	// --- Initialize vocoders (separate instances for encode/decode to preserve state) ---
+	vocEnc, err := NewVocoder()
 	if err != nil {
-		log.Fatalf("Vocoder init failed: %v", err)
+		log.Fatalf("Vocoder (encode) init failed: %v", err)
 	}
-	defer voc.Close()
-	log.Println("D-STAR AMBE vocoder initialized")
+	defer vocEnc.Close()
+	vocDec, err := NewVocoder()
+	if err != nil {
+		log.Fatalf("Vocoder (decode) init failed: %v", err)
+	}
+	defer vocDec.Close()
+	log.Println("D-STAR AMBE vocoders initialized (encode + decode)")
 
 	// --- Initialize OPUS codec ---
 	opusDec, err := opus.NewDecoder(PCMSampleRate, 1)
@@ -78,7 +83,7 @@ func main() {
 	for {
 		err := runBridge(svxHost, svxPort, svxAuthKey, svxTG, callsign, nodeLocation, sysop,
 			xlxHost, xlxPort, xlxModule, xlxReflectorName, dcsCallsign, dcsMycall, dcsMycallSuffix,
-			redisURL, voc, opusDec, opusEnc, sigCh)
+			redisURL, vocEnc, vocDec, opusDec, opusEnc, sigCh)
 
 		if err == errShutdown {
 			log.Println("Goodbye")
@@ -109,7 +114,7 @@ var errShutdown = fmt.Errorf("shutdown")
 func runBridge(
 	svxHost string, svxPort int, svxAuthKey string, svxTG uint32, callsign string, nodeLocation string, sysop string,
 	xlxHost string, xlxPort int, xlxModule byte, xlxReflectorName string, dcsCallsign string, dcsMycall string, dcsMycallSuffix string,
-	redisURL string, voc *Vocoder, opusDec *opus.Decoder, opusEnc *opus.Encoder,
+	redisURL string, vocEnc *Vocoder, vocDec *Vocoder, opusDec *opus.Decoder, opusEnc *opus.Encoder,
 	sigCh <-chan os.Signal,
 ) error {
 
@@ -184,7 +189,7 @@ func runBridge(
 			ambeBuffer = ambeBuffer[PCMFrameSize:]
 			ambeBufMu.Unlock()
 
-			ambe := voc.Encode(chunk)
+			ambe := vocEnc.Encode(chunk)
 			if err := dcs.SendVoice(ambe); err != nil {
 				log.Printf("[SVX→XLX] SendVoice error: %v", err)
 			}
@@ -236,7 +241,7 @@ func runBridge(
 			copy(chunk[:], ambeBuffer[:PCMFrameSize])
 			ambeBuffer = ambeBuffer[:0]
 			ambeBufMu.Unlock()
-			ambe := voc.Encode(chunk)
+			ambe := vocEnc.Encode(chunk)
 			dcs.SendVoice(ambe)
 		} else {
 			ambeBufMu.Unlock()
@@ -349,7 +354,7 @@ func runBridge(
 		}
 
 		// Decode AMBE to PCM and normalize level
-		pcm := voc.Decode(frame.AMBE)
+		pcm := vocDec.Decode(frame.AMBE)
 		pcmSlice := pcm[:]
 		agcXlxToSvx.Process(pcmSlice)
 
