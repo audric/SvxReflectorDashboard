@@ -1,19 +1,29 @@
 class AudioChannel < ApplicationCable::Channel
+  MAX_OPUS_B64_SIZE = 700   # ~500 bytes decoded — generous limit for a 20ms Opus frame
+  TX_FRAME_INTERVAL = 0.018 # minimum seconds between TX frames (~55 fps max)
+
   def subscribed
+    unless current_user&.can_monitor? && current_user&.reflector_auth_key.present?
+      reject
+      return
+    end
+
     tg = params[:tg].to_i
     if tg > 0
-      stream_from "audio:tg:#{tg}"
-      callsign = params[:callsign].to_s.strip.upcase
-      stream_from "audio:user:#{callsign}"
-      auth_key = params[:auth_key].to_s
+      callsign = current_user.callsign.upcase
+      auth_key = current_user.reflector_auth_key.to_s
       @web_callsign = callsign
       @web_tg = tg
+      @last_tx_at = 0.0
+
+      stream_from "audio:tg:#{tg}"
+      stream_from "audio:user:#{callsign}"
+
       redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
       ref_key = "web_node_refs:#{callsign}"
       ref = redis.incr(ref_key)
-      redis.expire(ref_key, 120) # auto-expire stale refs after 2 minutes
+      redis.expire(ref_key, 120)
       if ref == 1
-        # First browser session for this callsign — open reflector connection
         redis.publish("audio:commands", {
           action: "connect", tg: tg, callsign: callsign, auth_key: auth_key,
           sw: params[:sw].to_s, sw_ver: params[:sw_ver].to_s,
@@ -35,7 +45,6 @@ class AudioChannel < ApplicationCable::Channel
     redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
     ref = redis.decr("web_node_refs:#{@web_callsign}")
     if ref <= 0
-      # Last browser session — tear down the reflector connection
       redis.del("web_node_refs:#{@web_callsign}")
       redis.publish("audio:commands", { action: "disconnect", callsign: @web_callsign }.to_json)
       redis.hdel("web_node_info", @web_callsign)
@@ -48,47 +57,63 @@ class AudioChannel < ApplicationCable::Channel
     tg = data["tg"].to_i
     return unless tg > 0
 
-    callsign = data["callsign"].to_s.strip.upcase
     redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
     refresh_ttl(redis)
-    redis.publish("audio:commands", { action: "select_tg", tg: tg, callsign: callsign }.to_json)
+    redis.publish("audio:commands", { action: "select_tg", tg: tg, callsign: @web_callsign }.to_json)
   ensure
     redis&.close
   end
 
   def ptt_start(data)
+    return unless current_user&.can_transmit?
+
     tg = data["tg"].to_i
     return unless tg > 0
 
-    callsign = data["callsign"].to_s.strip.upcase
     redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
     refresh_ttl(redis)
-    redis.publish("audio:tx", { action: "ptt_start", tg: tg, callsign: callsign }.to_json)
-    update_web_node_info(redis, callsign)
-    broadcast_talker_hint(callsign, tg, true)
+    redis.publish("audio:tx", { action: "ptt_start", tg: tg, callsign: @web_callsign }.to_json)
+    update_web_node_info(redis, @web_callsign)
+    broadcast_talker_hint(@web_callsign, tg, true)
   ensure
     redis&.close
   end
 
   def ptt_stop(data)
+    return unless current_user&.can_transmit?
+
     tg = data["tg"].to_i
     return unless tg > 0
 
-    callsign = data["callsign"].to_s.strip.upcase
     redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
     refresh_ttl(redis)
-    redis.publish("audio:tx", { action: "ptt_stop", tg: tg, callsign: callsign }.to_json)
-    broadcast_talker_hint(callsign, tg, false)
+    redis.publish("audio:tx", { action: "ptt_stop", tg: tg, callsign: @web_callsign }.to_json)
+    broadcast_talker_hint(@web_callsign, tg, false)
   ensure
     redis&.close
   end
 
   def tx_audio(data)
-    return if data["audio"].blank?
+    return unless current_user&.can_transmit?
+
+    audio = data["audio"].to_s
+    return if audio.blank?
+
+    # Validate frame size — legitimate Opus frames are small
+    if audio.bytesize > MAX_OPUS_B64_SIZE
+      Rails.logger.warn("AudioChannel: oversized TX frame from #{@web_callsign} (#{audio.bytesize} bytes), dropped")
+      return
+    end
+
+    # Rate limit — drop frames that arrive too fast
+    now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    if now - @last_tx_at < TX_FRAME_INTERVAL
+      return
+    end
+    @last_tx_at = now
 
     redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
-    callsign = (data["callsign"].presence || @web_callsign).to_s.strip.upcase
-    redis.publish("audio:tx", { action: "audio", audio: data["audio"], callsign: callsign }.to_json)
+    redis.publish("audio:tx", { action: "audio", audio: audio, callsign: @web_callsign }.to_json)
   ensure
     redis&.close
   end

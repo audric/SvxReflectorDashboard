@@ -7,8 +7,12 @@ class DockerStatsChannel < ApplicationCable::Channel
   periodically :broadcast_stats, every: INTERVAL
 
   def subscribed
+    unless current_user&.admin?
+      reject
+      return
+    end
+
     stream_from "docker_stats"
-    # Send first snapshot immediately
     transmit({ stats: fetch_all_stats })
   end
 

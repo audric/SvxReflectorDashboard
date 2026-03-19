@@ -160,7 +160,7 @@
   - if logged_in? && current_user.can_monitor? && current_user.reflector_auth_key.present?
     - audio_tgs = ((@nodes || {}).values.flat_map { |n| [n['tg'].to_i] + Array(n['monitoredTGs']).map(&:to_i) }.select { |t| t > 0 } + [999]).uniq.sort
     - tg_names = Tg.pluck(:tg, :name).to_h
-    .border-t.border-ghborder.px-3.py-3#audio-player-sidebar{"data-turbo-permanent" => "", "data-initial-tgs" => audio_tgs.join(','), "data-tg-names" => tg_names.to_json, "data-callsign" => "#{current_user.callsign.upcase}-WEB", "data-auth-key" => current_user.reflector_auth_key.to_s, "data-sysop" => current_user.name.to_s, "data-cw-roger-beep" => current_user.cw_roger_beep? ? "1" : "0"}
+    .border-t.border-ghborder.px-3.py-3#audio-player-sidebar{"data-turbo-permanent" => "", "data-initial-tgs" => audio_tgs.join(','), "data-tg-names" => tg_names.to_json, "data-callsign" => "#{current_user.callsign.upcase}-WEB", "data-sysop" => current_user.name.to_s, "data-cw-roger-beep" => current_user.cw_roger_beep? ? "1" : "0"}
       .flex.items-center.gap-1.mb-2
         %i.bi.bi-headphones.text-ghdim.text-xs
         %span.text-xs.uppercase.tracking-wider.text-ghdim Tune In
@@ -677,14 +677,10 @@
 
     window.audioPlayerUpdateTgs = updateTgOptions;
 
-    // TX callsign and auth key from data attributes
+    // TX callsign and metadata from data attributes
     var txCallsign = (function() {
       var el = document.getElementById('audio-player-sidebar');
       return el ? (el.getAttribute('data-callsign') || '') : '';
-    })();
-    var txAuthKey = (function() {
-      var el = document.getElementById('audio-player-sidebar');
-      return el ? (el.getAttribute('data-auth-key') || '') : '';
     })();
     var txSysop = (function() {
       var el = document.getElementById('audio-player-sidebar');
@@ -749,7 +745,7 @@
     var subscribedIdentifier = null;
 
     function buildIdentifier() {
-      return JSON.stringify({ channel: 'AudioChannel', tg: currentTG, callsign: txCallsign, auth_key: txAuthKey, sw: browserSW, sw_ver: browserSWVer, node_class: 'bridge', node_location: geoLocation, sysop: txSysop });
+      return JSON.stringify({ channel: 'AudioChannel', tg: currentTG, callsign: txCallsign, sw: browserSW, sw_ver: browserSWVer, node_class: 'bridge', node_location: geoLocation, sysop: txSysop });
     }
 
     function acSend(action, data) {
