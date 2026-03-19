@@ -1,7 +1,7 @@
 !!!
 %html
   :javascript
-    (function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.classList.add('light-theme');})();
+    (function(){var t=localStorage.getItem('theme')||'auto';var r=(t==='auto'?(window.matchMedia('(prefers-color-scheme:light)').matches?'light':'auto'):t);document.documentElement.setAttribute('data-theme',r);})();
   %head
     %title SVX Reflector Dashboard
     %meta{name: "viewport", content: "width=device-width,initial-scale=1"}

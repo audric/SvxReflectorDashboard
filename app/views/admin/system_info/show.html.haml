@@ -1,7 +1,7 @@
 !!!
 %html{lang: "en"}
   :javascript
-    (function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.classList.add('light-theme');})();
+    (function(){var t=localStorage.getItem('theme')||'auto';var r=(t==='auto'?(window.matchMedia('(prefers-color-scheme:light)').matches?'light':'auto'):t);document.documentElement.setAttribute('data-theme',r);})();
   %head
     %meta{charset: "UTF-8"}
     %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
@@ -355,7 +355,7 @@
       })();
 
       // ── Mermaid ──
-      mermaid.initialize({ startOnLoad: true, theme: 'dark', themeVariables: { primaryColor: '#161b22', primaryTextColor: '#c9d1d9', lineColor: '#30363d', primaryBorderColor: '#30363d' } });
+      mermaid.initialize({ startOnLoad: true, theme: 'auto', themeVariables: { primaryColor: '#161b22', primaryTextColor: '#c9d1d9', lineColor: '#30363d', primaryBorderColor: '#30363d' } });
 
       // ── Logs ──
       (function() {

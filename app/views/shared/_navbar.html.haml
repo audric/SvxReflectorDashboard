@@ -82,8 +82,14 @@
           Map
 
       .flex.items-center.gap-3
-        %button#theme-toggle-mobile.text-gray-400.cursor-pointer{type: "button", title: "Toggle theme"}
-          %i.bi.bi-moon-fill#theme-icon-mobile
+        .relative
+          %button#theme-btn-mobile.text-gray-400.cursor-pointer{type: "button", title: "Theme"}
+            %i.bi.bi-palette#theme-icon-mobile
+          #theme-menu-mobile.absolute.right-0.mt-1.w-40.rounded-md.border.border-gray-600.bg-ghcard.shadow-xl.z-50.hidden
+            - [['dark', 'bi-moon-fill', 'Dark'], ['light', 'bi-sun-fill', 'Light'], ['auto', 'bi-circle-half', 'Auto (OS)'], ['oled', 'bi-phone', 'OLED Black'], ['blue', 'bi-water', 'Navy Blue'], ['green', 'bi-tree', 'Military'], ['high-contrast', 'bi-eye', 'High Contrast']].each do |val, icon, label|
+              %button.theme-option.flex.items-center.gap-2.w-full.px-3.py-1.5.text-sm.text-gray-300.hover:bg-ghborder2.cursor-pointer{type: "button", "data-theme" => val}
+                %i.bi{class: icon, style: "font-size:.7rem;width:16px"}
+                = label
         - if logged_in?
           .relative
             %button.flex.items-center.gap-2.px-2.py-1.rounded.cursor-pointer.hover:bg-ghborder2{type: "button", onclick: "document.getElementById('userMenu').classList.toggle('hidden')"}
@@ -171,14 +177,23 @@
           #s-meter-fill{style: "height:100%;width:100%;border-radius:2px;background:linear-gradient(to right,#3fb950,#d29922,#f85149);transform:scaleX(0);transform-origin:left;transition:transform 50ms;"}
         %canvas#spectrum.hidden{width: "200", height: "32", style: "width:100%;height:32px;border-radius:4px;"}
 
+  .border-t.border-ghborder.px-3.py-2
+    .relative
+      %button#theme-btn-sidebar.flex.items-center.gap-2.w-full.px-2.py-1.5.rounded-md.text-sm.text-ghmuted.hover:text-gray-300.hover:bg-ghborder2.cursor-pointer{type: "button"}
+        %i.bi.bi-palette
+        %span Theme
+        %span.ml-auto.text-xs.text-ghdim#theme-current-label
+      #theme-menu-sidebar.absolute.bottom-full.left-0.mb-1.w-full.rounded-md.border.border-gray-600.bg-ghcard.shadow-xl.z-50.hidden
+        - [['dark', 'bi-moon-fill', 'Dark'], ['light', 'bi-sun-fill', 'Light'], ['auto', 'bi-circle-half', 'Auto (OS)'], ['oled', 'bi-phone', 'OLED Black'], ['blue', 'bi-water', 'Navy Blue'], ['green', 'bi-tree', 'Military'], ['high-contrast', 'bi-eye', 'High Contrast']].each do |val, icon, label|
+          %button.theme-option.flex.items-center.gap-2.w-full.px-3.py-1.5.text-sm.text-gray-300.hover:bg-ghborder2.cursor-pointer{type: "button", "data-theme" => val}
+            %i.bi{class: icon, style: "font-size:.7rem;width:16px"}
+            = label
   .border-t.border-ghborder.px-3.py-3
     - if logged_in?
       .flex.items-center.gap-2.px-2.py-1
         .w-7.h-7.rounded-full.bg-ghborder.flex.items-center.justify-center.text-ghmuted
           %i.bi.bi-person-fill.text-sm
         %span.text-sm.text-gray-200.font-mono.truncate.flex-1= current_user.callsign
-        %button#theme-toggle-desktop.flex.items-center.justify-center.rounded-md.text-ghmuted.hover:text-gray-300.cursor-pointer{type: "button", title: "Toggle theme", style: "width:28px;height:28px;"}
-          %i.bi.bi-moon-fill#theme-icon-desktop.text-sm
       = button_to logout_path, method: :delete, class: "flex items-center gap-2 px-3 py-2 mt-1 rounded-md text-sm text-red-400 hover:bg-ghborder2 w-full" do
         %i.bi.bi-box-arrow-right
         Logout
@@ -187,8 +202,6 @@
         = link_to register_path, class: "flex items-center gap-2 py-2 rounded-md text-sm text-ghmuted hover:text-gray-300 flex-1" do
           %i.bi.bi-person-plus
           Register
-        %button#theme-toggle-desktop.flex.items-center.justify-center.rounded-md.text-ghmuted.hover:text-gray-300.cursor-pointer{type: "button", title: "Toggle theme", style: "width:28px;height:28px;"}
-          %i.bi.bi-moon-fill#theme-icon-desktop.text-sm
       = link_to login_path, class: "flex items-center gap-2 px-3 py-2 rounded-md text-sm text-ghmuted hover:bg-ghborder2 hover:text-gray-300" do
         %i.bi.bi-box-arrow-in-right
         Login
@@ -217,46 +230,151 @@
   @media (min-width: 1024px) {
     body { padding-left: 14rem; padding-top: 1rem; }
   }
-  html.light-theme {
-    filter: invert(1) hue-rotate(180deg);
+  :root, [data-theme="dark"] {
+    --bg: #0d1117; --card: #161b22; --border: #30363d; --border2: #21262d;
+    --text: #c9d1d9; --muted: #8b949e; --dim: #6e7681;
+    --nav-bg: #161b22; --nav-border: #21262d;
   }
-  html.light-theme img,
-  html.light-theme video,
-  html.light-theme canvas,
-  html.light-theme .leaflet-container,
-  html.light-theme .mermaid svg {
-    filter: invert(1) hue-rotate(180deg);
+  [data-theme="light"] {
+    --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --border2: #e1e4e8;
+    --text: #1f2328; --muted: #656d76; --dim: #8b949e;
+    --nav-bg: #ffffff; --nav-border: #d0d7de;
   }
-:javascript
-  // ── Theme toggle (light/dark) ──
-  (function() {
-    function applyTheme(theme) {
-      document.documentElement.classList.toggle('light-theme', theme === 'light');
-      var isLight = theme === 'light';
-      ['desktop', 'mobile'].forEach(function(variant) {
-        var icon = document.getElementById('theme-icon-' + variant);
-        if (icon) {
-          icon.classList.toggle('bi-moon-fill', !isLight);
-          icon.classList.toggle('bi-sun-fill', isLight);
-        }
-      });
-      var label = document.getElementById('theme-label-desktop');
-      if (label) label.textContent = isLight ? 'Light' : 'Dark';
-      var btn = document.getElementById('theme-toggle-desktop');
-      if (btn) btn.title = isLight ? 'Switch to dark' : 'Switch to light';
-    }
+  [data-theme="oled"] {
+    --bg: #000000; --card: #0a0a0a; --border: #1a1a1a; --border2: #111111;
+    --text: #e0e0e0; --muted: #888888; --dim: #555555;
+    --nav-bg: #0a0a0a; --nav-border: #1a1a1a;
+  }
+  [data-theme="blue"] {
+    --bg: #0a1628; --card: #0f2035; --border: #1a3550; --border2: #142a42;
+    --text: #c8d8e8; --muted: #7a98b5; --dim: #4a6a88;
+    --nav-bg: #0c1a2e; --nav-border: #1a3550;
+  }
+  [data-theme="green"] {
+    --bg: #0a150a; --card: #111e11; --border: #1e3520; --border2: #162a16;
+    --text: #c5d8c5; --muted: #7a9a7a; --dim: #4a6a4a;
+    --nav-bg: #0c180c; --nav-border: #1e3520;
+  }
+  [data-theme="high-contrast"] {
+    --bg: #000000; --card: #1a1a1a; --border: #ffffff; --border2: #cccccc;
+    --text: #ffffff; --muted: #dddddd; --dim: #aaaaaa;
+    --nav-bg: #0a0a0a; --nav-border: #ffffff;
+  }
+  body { background: var(--bg) !important; color: var(--text); }
+  .bg-ghbg, .bg-\[\#0d1117\] { background: var(--bg) !important; }
+  .bg-ghcard { background: var(--card) !important; }
+  .border-ghborder { border-color: var(--border) !important; }
+  .border-ghborder2 { border-color: var(--border2) !important; }
+  .text-ghtext { color: var(--text) !important; }
+  .text-ghmuted { color: var(--muted) !important; }
+  .text-ghdim { color: var(--dim) !important; }
 
-    var saved = localStorage.getItem('theme') || 'dark';
+  /* ── Light theme text/bg overrides ── */
+  [data-theme="light"] .text-gray-100 { color: #1f2328 !important; }
+  [data-theme="light"] .text-gray-200 { color: #2d333b !important; }
+  [data-theme="light"] .text-gray-300 { color: #3d444d !important; }
+  [data-theme="light"] .text-gray-400 { color: #4d555e !important; }
+  [data-theme="light"] .text-gray-500 { color: #656d76 !important; }
+  [data-theme="light"] .text-white { color: #ffffff !important; }
+  [data-theme="light"] .bg-\[\#0d1117\] { background: #f6f8fa !important; }
+  [data-theme="light"] .bg-\[\#161b22\] { background: #ffffff !important; }
+  [data-theme="light"] .bg-\[\#1c2128\] { background: #f0f2f5 !important; }
+  [data-theme="light"] .border-gray-600 { border-color: #d0d7de !important; }
+  [data-theme="light"] .border-gray-500 { border-color: #d8dee4 !important; }
+  [data-theme="light"] .hover\:bg-ghborder2:hover { background: #e8ecf0 !important; }
+  [data-theme="light"] .hover\:bg-ghcard:hover { background: #f0f3f6 !important; }
+  [data-theme="light"] input, [data-theme="light"] select, [data-theme="light"] textarea {
+    background: #ffffff !important; color: #1f2328 !important; border-color: #d0d7de !important;
+  }
+  [data-theme="light"] .node-card { border-color: #d0d7de; }
+  [data-theme="light"] .stat-card { border-color: #d0d7de; background: #ffffff; }
+  [data-theme="light"] .event-type-badge { opacity: 0.9; }
+  [data-theme="light"] pre { background: #f6f8fa !important; color: #1f2328 !important; }
+  [data-theme="light"] .filter-btn.active,
+  [data-theme="light"] .evt-filter-btn[style*="1f3a5f"],
+  [data-theme="light"] .bridge-filter-btn.active { background: #dbeafe !important; color: #1e40af !important; }
+  [data-theme="light"] .bg-ghborder2, [data-theme="light"] .bg-ghborder { background: #e8ecf0 !important; }
+  [data-theme="light"] .rounded-full.bg-gray-600 { background: #6b7280 !important; }
+  [data-theme="light"] .theme-option.text-blue-400 { color: #1d4ed8 !important; font-weight: 600; }
+  [data-theme="light"] #theme-menu-mobile, [data-theme="light"] #theme-menu-sidebar { background: #ffffff !important; border-color: #d0d7de !important; }
+  [data-theme="light"] #userMenu { background: #ffffff !important; border-color: #d0d7de !important; }
+  [data-theme="light"] .node-card .card-header { background: #f0f3f6 !important; border-color: #d0d7de !important; }
+  [data-theme="light"] .node-card { background: #ffffff !important; border-color: #d0d7de !important; }
+  [data-theme="light"] .card-footer { border-color: #e1e4e8 !important; }
+  [data-theme="light"] .view-toggle-active { background: #dbeafe !important; color: #1e40af !important; }
+  [data-theme="light"] .filter-btn.active { background: #dbeafe !important; color: #1e40af !important; }
+  [data-theme="light"] .tg-pill.active { background: #dbeafe !important; border-color: #93c5fd !important; color: #1e40af !important; }
+  [data-theme="light"] .text-red-400 { color: #dc2626 !important; }
+  [data-theme="light"] .text-green-400 { color: #16a34a !important; }
+  [data-theme="light"] .text-yellow-500 { color: #ca8a04 !important; }
+  [data-theme="light"] .text-blue-400 { color: #2563eb !important; }
+  [data-theme="light"] .text-purple-300, [data-theme="light"] .text-purple-400 { color: #7c3aed !important; }
+  [data-theme="light"] .text-amber-300 { color: #d97706 !important; }
+  [data-theme="light"] .text-pink-300 { color: #db2777 !important; }
+
+  /* ── High contrast overrides ── */
+  [data-theme="high-contrast"] .text-gray-100 { color: #ffffff !important; }
+  [data-theme="high-contrast"] .text-gray-200 { color: #f0f0f0 !important; }
+  [data-theme="high-contrast"] .text-gray-300 { color: #e0e0e0 !important; }
+  [data-theme="high-contrast"] .text-gray-400 { color: #d0d0d0 !important; }
+  [data-theme="high-contrast"] .text-gray-500 { color: #bbbbbb !important; }
+:javascript
+  // ── Theme selector ──
+  (function() {
+    function resolveTheme(name) {
+      if (name === 'auto') return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      return name;
+    }
+    function applyTheme(name) {
+      var resolved = resolveTheme(name);
+      document.documentElement.setAttribute('data-theme', resolved);
+      document.documentElement.classList.remove('light-theme'); // remove legacy class
+      // Highlight active option
+      document.querySelectorAll('.theme-option').forEach(function(opt) {
+        var active = opt.dataset.theme === name;
+        opt.classList.toggle('text-blue-400', active);
+        opt.classList.toggle('text-gray-300', !active);
+      });
+      // Update sidebar label
+      var names = {dark:'Dark',light:'Light',auto:'Auto',oled:'OLED',blue:'Navy',green:'Military','high-contrast':'Hi-Con'};
+      var lbl = document.getElementById('theme-current-label');
+      if (lbl) lbl.textContent = names[name] || name;
+    }
+    var saved = localStorage.getItem('theme') || 'auto';
     applyTheme(saved);
 
-    function toggle() {
-      var next = document.documentElement.classList.contains('light-theme') ? 'dark' : 'light';
-      localStorage.setItem('theme', next);
-      applyTheme(next);
-    }
+    // Listen for OS theme change when 'auto' is selected
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', function() {
+      if (localStorage.getItem('theme') === 'auto') applyTheme('auto');
+    });
 
+    function closeAllThemeMenus() {
+      ['theme-menu-mobile', 'theme-menu-sidebar'].forEach(function(id) {
+        var m = document.getElementById(id);
+        if (m) m.classList.add('hidden');
+      });
+    }
     document.addEventListener('click', function(e) {
-      if (e.target.closest('#theme-toggle-desktop, #theme-toggle-mobile')) toggle();
+      var opt = e.target.closest('.theme-option');
+      if (opt) {
+        localStorage.setItem('theme', opt.dataset.theme);
+        applyTheme(opt.dataset.theme);
+        closeAllThemeMenus();
+        return;
+      }
+      if (e.target.closest('#theme-btn-mobile')) {
+        document.getElementById('theme-menu-mobile').classList.toggle('hidden');
+        var sb = document.getElementById('theme-menu-sidebar');
+        if (sb) sb.classList.add('hidden');
+        return;
+      }
+      if (e.target.closest('#theme-btn-sidebar')) {
+        document.getElementById('theme-menu-sidebar').classList.toggle('hidden');
+        var mb = document.getElementById('theme-menu-mobile');
+        if (mb) mb.classList.add('hidden');
+        return;
+      }
+      closeAllThemeMenus();
     });
   })();
 

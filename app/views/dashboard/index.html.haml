@@ -1,7 +1,7 @@
 !!!
 %html{lang: "en"}
   :javascript
-    (function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.classList.add('light-theme');})();
+    (function(){var t=localStorage.getItem('theme')||'auto';var r=(t==='auto'?(window.matchMedia('(prefers-color-scheme:light)').matches?'light':'auto'):t);document.documentElement.setAttribute('data-theme',r);})();
   %head
     %meta{charset: "UTF-8"}
     %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
@@ -124,6 +124,7 @@
       .tone-table { font-size: .73rem; font-family: monospace; }
       .compact-nodes .node-detail { display: none !important; }
       .filter-btn.active { background: #1f3a5f; color: #79c0ff; }
+      .view-toggle-active { background: #1f3a5f; color: #c9d1d9; }
       .tone-row {
         display: flex;
         justify-content: space-between;
@@ -178,14 +179,14 @@
           Connected Nodes
         %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-gray-600.text-gray-200#nodes-count
           = @nodes.reject { |_, n| n['hidden'] }.size
-        %button#toggle-detail.px-2.py-0.5.text-xs.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.hover:border-gray-500.cursor-pointer.transition-colors{type: "button", title: "Toggle node details"}
-          %i.bi.bi-eye-fill#toggle-detail-icon
-          %span#toggle-detail-label Detailed
         .inline-flex.rounded.border.border-ghborder.overflow-hidden
-          %button#view-cards.px-2.py-0.5.text-xs.text-gray-200.cursor-pointer.transition-colors{type: "button", title: "Card view", style: "background:#1f3a5f"}
+          %button#view-cards.px-2.py-0.5.text-xs.text-gray-200.cursor-pointer.transition-colors.view-toggle-active{type: "button", title: "Card view"}
             %i.bi.bi-grid-3x3-gap
           %button#view-table.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", title: "Table view"}
             %i.bi.bi-table
+        %button#toggle-detail.px-2.py-0.5.text-xs.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.hover:border-gray-500.cursor-pointer.transition-colors{type: "button", title: "Toggle node details"}
+          %i.bi.bi-eye-fill#toggle-detail-icon
+          %span#toggle-detail-label Detailed
       .overflow-x-auto.mb-3.pb-1{style: "-webkit-overflow-scrolling:touch"}
         .inline-flex.rounded.border.border-ghborder.overflow-hidden#node-filters
           %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", "data-filter" => "all"}
@@ -1050,11 +1051,9 @@
           var isTable = currentView === 'table';
           grid.classList.toggle('hidden', isTable);
           if (nodesTable) nodesTable.classList.toggle('hidden', !isTable);
-          viewCardsBtn.style.background = isTable ? '' : '#1f3a5f';
-          viewCardsBtn.classList.toggle('text-gray-200', !isTable);
+          viewCardsBtn.classList.toggle('view-toggle-active', !isTable);
           viewCardsBtn.classList.toggle('text-ghmuted', isTable);
-          viewTableBtn.style.background = isTable ? '#1f3a5f' : '';
-          viewTableBtn.classList.toggle('text-gray-200', isTable);
+          viewTableBtn.classList.toggle('view-toggle-active', isTable);
           viewTableBtn.classList.toggle('text-ghmuted', !isTable);
           // Hide detail toggle in table view
           if (toggleBtn) toggleBtn.style.display = isTable ? 'none' : '';
