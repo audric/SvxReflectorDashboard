@@ -159,7 +159,8 @@
   -# ── Audio player (visible only to users with monitor permission + auth key) ──
   - if logged_in? && current_user.can_monitor? && current_user.reflector_auth_key.present?
     - audio_tgs = ((@nodes || {}).values.flat_map { |n| [n['tg'].to_i] + Array(n['monitoredTGs']).map(&:to_i) }.select { |t| t > 0 } + [999]).uniq.sort
-    .border-t.border-ghborder.px-3.py-3#audio-player-sidebar{"data-turbo-permanent" => "", "data-initial-tgs" => audio_tgs.join(','), "data-callsign" => "#{current_user.callsign.upcase}-WEB", "data-auth-key" => current_user.reflector_auth_key.to_s, "data-sysop" => current_user.name.to_s, "data-cw-roger-beep" => current_user.cw_roger_beep? ? "1" : "0"}
+    - tg_names = Tg.pluck(:tg, :name).to_h
+    .border-t.border-ghborder.px-3.py-3#audio-player-sidebar{"data-turbo-permanent" => "", "data-initial-tgs" => audio_tgs.join(','), "data-tg-names" => tg_names.to_json, "data-callsign" => "#{current_user.callsign.upcase}-WEB", "data-auth-key" => current_user.reflector_auth_key.to_s, "data-sysop" => current_user.name.to_s, "data-cw-roger-beep" => current_user.cw_roger_beep? ? "1" : "0"}
       .flex.items-center.gap-1.mb-2
         %i.bi.bi-headphones.text-ghdim.text-xs
         %span.text-xs.uppercase.tracking-wider.text-ghdim Tune In
@@ -635,6 +636,19 @@
       setTgOptions(sorted);
     }
 
+    // TG name lookup
+    var tgNameMap = {};
+    (function() {
+      var el = document.getElementById('audio-player-sidebar');
+      if (!el) return;
+      try { tgNameMap = JSON.parse(el.getAttribute('data-tg-names') || '{}'); } catch(e) {}
+    })();
+
+    function tgLabel(tg) {
+      var name = tgNameMap[String(tg)];
+      return name ? 'TG ' + tg + ' — ' + name : 'TG ' + tg;
+    }
+
     function populateInitialTgs() {
       var el = document.getElementById('audio-player-sidebar');
       if (!el) return;
@@ -654,7 +668,7 @@
         sorted.forEach(function(tg) {
           var opt = document.createElement('option');
           opt.value = tg;
-          opt.textContent = 'TG ' + tg;
+          opt.textContent = tgLabel(tg);
           sel.appendChild(opt);
         });
         if (cur) sel.value = cur;
