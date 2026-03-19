@@ -27,7 +27,7 @@ type DCSClient struct {
 	txStreamID uint16
 	txSeq      uint32
 	txFrameID  int
-	txMycall   string          // dynamic MYCALL for current TX (originating callsign)
+	txMycall   string           // dynamic MYCALL for current TX (originating callsign)
 	txSlowData *SlowDataEncoder // slow data text for current TX
 
 	// Callbacks

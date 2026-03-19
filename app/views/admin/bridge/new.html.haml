@@ -39,12 +39,6 @@
         = render 'form_dmr'
       - elsif @bridge.ysf?
         = render 'form_ysf'
-      - elsif @bridge.m17?
-        = render 'form_m17'
-      - elsif @bridge.nxdn?
-        = render 'form_nxdn'
-      - elsif @bridge.p25?
-        = render 'form_p25'
       - elsif @bridge.allstar?
         = render 'form_allstar'
       - else

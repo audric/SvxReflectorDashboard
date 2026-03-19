@@ -41,19 +41,6 @@ module Admin
         defaults.merge!(
           ysf_port: 42000
         )
-      elsif bridge_type == "m17"
-        defaults.merge!(
-          m17_port: 17000,
-          m17_module: "A"
-        )
-      elsif bridge_type == "nxdn"
-        defaults.merge!(
-          nxdn_port: 41400
-        )
-      elsif bridge_type == "p25"
-        defaults.merge!(
-          p25_port: 41000
-        )
       elsif bridge_type == "allstar"
         defaults.merge!(
           allstar_port: 4569
@@ -160,9 +147,6 @@ module Admin
         :xlx_host, :xlx_port, :xlx_module, :xlx_callsign, :xlx_callsign_suffix, :xlx_mycall, :xlx_mycall_suffix, :xlx_reflector_name,
         :dmr_host, :dmr_port, :dmr_id, :dmr_password, :dmr_talkgroup, :dmr_timeslot, :dmr_color_code, :dmr_callsign,
         :ysf_host, :ysf_port, :ysf_callsign, :ysf_description,
-        :m17_host, :m17_port, :m17_callsign, :m17_module,
-        :nxdn_host, :nxdn_port, :nxdn_id, :nxdn_talkgroup,
-        :p25_host, :p25_port, :p25_id, :p25_talkgroup,
         :allstar_node, :allstar_password, :allstar_server, :allstar_port
       )
     end
@@ -214,12 +198,6 @@ module Admin
         start_dmr_container(bridge)
       elsif bridge.ysf?
         start_ysf_container(bridge)
-      elsif bridge.m17?
-        start_m17_container(bridge)
-      elsif bridge.nxdn?
-        start_nxdn_container(bridge)
-      elsif bridge.p25?
-        start_p25_container(bridge)
       elsif bridge.allstar?
         start_allstar_container(bridge)
       else
@@ -350,120 +328,6 @@ module Admin
       end
     end
 
-    def start_m17_container(bridge)
-      network = docker_network
-      body = {
-        Image: "ghcr.io/audric/svxreflectordashboard-m17-bridge",
-        Labels: {
-          "svx.bridge" => "true",
-          "svx.bridge.id" => bridge.id.to_s,
-          "svx.bridge.name" => bridge.name,
-          "com.docker.compose.project" => "",
-          "com.docker.compose.service" => ""
-        },
-        Env: [
-          "REFLECTOR_HOST=#{bridge.local_host}",
-          "REFLECTOR_PORT=#{bridge.local_port}",
-          "REFLECTOR_AUTH_KEY=#{bridge.local_auth_key}",
-          "REFLECTOR_TG=#{bridge.local_default_tg}",
-          "CALLSIGN=#{bridge.local_callsign}",
-          "M17_HOST=#{bridge.m17_host}",
-          "M17_PORT=#{bridge.m17_port || 17000}",
-          "M17_CALLSIGN=#{bridge.m17_callsign}",
-          "M17_MODULE=#{bridge.m17_module}",
-          "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
-          "SYSOP=#{bridge.sysop}",
-          "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
-        ],
-        HostConfig: {
-          RestartPolicy: { Name: "unless-stopped" }
-        }
-      }
-      body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
-
-      result = docker_api_post_json("/containers/create?name=#{bridge.container_name}", body)
-      if result && result["Id"]
-        docker_api_post("/containers/#{result["Id"]}/start")
-        Rails.logger.info "[Bridge] Created and started M17 container #{bridge.container_name}"
-      end
-    end
-
-    def start_nxdn_container(bridge)
-      network = docker_network
-      body = {
-        Image: "ghcr.io/audric/svxreflectordashboard-nxdn-bridge",
-        Labels: {
-          "svx.bridge" => "true",
-          "svx.bridge.id" => bridge.id.to_s,
-          "svx.bridge.name" => bridge.name,
-          "com.docker.compose.project" => "",
-          "com.docker.compose.service" => ""
-        },
-        Env: [
-          "REFLECTOR_HOST=#{bridge.local_host}",
-          "REFLECTOR_PORT=#{bridge.local_port}",
-          "REFLECTOR_AUTH_KEY=#{bridge.local_auth_key}",
-          "REFLECTOR_TG=#{bridge.local_default_tg}",
-          "CALLSIGN=#{bridge.local_callsign}",
-          "NXDN_HOST=#{bridge.nxdn_host}",
-          "NXDN_PORT=#{bridge.nxdn_port || 41400}",
-          "NXDN_ID=#{bridge.nxdn_id}",
-          "NXDN_TALKGROUP=#{bridge.nxdn_talkgroup}",
-          "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
-          "SYSOP=#{bridge.sysop}",
-          "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
-        ],
-        HostConfig: {
-          RestartPolicy: { Name: "unless-stopped" }
-        }
-      }
-      body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
-
-      result = docker_api_post_json("/containers/create?name=#{bridge.container_name}", body)
-      if result && result["Id"]
-        docker_api_post("/containers/#{result["Id"]}/start")
-        Rails.logger.info "[Bridge] Created and started NXDN container #{bridge.container_name}"
-      end
-    end
-
-    def start_p25_container(bridge)
-      network = docker_network
-      body = {
-        Image: "ghcr.io/audric/svxreflectordashboard-p25-bridge",
-        Labels: {
-          "svx.bridge" => "true",
-          "svx.bridge.id" => bridge.id.to_s,
-          "svx.bridge.name" => bridge.name,
-          "com.docker.compose.project" => "",
-          "com.docker.compose.service" => ""
-        },
-        Env: [
-          "REFLECTOR_HOST=#{bridge.local_host}",
-          "REFLECTOR_PORT=#{bridge.local_port}",
-          "REFLECTOR_AUTH_KEY=#{bridge.local_auth_key}",
-          "REFLECTOR_TG=#{bridge.local_default_tg}",
-          "CALLSIGN=#{bridge.local_callsign}",
-          "P25_HOST=#{bridge.p25_host}",
-          "P25_PORT=#{bridge.p25_port || 41000}",
-          "P25_ID=#{bridge.p25_id}",
-          "P25_TALKGROUP=#{bridge.p25_talkgroup}",
-          "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
-          "SYSOP=#{bridge.sysop}",
-          "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
-        ],
-        HostConfig: {
-          RestartPolicy: { Name: "unless-stopped" }
-        }
-      }
-      body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
-
-      result = docker_api_post_json("/containers/create?name=#{bridge.container_name}", body)
-      if result && result["Id"]
-        docker_api_post("/containers/#{result["Id"]}/start")
-        Rails.logger.info "[Bridge] Created and started P25 container #{bridge.container_name}"
-      end
-    end
-
     def start_allstar_container(bridge)
       network = docker_network
       body = {
@@ -591,7 +455,7 @@ module Admin
       statuses = {}
       containers.each do |c|
         c["Names"].each do |n|
-          if n =~ /\A\/(?:svxlink|xlx|dmr|ysf|m17|nxdn|p25|allstar)-bridge-(\d+)\z/
+          if n =~ /\A\/(?:svxlink|xlx|dmr|ysf|allstar)-bridge-(\d+)\z/
             statuses[Regexp.last_match(1).to_i] = c["State"]
           end
         end

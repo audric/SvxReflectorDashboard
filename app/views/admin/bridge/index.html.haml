@@ -78,15 +78,6 @@
             = link_to new_admin_bridge_path(type: "ysf"), class: "flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-ghborder2" do
               %i.bi.bi-soundwave
               YSF Bridge
-            = link_to new_admin_bridge_path(type: "m17"), class: "flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-ghborder2" do
-              %i.bi.bi-signpost-2
-              M17 Bridge
-            = link_to new_admin_bridge_path(type: "nxdn"), class: "flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-ghborder2" do
-              %i.bi.bi-router
-              NXDN Bridge
-            = link_to new_admin_bridge_path(type: "p25"), class: "flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-ghborder2" do
-              %i.bi.bi-shield-lock
-              P25 Bridge
             = link_to new_admin_bridge_path(type: "allstar"), class: "flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-ghborder2 rounded-b-md" do
               %i.bi.bi-telephone
               AllStar Bridge
@@ -97,9 +88,6 @@
       - count_xlx = @bridges.count(&:xlx?)
       - count_dmr = @bridges.count(&:dmr?)
       - count_ysf = @bridges.count(&:ysf?)
-      - count_m17 = @bridges.count(&:m17?)
-      - count_nxdn = @bridges.count(&:nxdn?)
-      - count_p25 = @bridges.count(&:p25?)
       - count_allstar = @bridges.count(&:allstar?)
       .inline-flex.rounded.border.border-ghborder.overflow-hidden.mb-4#bridge-filters
         %button.bridge-filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", "data-filter" => "all"}
@@ -125,18 +113,6 @@
           %i.bi.bi-soundwave.mr-1
           YSF
           %span.ml-1.text-xs.opacity-70= count_ysf
-        %button.bridge-filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "m17"}
-          %i.bi.bi-signpost-2.mr-1
-          M17
-          %span.ml-1.text-xs.opacity-70= count_m17
-        %button.bridge-filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "nxdn"}
-          %i.bi.bi-router.mr-1
-          NXDN
-          %span.ml-1.text-xs.opacity-70= count_nxdn
-        %button.bridge-filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "p25"}
-          %i.bi.bi-shield-lock.mr-1
-          P25
-          %span.ml-1.text-xs.opacity-70= count_p25
         %button.bridge-filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "allstar"}
           %i.bi.bi-telephone.mr-1
           AllStar
@@ -174,18 +150,6 @@
                       %span.inline-flex.items-center.gap-1.px-2.py-0.5.rounded-full.text-xs.font-medium.bg-cyan-900.text-cyan-400.border.border-cyan-700
                         %i.bi.bi-soundwave{style: "font-size: 0.6rem"}
                         YSF
-                    - elsif bridge.m17?
-                      %span.inline-flex.items-center.gap-1.px-2.py-0.5.rounded-full.text-xs.font-medium.bg-rose-900.text-rose-400.border.border-rose-700
-                        %i.bi.bi-signpost-2{style: "font-size: 0.6rem"}
-                        M17
-                    - elsif bridge.nxdn?
-                      %span.inline-flex.items-center.gap-1.px-2.py-0.5.rounded-full.text-xs.font-medium.bg-orange-900.text-orange-400.border.border-orange-700
-                        %i.bi.bi-router{style: "font-size: 0.6rem"}
-                        NXDN
-                    - elsif bridge.p25?
-                      %span.inline-flex.items-center.gap-1.px-2.py-0.5.rounded-full.text-xs.font-medium.bg-indigo-900.text-indigo-400.border.border-indigo-700
-                        %i.bi.bi-shield-lock{style: "font-size: 0.6rem"}
-                        P25
                     - elsif bridge.allstar?
                       %span.inline-flex.items-center.gap-1.px-2.py-0.5.rounded-full.text-xs.font-medium.bg-teal-900.text-teal-400.border.border-teal-700
                         %i.bi.bi-telephone{style: "font-size: 0.6rem"}
@@ -245,36 +209,6 @@
                         .flex.items-center.gap-2
                           %span.text-ghmuted Callsign:
                           %span.text-gray-300.font-mono= bridge.ysf_callsign
-                      .flex.items-center.gap-2
-                        %span.text-ghmuted Reflector:
-                        %span.text-gray-300.font-mono= "#{bridge.local_callsign}@#{bridge.local_host}:#{bridge.local_port} TG#{bridge.local_default_tg}"
-                    - elsif bridge.m17?
-                      .flex.items-center.gap-2
-                        %span.text-ghmuted M17:
-                        %span.text-gray-300.font-mono= "#{bridge.m17_host}:#{bridge.m17_port || 17000}#{bridge.m17_module.present? ? " Module #{bridge.m17_module}" : ''}"
-                      .flex.items-center.gap-2
-                        %span.text-ghmuted Callsign:
-                        %span.text-gray-300.font-mono= bridge.m17_callsign
-                      .flex.items-center.gap-2
-                        %span.text-ghmuted Reflector:
-                        %span.text-gray-300.font-mono= "#{bridge.local_callsign}@#{bridge.local_host}:#{bridge.local_port} TG#{bridge.local_default_tg}"
-                    - elsif bridge.nxdn?
-                      .flex.items-center.gap-2
-                        %span.text-ghmuted NXDN:
-                        %span.text-gray-300.font-mono= "#{bridge.nxdn_host}:#{bridge.nxdn_port || 41400} TG#{bridge.nxdn_talkgroup}"
-                      .flex.items-center.gap-2
-                        %span.text-ghmuted NXDN ID:
-                        %span.text-gray-300.font-mono= bridge.nxdn_id
-                      .flex.items-center.gap-2
-                        %span.text-ghmuted Reflector:
-                        %span.text-gray-300.font-mono= "#{bridge.local_callsign}@#{bridge.local_host}:#{bridge.local_port} TG#{bridge.local_default_tg}"
-                    - elsif bridge.p25?
-                      .flex.items-center.gap-2
-                        %span.text-ghmuted P25:
-                        %span.text-gray-300.font-mono= "#{bridge.p25_host}:#{bridge.p25_port || 41000} TG#{bridge.p25_talkgroup}"
-                      .flex.items-center.gap-2
-                        %span.text-ghmuted P25 ID:
-                        %span.text-gray-300.font-mono= bridge.p25_id
                       .flex.items-center.gap-2
                         %span.text-ghmuted Reflector:
                         %span.text-gray-300.font-mono= "#{bridge.local_callsign}@#{bridge.local_host}:#{bridge.local_port} TG#{bridge.local_default_tg}"
