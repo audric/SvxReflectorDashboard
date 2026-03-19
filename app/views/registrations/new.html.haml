@@ -44,7 +44,10 @@
         .inline-flex.items-center.justify-center.w-12.h-12.rounded-full.border.border-ghborder.bg-ghcard.mb-3
           %i.bi.bi-person-plus.text-blue-400.text-xl
         %h1.text-xl.font-semibold.text-gray-100 Create your account
-        %p.text-sm.text-ghmuted.mt-1 Join the SVXReflector network
+        %p.text-sm.text-ghmuted.mt-1= "Join the SVXReflector #{Setting.get('brand_name', 'network')}"
+        %p.text-xs.text-ghdim.mt-2
+          %i.bi.bi-info-circle.mr-1
+          Registration requires manual approval by the administrator.
 
       -# Error messages
       - if @user.errors.any?
