@@ -288,7 +288,10 @@
                 - dstar = node['dstar_rx']
                 .mb-2.flex.items-center.gap-2.flex-wrap{id: "node-#{callsign}-dstar-rx", class: (dstar ? '' : 'hidden')}
                   %i.bi.bi-broadcast.text-purple-400
-                  %span.text-purple-300.font-mono.font-semibold{id: "node-#{callsign}-dstar-mycall"}= dstar&.dig('mycall')
+                  %span.text-purple-300.font-mono.font-semibold{id: "node-#{callsign}-dstar-mycall"}
+                    = dstar&.dig('mycall')
+                    - if dstar&.dig('suffix').present?
+                      %span.text-purple-400= "/#{dstar.dig('suffix')}"
                   %span.text-gray-500.text-xs{id: "node-#{callsign}-dstar-rpt", class: (dstar&.dig('rpt').present? ? '' : 'hidden')}
                     via
                     %span.text-gray-400= dstar&.dig('rpt')
@@ -655,7 +658,7 @@
             if (dr && dr.mycall) {
               dstarRow.classList.remove('hidden');
               var mycallEl = document.getElementById('node-' + callsign + '-dstar-mycall');
-              if (mycallEl) mycallEl.textContent = dr.mycall;
+              if (mycallEl) mycallEl.innerHTML = esc(dr.mycall) + (dr.suffix ? '<span class="text-purple-400">/' + esc(dr.suffix) + '</span>' : '');
               var rptEl = document.getElementById('node-' + callsign + '-dstar-rpt');
               if (rptEl) {
                 if (dr.rpt) { rptEl.classList.remove('hidden'); rptEl.querySelector('span').textContent = dr.rpt; }
@@ -805,7 +808,7 @@
           var dr = n.dstar_rx;
           h += '<div class="mb-2 flex items-center gap-2 flex-wrap' + (dr && dr.mycall ? '' : ' hidden') + '" id="node-' + cs + '-dstar-rx">';
           h += '<i class="bi bi-broadcast text-purple-400"></i>';
-          h += '<span class="text-purple-300 font-mono font-semibold" id="node-' + cs + '-dstar-mycall">' + (dr && dr.mycall ? esc(dr.mycall) : '') + '</span>';
+          h += '<span class="text-purple-300 font-mono font-semibold" id="node-' + cs + '-dstar-mycall">' + (dr && dr.mycall ? esc(dr.mycall) + (dr.suffix ? '<span class="text-purple-400">/' + esc(dr.suffix) + '</span>' : '') : '') + '</span>';
           h += '<span class="text-gray-500 text-xs' + (dr && dr.rpt ? '' : ' hidden') + '" id="node-' + cs + '-dstar-rpt">via <span class="text-gray-400">' + (dr && dr.rpt ? esc(dr.rpt) : '') + '</span></span>';
           h += '<span class="text-gray-400 text-xs truncate' + (dr && dr.text ? '' : ' hidden') + '" id="node-' + cs + '-dstar-text" title="' + (dr && dr.text ? esc(dr.text) : '') + '">' + (dr && dr.text ? esc(dr.text) : '') + '</span>';
           h += '</div>';

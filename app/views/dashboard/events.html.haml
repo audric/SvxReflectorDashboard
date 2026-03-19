@@ -132,8 +132,8 @@
         function applyFilters() {
           filterBtns.forEach(function(b) {
             var active = b.dataset.filter === currentFilter;
-            b.style.background = active ? '#1f3a5f' : '';
-            b.classList.toggle('text-gray-200', active);
+            b.classList.toggle('filter-btn', true);
+            b.classList.toggle('active', active);
             b.classList.toggle('text-ghmuted', !active);
           });
           var rows = document.querySelectorAll('.evt-row');

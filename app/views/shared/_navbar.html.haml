@@ -286,6 +286,8 @@
   [data-theme="light"] input, [data-theme="light"] select, [data-theme="light"] textarea {
     background: #ffffff !important; color: #1f2328 !important; border-color: #d0d7de !important;
   }
+  [data-theme="light"] select option { background: #ffffff; color: #1f2328; }
+  [data-theme="light"] .bg-ghbg { background: #f6f8fa !important; }
   [data-theme="light"] .node-card { border-color: #d0d7de; }
   [data-theme="light"] .stat-card { border-color: #d0d7de; background: #ffffff; }
   [data-theme="light"] .event-type-badge { opacity: 0.9; }
@@ -944,6 +946,14 @@
       src.getByteFrequencyData(freqData);
       var w = canvas.width, h = canvas.height;
       ctx.clearRect(0, 0, w, h);
+      // Dark background so spectrum is always readable
+      var theme = document.documentElement.getAttribute('data-theme');
+      if (theme === 'light') {
+        ctx.fillStyle = '#1e293b';
+        ctx.beginPath();
+        ctx.roundRect(0, 0, w, h, 4);
+        ctx.fill();
+      }
 
       // Voice range: 500 Hz – 5 kHz (bin = freq / (sampleRate / fftSize))
       var binHz = sampleRate / (freqData.length * 2); // 187.5 Hz per bin at 48k/256

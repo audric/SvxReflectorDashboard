@@ -556,6 +556,7 @@
       // ── Changelog (lazy-loaded on tab switch) ──
       var changelogLoaded = false;
       var GITHUB_RAW = 'https://raw.githubusercontent.com/audric/SvxReflectorDashboard/main/public/';
+      var GITHUB_API_COMMITS = 'https://api.github.com/repos/audric/SvxReflectorDashboard/commits?per_page=100';
 
       function renderChangelog(localDays, localSha, remoteDays) {
         var container = document.getElementById('changelog-content');
@@ -630,19 +631,33 @@
         if (changelogLoaded) return;
         changelogLoaded = true;
 
-        var localChangelog, localSha, remoteChangelog;
-
         Promise.all([
           fetch('/changelog.json').then(function(r) { return r.json(); }).catch(function() { return []; }),
           fetch('/REVISION').then(function(r) { return r.ok ? r.text() : null; }).then(function(t) { return t ? t.trim() : null; }).catch(function() { return null; }),
-          fetch(GITHUB_RAW + 'changelog.json').then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; })
+          fetch(GITHUB_API_COMMITS).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; })
         ]).then(function(results) {
-          localChangelog = results[0];
-          localSha = results[1];
-          remoteChangelog = results[2];
-          // Fall back to first SHA in local changelog if REVISION is missing
+          var localChangelog = results[0];
+          var localSha = results[1];
+          var apiCommits = results[2];
           if (!localSha && localChangelog.length > 0 && localChangelog[0].commits.length > 0) {
             localSha = localChangelog[0].commits[0].sha;
+          }
+          // Convert GitHub API commits to changelog format grouped by date
+          var remoteChangelog = null;
+          if (apiCommits && apiCommits.length > 0) {
+            var grouped = {};
+            apiCommits.forEach(function(c) {
+              if (!c.commit) return;
+              var date = (c.commit.author && c.commit.author.date || '').substring(0, 10);
+              var sha = (c.sha || '').substring(0, 7);
+              var msg = c.commit.message.split('\n')[0];
+              if (!date || !sha) return;
+              if (!grouped[date]) grouped[date] = [];
+              grouped[date].push({ sha: sha, message: msg });
+            });
+            remoteChangelog = Object.keys(grouped).sort().reverse().map(function(d) {
+              return { date: d, commits: grouped[d] };
+            });
           }
           renderChangelog(localChangelog, localSha, remoteChangelog);
         }).catch(function(err) {
