@@ -658,9 +658,10 @@
         if (changelogLoaded) return;
         changelogLoaded = true;
 
+        var cacheBust = '?_=' + Date.now();
         Promise.all([
-          fetch('/changelog.json').then(function(r) { return r.json(); }).catch(function() { return []; }),
-          fetch('/REVISION').then(function(r) { return r.ok ? r.text() : null; }).then(function(t) { return t ? t.trim() : null; }).catch(function() { return null; }),
+          fetch('/changelog.json' + cacheBust).then(function(r) { return r.json(); }).catch(function() { return []; }),
+          fetch('/REVISION' + cacheBust).then(function(r) { return r.ok ? r.text() : null; }).then(function(t) { return t ? t.trim() : null; }).catch(function() { return null; }),
           fetch(GITHUB_API_COMMITS).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; })
         ]).then(function(results) {
           var localChangelog = results[0];
