@@ -50,45 +50,45 @@
   };
 
 -# ── Mobile / tablet top bar (visible below lg) ──────────────────────
-%nav.sticky.top-0.z-50.bg-ghcard.border-b.border-ghborder.mb-4.py-2.lg:hidden
+%nav.sticky.top-0.z-50.bg-ghcard.border-b.border-ghborder.mb-4.py-3.lg:hidden
   .flex.items-center.justify-between.flex-wrap.px-4
-    %span.font-bold.text-gray-100.flex.items-center.gap-2.js-brand{style: "cursor:default;user-select:none;"}
+    %span.font-bold.text-gray-100.flex.items-center.gap-2.text-base.js-brand{style: "cursor:default;user-select:none;"}
       %i.bi.bi-broadcast-pin.js-ws-icon{class: (local_assigns.fetch(:ws_indicator, false) ? "text-yellow-500 animate-pulse" : "text-green-500"), title: (local_assigns.fetch(:ws_indicator, false) ? "Connecting\u2026" : "")}
       SVXReflector
       %span.text-gray-100.text-sm.font-mono= @reflector_host
 
-    %button.text-gray-400.md:hidden{type: "button", onclick: "document.getElementById('mainNav').classList.toggle('hidden')"}
-      %i.bi.bi-list.text-xl
+    %button.text-gray-400.p-2.md:hidden{type: "button", onclick: "document.getElementById('mainNav').classList.toggle('hidden')"}
+      %i.bi.bi-list.text-2xl
 
-    #mainNav.hidden.w-full.md:flex.md:w-auto.md:items-center.md:gap-3.mt-2.md:mt-0
-      .flex.flex-col.gap-2.mb-2.md:flex-row.md:gap-4.md:mb-0
-        %a.text-base.md:text-sm{class: (active == 'dashboard' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: root_path}
+    #mainNav.hidden.w-full.md:flex.md:w-auto.md:items-center.md:gap-3.mt-3.md:mt-0
+      .flex.flex-col.gap-1.mb-2.md:flex-row.md:gap-4.md:mb-0
+        %a.text-base.py-2.md:py-0.md:text-sm{class: (active == 'dashboard' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: root_path}
           %i.bi.bi-grid.mr-1
           Dashboard
-        %a.text-base.md:text-sm{class: (active == 'stats' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: stats_path}
+        %a.text-base.py-2.md:py-0.md:text-sm{class: (active == 'stats' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: stats_path}
           %i.bi.bi-bar-chart-line.mr-1
           Stats
-        %a.text-base.md:text-sm{class: (active == 'tg' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: tg_path}
+        %a.text-base.py-2.md:py-0.md:text-sm{class: (active == 'tg' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: tg_path}
           %i.bi.bi-collection.mr-1
           TG List
-        %a.text-base.md:text-sm{class: (active == 'radio' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: radio_path}
+        %a.text-base.py-2.md:py-0.md:text-sm{class: (active == 'radio' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: radio_path}
           %i.bi.bi-broadcast.mr-1
           Radio Memory
-        %a.text-base.md:text-sm{class: (active == 'events' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: events_path}
+        %a.text-base.py-2.md:py-0.md:text-sm{class: (active == 'events' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: events_path}
           %i.bi.bi-activity.mr-1
           Events
-        %a.text-base.md:text-sm{class: (active == 'map' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: map_path}
+        %a.text-base.py-2.md:py-0.md:text-sm{class: (active == 'map' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: map_path}
           %i.bi.bi-map.mr-1
           Map
 
-      .flex.items-center.gap-3
+      .flex.items-center.gap-3.py-2.md:py-0
         .relative
-          %button#theme-btn-mobile.text-gray-400.cursor-pointer{type: "button", title: "Theme"}
-            %i.bi.bi-palette#theme-icon-mobile
-          #theme-menu-mobile.absolute.right-0.mt-1.w-40.rounded-md.border.border-gray-600.bg-ghcard.shadow-xl.z-50.hidden
+          %button#theme-btn-mobile.text-gray-400.cursor-pointer.p-2{type: "button", title: "Theme"}
+            %i.bi.bi-palette.text-lg#theme-icon-mobile
+          #theme-menu-mobile.absolute.left-0.mt-1.w-44.rounded-md.border.border-gray-600.bg-ghcard.shadow-xl.z-50.hidden.py-1
             - [['dark', 'bi-moon-fill', 'Dark'], ['light', 'bi-sun-fill', 'Light'], ['auto', 'bi-circle-half', 'Auto (OS)'], ['oled', 'bi-phone', 'OLED Black'], ['blue', 'bi-water', 'Navy Blue'], ['green', 'bi-tree', 'Military'], ['high-contrast', 'bi-eye', 'High Contrast']].each do |val, icon, label|
-              %button.theme-option.flex.items-center.gap-2.w-full.px-3.py-1.5.text-sm.text-gray-300.hover:bg-ghborder2.cursor-pointer{type: "button", "data-theme" => val}
-                %i.bi{class: icon, style: "font-size:.7rem;width:16px"}
+              %button.theme-option.flex.items-center.gap-2.w-full.px-3.py-2.5.text-base.md:text-sm.md:py-1.5.text-gray-300.hover:bg-ghborder2.cursor-pointer{type: "button", "data-theme" => val}
+                %i.bi{class: icon, style: "font-size:.8rem;width:16px"}
                 = label
         - if logged_in?
           .relative
