@@ -10,9 +10,14 @@ module Admin
     end
 
     def fetch
-      container_id = params[:container]
+      container_id = params[:container].to_s
+      unless container_id.match?(/\A[a-f0-9]{12,64}\z/)
+        render json: { logs: "Invalid container ID" }, status: :bad_request
+        return
+      end
+
       tail = (params[:tail] || 200).to_i.clamp(1, 1000)
-      since = params[:since] # Unix timestamp for incremental fetching
+      since = params[:since] # ISO 8601 timestamp for incremental fetching
       output = fetch_container_logs(container_id, tail, since)
       render json: { logs: output }
     end
