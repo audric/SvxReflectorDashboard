@@ -10,7 +10,7 @@ class AudioChannel < ApplicationCable::Channel
 
     tg = params[:tg].to_i
     if tg > 0
-      callsign = current_user.callsign.upcase
+      callsign = "#{current_user.callsign.upcase}-WEB"
       auth_key = current_user.reflector_auth_key.to_s
       @web_callsign = callsign
       @web_tg = tg
