@@ -116,6 +116,11 @@ services:
     build: ./ysf_bridge
     profiles: ["build-only"]
 
+  allstar_bridge:
+    image: ghcr.io/audric/svxreflectordashboard-allstar-bridge
+    build: ./allstar_bridge
+    profiles: ["build-only"]
+
   redis:
     image: redis:7-alpine
     ports:
