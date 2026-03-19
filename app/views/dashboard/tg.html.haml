@@ -161,178 +161,50 @@
           %i.bi.bi-exclamation-triangle-fill.mr-2.shrink-0
           = @fetch_error
 
-      .flex.items-center.justify-between.flex-wrap.gap-2
-        .page-header.grow.mb-0
-          %i.bi.bi-collection.mr-1
-          TG · Tone Matrix
-          %span.ml-1.font-normal
-            = "#{@all_tgs.size} talkgroup#{'s' unless @all_tgs.size == 1} · #{@node_rows.size} node#{'s' unless @node_rows.size == 1}"
-        %button#chirp-export.text-sm.px-3.py-1.5.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "exportChirp()"}
-          %i.bi.bi-download.mr-1
-          CHIRP CSV
+      .page-header
+        %i.bi.bi-diagram-3.mr-1
+        Talkgroups
+        %span.ml-1.font-normal
+          = "#{@tgs_db.size} talkgroup#{'s' unless @tgs_db.size == 1}"
 
-      .matrix-wrap
-        %table.matrix-table
+      .rounded-lg.border.border-ghborder.overflow-hidden
+        %table.w-full.text-sm
           %thead
-            %tr
-              %th.col-node Node
-              - @all_tgs.each do |tg|
-                %th
-                  %span{class: "tg-col-head#{' local' if tg == 0}"}= tg == 0 ? 'Local' : tg
+            %tr.bg-ghcard
+              %th.text-left.px-4.py-3.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold{style: "width:80px"} TG
+              %th.text-left.px-4.py-3.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold{style: "width:150px"} Name
+              %th.text-left.px-4.py-3.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Description
+              %th.text-left.px-4.py-3.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Nodes
           %tbody
-            - if @node_rows.empty?
+            - if @tgs_db.empty?
               %tr
-                %td.text-gray-500.text-sm.py-4.text-center{colspan: @all_tgs.size + 1}
+                %td.text-gray-500.text-sm.py-6.text-center{colspan: 4}
                   %i.bi.bi-info-circle.mr-1
-                  No tone-to-TG mapping data found.
+                  No talkgroups defined yet.
             - else
-              - @node_rows.each do |cs, node, tg_tone|
-                - qth     = node.dig('qth', 0) || {}
-                - tx_freq = qth['tx']&.values&.first&.dig('freq')
-                - rx_freq = qth['rx']&.values&.first&.dig('freq')
-                - offset  = (tx_freq && rx_freq && tx_freq.to_f > 0 && rx_freq.to_f > 0) ? ((rx_freq.to_f - tx_freq.to_f) * 1000).round : nil
-                %tr
-                  %td.col-node
-                    .node-cs= cs
-                    - if node['nodeLocation']
-                      .node-loc= node['nodeLocation']
-                    - if tx_freq.to_f > 0
-                      .node-freq
-                        TX
-                        %span.freq-val= "%.4f" % tx_freq
-                        MHz
-                        - if offset && offset != 0
-                          %span.freq-offset= "(#{offset > 0 ? '+' : ''}#{offset} kHz)"
-                  - @all_tgs.each do |tg|
-                    - tone = tg_tone[tg]
-                    %td
-                      - if tone
-                        %span{class: "tone-pill#{' local' if tg == 0}"}
-                          = "%.1f" % tone
-                          %span.tone-unit  Hz
-                      - else
-                        %span.empty-cell ·
-
-      - if @tgs_db.any?
-        .page-header.mt-6
-          %i.bi.bi-diagram-3.mr-1
-          TG Map
-          %span.ml-1.font-normal
-            = "#{@tgs_db.size} talkgroup#{'s' unless @tgs_db.size == 1} · #{@visible_nodes.size} node#{'s' unless @visible_nodes.size == 1}"
-
-        .matrix-wrap#tg-map-wrap
-          %table.matrix-table#tg-map-table
-            %thead
-              %tr
-                %th.col-node TG
-                - @visible_nodes.each do |cs, node|
-                  %th
-                    .node-cs{style: "font-size:.75rem;"}= cs
-            %tbody
               - @tgs_db.each do |tg_rec|
                 - tg_num = tg_rec.tg.to_i
-                %tr
-                  %td.col-node
-                    .node-cs= tg_rec.tg
-                    .node-loc= tg_rec.name
-                    - if tg_rec.description.present?
-                      .node-desc= tg_rec.description
-                  - if @visible_nodes.empty?
-                    %td.text-gray-500.text-sm.text-center
-                      %span.empty-cell ·
-                  - else
-                    - @visible_nodes.each do |cs, node|
-                      - ttg = node['toneToTalkgroup'] || {}
-                      - tone = ttg.find { |t, tg| tg == tg_num }&.first&.to_f
-                      - on_tg = node['tg'].to_i == tg_num || Array(node['monitoredTGs']).map(&:to_i).include?(tg_num)
-                      %td
-                        - if tone
-                          %span.tone-pill
-                            = "%.1f" % tone
-                            %span.tone-unit  Hz
-                        - elsif on_tg
-                          %i.bi.bi-link-45deg.text-green-500.text-lg{title: "Connected to TG #{tg_num}"}
-                        - else
-                          %span.empty-cell ·
+                - nodes_on_tg = @tg_nodes[tg_num] || []
+                %tr.border-t.border-ghborder2.hover:bg-ghcard
+                  %td.px-4.py-3.font-mono.font-bold.text-gray-100= tg_rec.tg
+                  %td.px-4.py-3.text-gray-300= tg_rec.name
+                  %td.px-4.py-3.text-sm.text-gray-400= tg_rec.description
+                  %td.px-4.py-3
+                    - if nodes_on_tg.any?
+                      .flex.flex-wrap.gap-1
+                        - nodes_on_tg.sort_by { |n| n[:callsign] }.each do |entry|
+                          - if entry[:selected]
+                            %span.inline-block.px-2.py-0.5.text-xs.font-mono.rounded.border.border-green-700.text-green-400{class: "bg-green-900/30", title: "Selected on TG #{tg_num}"}= entry[:callsign]
+                          - else
+                            %span.inline-block.px-2.py-0.5.text-xs.font-mono.rounded.border.border-ghborder2.text-gray-400{title: "Monitoring TG #{tg_num}"}= entry[:callsign]
+                    - else
+                      %span.text-ghdim —
 
     - nodes_json = @nodes.to_json.html_safe
     - tgs_db_json = @tgs_db.map { |t| { tg: t.tg.to_i, name: t.name, description: t.description.to_s } }.to_json.html_safe
     :javascript
       var _tgNodes = #{nodes_json};
       var _tgsDb   = #{tgs_db_json};
-
-      function exportChirp() {
-        var header = 'Location,Name,Frequency,Duplex,Offset,Tone,rToneFreq,cToneFreq,DtcsCode,DtcsPolarity,Mode,TStep,Skip,Comment,URCALL,RPT1CALL,RPT2CALL';
-        var rows = [header];
-        var loc = 1;
-
-        Object.keys(_tgNodes).sort().forEach(function (cs) {
-          var node = _tgNodes[cs];
-          if (node.hidden) return;
-          var ttg = node.toneToTalkgroup;
-          if (!ttg || Object.keys(ttg).length === 0) return;
-
-          var qth    = node.qth && node.qth[0];
-          var txObj  = qth && qth.tx && Object.values(qth.tx)[0];
-          var rxObj  = qth && qth.rx && Object.values(qth.rx)[0];
-          var repTx  = txObj && txObj.freq;  // repeater TX = radio RX
-          var repRx  = rxObj && rxObj.freq;  // repeater RX = radio TX
-
-          if (!repTx || repTx <= 0) return;
-
-          var duplex = '';
-          var offset = 0.600000;
-          if (repRx && repRx > 0) {
-            var diff = repRx - repTx;
-            if (Math.abs(diff) < 0.0001) {
-              duplex = '';
-              offset = 0;
-            } else if (diff > 0) {
-              duplex = '+';
-              offset = Math.abs(diff);
-            } else {
-              duplex = '-';
-              offset = Math.abs(diff);
-            }
-          }
-
-          Object.keys(ttg).sort(function (a, b) { return parseFloat(a) - parseFloat(b); }).forEach(function (toneStr) {
-            var tgNum = ttg[toneStr];
-            var tone  = parseFloat(toneStr);
-            var name  = cs.substring(0, 7) + (tgNum !== 0 ? ' ' + tgNum : '');
-            if (name.length > 16) name = name.substring(0, 16);
-            var comment = (node.nodeLocation || '') + (tgNum !== 0 ? ' TG' + tgNum : ' Local');
-            comment = '"' + comment.replace(/"/g, '""') + '"';
-
-            rows.push([
-              loc++,
-              name,
-              repTx.toFixed(6),
-              duplex,
-              offset.toFixed(6),
-              'Tone',
-              tone.toFixed(1),
-              '88.5',
-              '023',
-              'NN',
-              'FM',
-              '5.00',
-              '',
-              comment,
-              '', '', ''
-            ].join(','));
-          });
-        });
-
-        if (rows.length <= 1) { showToast('No exportable data (nodes need TX frequency and tone mappings).', 'warn'); return; }
-
-        var blob = new Blob([rows.join('\r\n') + '\r\n'], { type: 'text/csv' });
-        var a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'svxreflector_chirp.csv';
-        a.click();
-        URL.revokeObjectURL(a.href);
-      }
 
       (function () {
         'use strict';

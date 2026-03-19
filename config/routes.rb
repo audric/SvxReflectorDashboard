@@ -3,6 +3,8 @@ Rails.application.routes.draw do
   get 'stats', to: 'dashboard#stats', as: :stats
   get 'map',   to: 'dashboard#map',   as: :map
   get 'tg',    to: 'dashboard#tg',    as: :tg
+  get 'radio_programming', to: 'dashboard#radio', as: :radio
+  get 'events', to: 'dashboard#events', as: :events
 
   get    "login",    to: "sessions#new"
   post   "login",    to: "sessions#create"

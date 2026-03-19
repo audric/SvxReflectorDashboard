@@ -12,7 +12,23 @@ class DashboardController < ApplicationController
 
   def tg
     fetch_nodes
+    visible = @nodes.reject { |_, n| n['hidden'] }
 
+    @tgs_db = Tg.ordered
+
+    # Build a map of TG → list of nodes on that TG (selected or monitoring)
+    @tg_nodes = {}
+    visible.each do |cs, node|
+      selected_tg = node['tg'].to_i
+      monitored = Array(node['monitoredTGs']).map(&:to_i)
+      ([selected_tg] + monitored).uniq.select { |t| t > 0 }.each do |tg|
+        (@tg_nodes[tg] ||= []) << { callsign: cs, selected: selected_tg == tg, node: node }
+      end
+    end
+  end
+
+  def radio
+    fetch_nodes
     visible = @nodes.reject { |_, n| n['hidden'] }
 
     all_tg_set = []
@@ -27,10 +43,6 @@ class DashboardController < ApplicationController
 
     @all_tgs   = all_tg_set.uniq.sort
     @node_rows = raw_rows.select { |_, _, tg_tone| tg_tone.any? }
-
-    # TG map: database-defined TGs as rows, all visible nodes as columns
-    @tgs_db = Tg.ordered
-    @visible_nodes = visible.sort_by { |cs, _| cs }
   end
 
   def stats
@@ -55,10 +67,6 @@ class DashboardController < ApplicationController
       .transform_values { |arr| arr.map { |cs, _| cs }.sort }
       .sort_by   { |tg, _| tg }
 
-    @sorted_nodes = visible.sort_by { |cs, n|
-      [n['isTalker'] ? 0 : (n['tg'].to_i != 0 ? 1 : 2), cs]
-    }
-
     # ── Historical usage (filterable by period) ────────────────────────────────
     @period = params[:period].presence_in(%w[day month year]) || 'all'
     scope   = NodeEvent.by_period(@period)
@@ -81,7 +89,46 @@ class DashboardController < ApplicationController
                     .limit(15)
                     .count
 
-    @recent_events = NodeEvent.order(created_at: :desc).limit(30)
+    # Top nodes vs bridges: split by node class from live snapshot
+    bridge_callsigns = visible.select { |_, n| %w[bridge xlx dmr ysf allstar echolink].include?(n['nodeClass'].to_s) }.map(&:first).to_set
+    node_callsigns = visible.reject { |cs, _| bridge_callsigns.include?(cs) }.map(&:first).to_set
+
+    @top_nodes = scope.talks
+                      .where(callsign: node_callsigns.to_a)
+                      .group(:callsign)
+                      .order('count_all DESC')
+                      .limit(10)
+                      .count
+
+    @top_bridges = scope.talks
+                        .where(callsign: bridge_callsigns.to_a)
+                        .group(:callsign)
+                        .order('count_all DESC')
+                        .limit(10)
+                        .count
+
+    @bridge_type_counts = visible
+      .select { |_, n| %w[bridge xlx dmr ysf allstar echolink].include?(n['nodeClass'].to_s) }
+      .group_by { |_, n| n['nodeClass'].to_s }
+      .transform_values(&:size)
+      .sort_by { |_, count| -count }
+  end
+
+  def events
+    @recent_events = NodeEvent.order(created_at: :desc).limit(100)
+
+    # Calculate durations for talking_stop events
+    @durations = {}
+    @recent_events.select { |ev| ev.event_type == 'talking_stop' }.each do |stop_ev|
+      start_ev = NodeEvent.where(callsign: stop_ev.callsign, event_type: 'talking_start')
+                          .where('created_at < ?', stop_ev.created_at)
+                          .order(created_at: :desc)
+                          .first
+      if start_ev
+        @durations[stop_ev.id] = (stop_ev.created_at - start_ev.created_at).round
+      end
+    end
+
   end
 
   private

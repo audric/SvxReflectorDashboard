@@ -97,7 +97,9 @@ class ReflectorListener
         # isTalker transition
         if node['isTalker'] != prev_node['isTalker']
           type = node['isTalker'] ? NodeEvent::TALKING_START : NodeEvent::TALKING_STOP
-          NodeEvent.create!(attrs.merge(event_type: type))
+          rx_meta = node['dstar_rx'] || node['dmr_rx'] || node['ysf_rx']
+          meta = rx_meta ? rx_meta.to_json : nil
+          NodeEvent.create!(attrs.merge(event_type: type, metadata: meta))
         end
 
         # TG changed (not already captured by talker transition)

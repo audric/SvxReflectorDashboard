@@ -1,0 +1,268 @@
+!!!
+%html{lang: "en"}
+  :javascript
+    (function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.classList.add('light-theme');})();
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title SVXReflector · Events
+    %script{src: "/vendor/tailwind/tailwind.js"}
+    :javascript
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ghbg: '#0d1117',
+              ghcard: '#161b22',
+              ghborder: '#30363d',
+              ghborder2: '#21262d',
+              ghtext: '#c9d1d9',
+              ghmuted: '#8b949e',
+              ghdim: '#6e7681',
+            }
+          }
+        }
+      }
+    %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
+    :css
+      body { background: #0d1117; }
+      .event-type-badge {
+        display: inline-flex; align-items: center; gap: .25rem;
+        font-size: .68rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: .04em; padding: .15em .55em; border-radius: .25em;
+        white-space: nowrap;
+      }
+      .page-header {
+        display: flex; align-items: center; gap: .75rem;
+        padding: 1rem 0 .75rem;
+        font-size: .7rem; text-transform: uppercase; letter-spacing: .08em;
+        color: #6e7681; font-weight: 600;
+      }
+      .page-header::after { content: ''; flex: 1; height: 1px; background: #21262d; }
+
+  %body.text-ghtext
+
+    = render 'shared/navbar', active: 'events'
+
+    .px-3.md:px-4
+
+      .flex.items-center.mb-2.gap-2.flex-wrap
+        .page-header.grow.mb-0
+          %i.bi.bi-activity.mr-1
+          Events
+          %span.ml-1.font-normal#events-count
+            = "#{@recent_events.size} event#{'s' unless @recent_events.size == 1}"
+        %input#events-search.px-3.py-1.text-xs.rounded.border.border-ghborder.bg-ghbg.text-ghtext{type: "text", placeholder: "Search callsign...", style: "width:140px;outline:none"}
+      .overflow-x-auto.mb-3.pb-1{style: "-webkit-overflow-scrolling:touch"}
+        .inline-flex.rounded.border.border-ghborder.overflow-hidden#event-filters
+          %button.evt-filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", "data-filter" => "all"} All
+          %button.evt-filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "talking"}
+            %i.bi.bi-mic-fill.mr-1
+            Talking
+          %button.evt-filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "tg"}
+            %i.bi.bi-collection.mr-1
+            TG
+          %button.evt-filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "connection"}
+            %i.bi.bi-plug-fill.mr-1
+            Connection
+
+      .rounded-lg.border.border-ghborder#events-container
+        - if @recent_events.any?
+          .overflow-y-auto#events-list{style: "max-height: calc(100vh - 150px); scrollbar-width: thin"}
+            - @recent_events.each do |ev|
+              - type_style = {'talking_start' => ['bg-green-600 text-white', 'bi-mic-fill'], 'talking_stop' => ['bg-gray-600 text-white', 'bi-mic-mute'], 'tg_join' => ['bg-blue-600 text-white', 'bi-collection'], 'tg_leave' => ['bg-gray-600 text-white', 'bi-collection'], 'connected' => ['bg-cyan-600 text-white', 'bi-plug-fill'], 'disconnected' => ['bg-red-600 text-white', 'bi-plug']}.fetch(ev.event_type, ['bg-gray-600 text-white', 'bi-dot'])
+              - rx = ev.metadata.present? ? (JSON.parse(ev.metadata) rescue nil) : nil
+              .px-3.py-1.5.border-b.border-ghborder2.hover:bg-ghcard.flex.items-center.gap-2.flex-wrap.evt-row{"data-event-type" => ev.event_type, "data-callsign" => ev.callsign.downcase}
+                %span.text-gray-500.font-mono.shrink-0{style: "font-size:.72rem"}= ev.created_at.strftime('%Y-%m-%d %H:%M')
+                %span.event-type-badge.shrink-0{class: type_style[0]}
+                  %i.bi{class: "#{type_style[1]} mr-1"}
+                  = ev.event_type.tr('_', ' ')
+                %strong.font-mono.text-gray-100.shrink-0{style: "font-size:.82rem"}= ev.callsign
+                - if ev.event_type == 'talking_stop' && @durations[ev.id]
+                  - dur = @durations[ev.id]
+                  %span.text-gray-500.text-xs.font-mono= dur >= 60 ? "#{dur / 60}m#{dur % 60}s" : "#{dur}s"
+                - if ev.tg.to_i != 0
+                  %span.text-gray-500.text-xs TG
+                  %span.text-yellow-500.text-xs.font-semibold= ev.tg
+                - if rx && ev.event_type.start_with?('talking')
+                  - if rx['mycall'].present?
+                    %i.bi.bi-broadcast.text-purple-400{style: "font-size:.65rem"}
+                    %span.text-purple-300.font-mono.text-xs= "#{rx['mycall']}#{rx['suffix'].present? ? "/#{rx['suffix']}" : ''}"
+                    - if rx['rpt'].present?
+                      %span.text-gray-500.text-xs via
+                      %span.text-gray-400.text-xs= rx['rpt']
+                    - if rx['text'].present?
+                      %span.text-gray-400.text-xs.truncate{style: "max-width:150px", title: rx['text']}= rx['text']
+                  - elsif rx['src_id'].present?
+                    %i.bi.bi-broadcast-pin.text-amber-400{style: "font-size:.65rem"}
+                    %span.text-amber-300.font-mono.text-xs= rx['src_id']
+                    - if rx['talkgroup'].present?
+                      %span.text-gray-500.text-xs= "TG#{rx['talkgroup']}"
+                  - elsif rx['src_radio'].present?
+                    %i.bi.bi-soundwave.text-pink-400{style: "font-size:.65rem"}
+                    %span.text-pink-300.font-mono.text-xs= rx['src_radio']
+                - if ev.node_location.present?
+                  %span.text-gray-500.text-xs.ml-auto.shrink-0
+                    %i.bi.bi-geo-alt.mr-1
+                    = ev.node_location
+        - else
+          .text-center.text-gray-500.py-8.text-sm
+            %i.bi.bi-hourglass-split.block.text-xl.mb-2
+            No events recorded yet.
+
+    :javascript
+      (function() {
+        'use strict';
+        var prevNodes = {};
+        var listEl = document.getElementById('events-list');
+        var emptyEl = document.querySelector('#events-container .text-center');
+
+        // ── Filtering ──
+        var currentFilter = 'all';
+        var searchText = '';
+        var filterBtns = document.querySelectorAll('.evt-filter-btn');
+        var searchInput = document.getElementById('events-search');
+
+        var filterMap = {
+          talking: ['talking_start', 'talking_stop'],
+          tg: ['tg_join', 'tg_leave'],
+          connection: ['connected', 'disconnected']
+        };
+
+        function applyFilters() {
+          filterBtns.forEach(function(b) {
+            var active = b.dataset.filter === currentFilter;
+            b.style.background = active ? '#1f3a5f' : '';
+            b.classList.toggle('text-gray-200', active);
+            b.classList.toggle('text-ghmuted', !active);
+          });
+          var rows = document.querySelectorAll('.evt-row');
+          var visible = 0;
+          rows.forEach(function(row) {
+            var evType = row.dataset.eventType;
+            var cs = row.dataset.callsign || '';
+            var typeMatch = currentFilter === 'all' || (filterMap[currentFilter] && filterMap[currentFilter].indexOf(evType) !== -1);
+            var searchMatch = !searchText || cs.indexOf(searchText) !== -1;
+            var show = typeMatch && searchMatch;
+            row.style.display = show ? '' : 'none';
+            if (show) visible++;
+          });
+          var countEl = document.getElementById('events-count');
+          if (countEl) countEl.textContent = visible + ' event' + (visible !== 1 ? 's' : '');
+        }
+
+        filterBtns.forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            currentFilter = btn.dataset.filter;
+            applyFilters();
+          });
+        });
+        if (searchInput) {
+          searchInput.addEventListener('input', function() {
+            searchText = searchInput.value.toLowerCase().trim();
+            applyFilters();
+          });
+        }
+        applyFilters();
+        var typeStyles = {
+          talking_start:  ['bg-green-600 text-white', 'bi-mic-fill'],
+          talking_stop:   ['bg-gray-600 text-white',  'bi-mic-mute'],
+          tg_join:        ['bg-blue-600 text-white',  'bi-collection'],
+          tg_leave:       ['bg-gray-600 text-white',  'bi-collection'],
+          connected:      ['bg-cyan-600 text-white',  'bi-plug-fill'],
+          disconnected:   ['bg-red-600 text-white',   'bi-plug']
+        };
+        function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+        function now() { var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+
+        function renderRxMeta(node) {
+          var h = '';
+          var dr = node.dstar_rx;
+          if (dr && dr.mycall) {
+            h += '<i class="bi bi-broadcast text-purple-400" style="font-size:.65rem"></i>';
+            h += '<span class="text-purple-300 font-mono text-xs">' + esc(dr.mycall);
+            if (dr.suffix) h += '/' + esc(dr.suffix);
+            h += '</span>';
+            if (dr.rpt) h += '<span class="text-gray-500 text-xs">via </span><span class="text-gray-400 text-xs">' + esc(dr.rpt) + '</span>';
+            if (dr.text) h += '<span class="text-gray-400 text-xs">' + esc(dr.text) + '</span>';
+          }
+          var dm = node.dmr_rx;
+          if (dm && dm.src_id) {
+            h += '<i class="bi bi-broadcast-pin text-amber-400" style="font-size:.65rem"></i>';
+            h += '<span class="text-amber-300 font-mono text-xs">' + esc(dm.src_id) + '</span>';
+            if (dm.talkgroup) h += '<span class="text-gray-500 text-xs">TG' + esc(dm.talkgroup) + '</span>';
+          }
+          var ys = node.ysf_rx;
+          if (ys && ys.src_radio) {
+            h += '<i class="bi bi-soundwave text-pink-400" style="font-size:.65rem"></i>';
+            h += '<span class="text-pink-300 font-mono text-xs">' + esc(ys.src_radio) + '</span>';
+          }
+          return h;
+        }
+
+        function addEvent(type, cs, node) {
+          var st = typeStyles[type] || ['bg-gray-600 text-white', 'bi-dot'];
+          var tg = node ? (node.tg || 0) : 0;
+          var loc = node ? (node.nodeLocation || '') : '';
+          var h = '<div class="px-3 py-1.5 border-b border-ghborder2 hover:bg-ghcard flex items-center gap-2 flex-wrap evt-row" data-event-type="' + type + '" data-callsign="' + esc(cs).toLowerCase() + '">';
+          h += '<span class="text-gray-500 font-mono" style="font-size:.72rem;min-width:110px">' + now() + '</span>';
+          h += '<span class="event-type-badge ' + st[0] + '"><i class="bi ' + st[1] + ' mr-1"></i>' + type.replace(/_/g, ' ') + '</span>';
+          h += '<strong class="font-mono text-gray-100" style="font-size:.82rem">' + esc(cs) + '</strong>';
+          if (tg) h += '<span class="text-gray-500 text-xs">TG </span><span class="text-yellow-500 text-xs font-semibold">' + tg + '</span>';
+          if (node && type.indexOf('talking') === 0) h += renderRxMeta(node);
+          if (loc) h += '<span class="text-gray-500 text-xs ml-auto shrink-0"><i class="bi bi-geo-alt mr-1"></i>' + esc(loc) + '</span>';
+          h += '</div>';
+
+          if (!listEl) {
+            // Was showing empty state — create the list
+            if (emptyEl) emptyEl.parentNode.removeChild(emptyEl);
+            var container = document.getElementById('events-container');
+            listEl = document.createElement('div');
+            listEl.className = 'overflow-y-auto';
+            listEl.style.maxHeight = 'calc(100vh - 150px)';
+            listEl.style.scrollbarWidth = 'thin';
+            container.appendChild(listEl);
+          }
+          listEl.insertAdjacentHTML('afterbegin', h);
+          // Cap at 200 rows
+          while (listEl.children.length > 200) listEl.removeChild(listEl.lastChild);
+          applyFilters();
+        }
+
+        // ── WebSocket ──
+        function connect() {
+          var proto = location.protocol === 'https:' ? 'wss' : 'ws';
+          var ws = new WebSocket(proto + '://' + location.host + '/cable');
+          ws.onopen = function() {
+            ws.send(JSON.stringify({ command: 'subscribe', identifier: JSON.stringify({ channel: 'UpdatesChannel' }) }));
+          };
+          ws.onmessage = function(ev) {
+            var envelope;
+            try { envelope = JSON.parse(ev.data); } catch(e) { return; }
+            if (!envelope.message) return;
+            var msg = envelope.message;
+            if (!msg.nodes) return;
+            var nodes = msg.nodes;
+
+            // Detect events from state changes
+            Object.keys(nodes).forEach(function(cs) {
+              var node = nodes[cs];
+              var prev = prevNodes[cs];
+              if (!prev) { addEvent('connected', cs, node); return; }
+              if (node.isTalker !== prev.isTalker) {
+                addEvent(node.isTalker ? 'talking_start' : 'talking_stop', cs, node);
+              } else if (node.tg !== prev.tg) {
+                addEvent(node.tg ? 'tg_join' : 'tg_leave', cs, node);
+              }
+            });
+            if (msg.removed) {
+              msg.removed.forEach(function(cs) {
+                addEvent('disconnected', cs, prevNodes[cs] || {});
+              });
+            }
+            prevNodes = nodes;
+          };
+          ws.onclose = function() { setTimeout(connect, 3000); };
+        }
+        connect();
+      })();

@@ -172,16 +172,22 @@
             %span.font-bold.text-sm{class: s[:color], id: s[:id]}= s[:val]
 
       -# ── Node grid ──────────────────────────────────────────────────────────
-      .flex.items-center.mb-3.gap-2
+      .flex.items-center.mb-2.gap-2.flex-wrap
         %span.text-gray-500.uppercase.font-semibold.text-sm
           %i.bi.bi-hdd-network.mr-1
           Connected Nodes
         %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-gray-600.text-gray-200#nodes-count
           = @nodes.reject { |_, n| n['hidden'] }.size
-        %button#toggle-detail.ml-2.px-2.py-0.5.text-xs.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.hover:border-gray-500.cursor-pointer.transition-colors{type: "button", title: "Toggle node details"}
+        %button#toggle-detail.px-2.py-0.5.text-xs.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.hover:border-gray-500.cursor-pointer.transition-colors{type: "button", title: "Toggle node details"}
           %i.bi.bi-eye-fill#toggle-detail-icon
           %span#toggle-detail-label Detailed
-        .ml-3.inline-flex.rounded.border.border-ghborder.overflow-hidden#node-filters
+        .inline-flex.rounded.border.border-ghborder.overflow-hidden
+          %button#view-cards.px-2.py-0.5.text-xs.text-gray-200.cursor-pointer.transition-colors{type: "button", title: "Card view", style: "background:#1f3a5f"}
+            %i.bi.bi-grid-3x3-gap
+          %button#view-table.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", title: "Table view"}
+            %i.bi.bi-table
+      .overflow-x-auto.mb-3.pb-1{style: "-webkit-overflow-scrolling:touch"}
+        .inline-flex.rounded.border.border-ghborder.overflow-hidden#node-filters
           %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", "data-filter" => "all"}
             %i.bi.bi-grid.mr-1
             All
@@ -197,6 +203,18 @@
           %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "xlx"}
             %i.bi.bi-globe.mr-1
             XLX
+          %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "dmr"}
+            %i.bi.bi-broadcast-pin.mr-1
+            DMR
+          %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "ysf"}
+            %i.bi.bi-soundwave.mr-1
+            YSF
+          %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "allstar"}
+            %i.bi.bi-telephone.mr-1
+            AllStar
+          %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "simplex"}
+            %i.bi.bi-broadcast.mr-1
+            Simplex
 
       .grid.grid-cols-1.sm:grid-cols-2.xl:grid-cols-3.2xl:grid-cols-5.gap-3#nodes-grid
         - visible = @nodes.reject { |_, n| n['hidden'] }
@@ -211,7 +229,7 @@
           - rx_freq   = qth['rx']&.values&.first&.dig('freq')
           - tx_freq   = qth['tx']&.values&.first&.dig('freq')
           - locator   = qth.dig('pos', 'loc')
-          - node_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'xlx' => 'bi-globe', 'simplex' => 'bi-broadcast' }.fetch(node['nodeClass'].to_s, 'bi-broadcast')
+          - node_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'xlx' => 'bi-globe', 'dmr' => 'bi-broadcast-pin', 'ysf' => 'bi-soundwave', 'allstar' => 'bi-telephone', 'echolink' => 'bi-headset', 'simplex' => 'bi-broadcast' }.fetch(node['nodeClass'].to_s, 'bi-broadcast')
           - rx_ports  = (node['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }
 
           %div{id: "node-col-#{callsign}", "data-node-class" => node['nodeClass'].to_s.downcase}
@@ -371,6 +389,59 @@
           .text-center.text-gray-500.py-5
             %i.bi.bi-hdd-network.text-6xl.block.mb-2
             No nodes currently connected.
+
+      -# ── Table view (hidden by default) ──
+      .rounded-lg.border.border-ghborder.overflow-hidden.hidden#nodes-table
+        .overflow-x-auto
+          %table.w-full.text-left.text-sm
+            %thead
+              %tr.bg-ghcard.border-b.border-ghborder
+                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Callsign
+                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Status
+                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Type
+                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Location
+                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold TG
+                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Signal
+                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Software
+            %tbody
+              - sorted.each do |callsign, node|
+                - tg = node['tg'].to_i
+                - is_talker = node['isTalker']
+                - st_col = is_talker ? 'green' : (tg != 0 ? 'blue' : 'gray')
+                - st_txt = is_talker ? "Talking" : (tg != 0 ? "Active" : 'Idle')
+                - node_cls = node['nodeClass'].to_s
+                - node_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'xlx' => 'bi-globe', 'dmr' => 'bi-broadcast-pin', 'ysf' => 'bi-soundwave', 'allstar' => 'bi-telephone', 'echolink' => 'bi-headset', 'simplex' => 'bi-broadcast' }.fetch(node_cls, 'bi-broadcast')
+                - rx_ports = (node['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }
+                - best_sig = rx_ports.map { |_, r| r['siglev'] }.compact.max
+                %tr.border-b.border-ghborder2.hover:bg-ghcard{"data-node-class" => node_cls}
+                  %td.px-3.py-2
+                    - if is_talker
+                      %i.bi.bi-mic-fill.text-green-500.mr-1{style: "font-size:.7rem"}
+                    %strong.font-mono.text-gray-100= callsign
+                  %td.px-3.py-2
+                    %span.inline-block.px-2.py-0.5.text-xs.rounded.font-semibold{class: "bg-#{st_col}-600 text-white"}= st_txt
+                    - if tg != 0
+                      %span.text-yellow-500.font-mono.ml-1= "TG#{tg}"
+                  %td.px-3.py-2
+                    %i.bi.mr-1{class: node_icon}
+                    %span.capitalize= node_cls.presence || '—'
+                  %td.px-3.py-2.text-gray-400= node['nodeLocation'].presence || '—'
+                  %td.px-3.py-2
+                    - if tg != 0
+                      %span.font-mono.text-yellow-500.font-semibold= tg
+                    - else
+                      %span.text-gray-500 —
+                  %td.px-3.py-2
+                    - if best_sig
+                      - pct = best_sig < 0 ? [[((best_sig + 120) / 100.0 * 100).round, 0].max, 100].min : [[best_sig.to_i, 0].max, 100].min
+                      - bar_col = pct > 66 ? 'green' : (pct > 33 ? 'yellow' : 'red')
+                      .flex.items-center.gap-2
+                        .h-1.5.rounded-full.bg-ghborder2{style: "width:50px"}
+                          .h-full.rounded-full{class: "bg-#{bar_col}-500", style: "width:#{pct}%"}
+                        %span.font-mono.text-gray-500{style: "font-size:.7rem"}= "#{best_sig.round}#{best_sig < 0 ? ' dBm' : '%'}"
+                    - else
+                      %span.text-gray-500 —
+                  %td.px-3.py-2.text-gray-500{style: "font-size:.75rem"}= [node['sw'], node['swVer']].compact.join(' ').presence || '—'
 
 
     - if current_user&.reflector_admin?
@@ -679,7 +750,7 @@
           var stCol    = isTalker ? 'green' : (tg !== 0 ? 'blue' : 'gray');
           var cs       = esc(callsign);
 
-          var iconMap = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', simplex: 'bi-broadcast' };
+          var iconMap = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', echolink: 'bi-headset', simplex: 'bi-broadcast' };
           var iconCls = iconMap[n.nodeClass] || 'bi-broadcast';
           var qth     = (n.qth && n.qth[0]) || {};
           var rxFreq  = qth.rx && Object.values(qth.rx)[0] && Object.values(qth.rx)[0].freq;
@@ -950,11 +1021,17 @@
         // ── Node class filter ──
         var currentFilter = localStorage.getItem('nodes-filter') || 'all';
         var filterBtns = document.querySelectorAll('.filter-btn');
+        var nodesTable = document.getElementById('nodes-table');
         function applyFilter() {
           filterBtns.forEach(function(b) { b.classList.toggle('active', b.dataset.filter === currentFilter); });
           grid.querySelectorAll('[data-node-class]').forEach(function(col) {
             col.style.display = (currentFilter === 'all' || col.dataset.nodeClass === currentFilter) ? '' : 'none';
           });
+          if (nodesTable) {
+            nodesTable.querySelectorAll('tbody tr[data-node-class]').forEach(function(row) {
+              row.style.display = (currentFilter === 'all' || row.dataset.nodeClass === currentFilter) ? '' : 'none';
+            });
+          }
         }
         applyFilter();
         filterBtns.forEach(function(btn) {
@@ -963,6 +1040,35 @@
             localStorage.setItem('nodes-filter', currentFilter);
             applyFilter();
           });
+        });
+
+        // ── View toggle (cards vs table) ──
+        var viewCardsBtn = document.getElementById('view-cards');
+        var viewTableBtn = document.getElementById('view-table');
+        var currentView = localStorage.getItem('nodes-view') || 'cards';
+        function applyView() {
+          var isTable = currentView === 'table';
+          grid.classList.toggle('hidden', isTable);
+          if (nodesTable) nodesTable.classList.toggle('hidden', !isTable);
+          viewCardsBtn.style.background = isTable ? '' : '#1f3a5f';
+          viewCardsBtn.classList.toggle('text-gray-200', !isTable);
+          viewCardsBtn.classList.toggle('text-ghmuted', isTable);
+          viewTableBtn.style.background = isTable ? '#1f3a5f' : '';
+          viewTableBtn.classList.toggle('text-gray-200', isTable);
+          viewTableBtn.classList.toggle('text-ghmuted', !isTable);
+          // Hide detail toggle in table view
+          if (toggleBtn) toggleBtn.style.display = isTable ? 'none' : '';
+        }
+        applyView();
+        if (viewCardsBtn) viewCardsBtn.addEventListener('click', function() {
+          currentView = 'cards';
+          localStorage.setItem('nodes-view', currentView);
+          applyView();
+        });
+        if (viewTableBtn) viewTableBtn.addEventListener('click', function() {
+          currentView = 'table';
+          localStorage.setItem('nodes-view', currentView);
+          applyView();
         });
       })();
 

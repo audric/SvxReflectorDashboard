@@ -70,7 +70,13 @@
           Stats
         %a.text-base.md:text-sm{class: (active == 'tg' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: tg_path}
           %i.bi.bi-collection.mr-1
-          TG
+          TG List
+        %a.text-base.md:text-sm{class: (active == 'radio' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: radio_path}
+          %i.bi.bi-broadcast.mr-1
+          Radio Memory
+        %a.text-base.md:text-sm{class: (active == 'events' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: events_path}
+          %i.bi.bi-activity.mr-1
+          Events
         %a.text-base.md:text-sm{class: (active == 'map' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: map_path}
           %i.bi.bi-map.mr-1
           Map
@@ -126,7 +132,7 @@
 
   %nav.flex-1.px-3.py-4.overflow-y-auto
     .space-y-1
-      - [['dashboard', 'bi-grid', 'Dashboard', root_path], ['stats', 'bi-bar-chart-line', 'Stats', stats_path], ['tg', 'bi-collection', 'TG', tg_path], ['map', 'bi-map', 'Map', map_path]].each do |key, icon, label, path|
+      - [['dashboard', 'bi-grid', 'Dashboard', root_path], ['stats', 'bi-bar-chart-line', 'Stats', stats_path], ['tg', 'bi-collection', 'TG List', tg_path], ['radio', 'bi-broadcast', 'Radio Memory', radio_path], ['events', 'bi-activity', 'Events', events_path], ['map', 'bi-map', 'Map', map_path]].each do |key, icon, label, path|
         %a.flex.items-center.gap-3.px-3.py-2.rounded-md.text-sm.transition-colors{class: (active == key ? 'bg-ghborder2 text-gray-100' : 'text-ghmuted hover:bg-ghborder2 hover:text-gray-300'), href: path}
           %i.bi{class: icon}
           = label

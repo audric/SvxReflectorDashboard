@@ -1,0 +1,268 @@
+!!!
+%html{lang: "en"}
+  :javascript
+    (function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.classList.add('light-theme');})();
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title SVXReflector · Radio Programming
+    %script{src: "/vendor/tailwind/tailwind.js"}
+    :javascript
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ghbg: '#0d1117',
+              ghcard: '#161b22',
+              ghborder: '#30363d',
+              ghborder2: '#21262d',
+              ghtext: '#c9d1d9',
+              ghmuted: '#8b949e',
+              ghdim: '#6e7681',
+            }
+          }
+        }
+      }
+    %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
+    :css
+      body { background: #0d1117; }
+
+      .page-header {
+        display: flex; align-items: center; gap: .75rem;
+        padding: 1rem 0 .75rem;
+        font-size: .7rem; text-transform: uppercase; letter-spacing: .08em;
+        color: #6e7681; font-weight: 600;
+      }
+      .page-header::after { content: ''; flex: 1; height: 1px; background: #21262d; }
+
+      .matrix-wrap {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: calc(100vh - 160px);
+        border: 1px solid #30363d;
+        border-radius: .4rem;
+      }
+      @media (min-width: 1024px) {
+        .matrix-wrap { max-height: calc(100vh - 100px); }
+      }
+
+      .matrix-table {
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: .8rem;
+        white-space: nowrap;
+        width: 100%;
+      }
+
+      .matrix-table .col-node {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        background: #0d1117;
+        border-right: 2px solid #30363d;
+        min-width: 180px;
+      }
+
+      .matrix-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        background: #161b22;
+        border-bottom: 2px solid #30363d;
+        padding: .5rem .65rem;
+        font-size: .68rem;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        color: #6e7681;
+        font-weight: 600;
+        text-align: center;
+      }
+
+      .matrix-table thead th.col-node {
+        z-index: 4;
+        background: #161b22;
+        text-align: left;
+      }
+
+      .tg-col-head {
+        font-family: monospace;
+        color: #c9d1d9;
+        font-size: .78rem;
+        font-weight: 700;
+        text-transform: none;
+        letter-spacing: 0;
+        display: block;
+      }
+      .tg-col-head.local { color: #8b949e; font-style: italic; }
+
+      .matrix-table td {
+        padding: .35rem .65rem;
+        border-bottom: 1px solid #21262d;
+        text-align: center;
+        vertical-align: middle;
+      }
+      .matrix-table tbody tr:last-child td { border-bottom: none; }
+      .matrix-table tbody tr:hover td { background: #161b22; }
+      .matrix-table tbody tr:hover td.col-node { background: #1c2128; }
+
+      .node-cs  { font-family: monospace; font-weight: 700; color: #e6edf3; font-size: .85rem; }
+      .node-loc { font-size: .7rem; color: #6e7681; margin-top: .05rem; }
+      .node-freq { font-size: .68rem; color: #8b949e; font-family: monospace; margin-top: .1rem; }
+      .node-freq .freq-val { color: #c9d1d9; }
+      .node-freq .freq-offset { color: #6e7681; }
+
+      .tone-pill {
+        display: inline-block;
+        background: #1a3a52;
+        border: 1px solid #1f6feb;
+        border-radius: .25em;
+        padding: .1em .5em;
+        font-family: monospace;
+        font-weight: 700;
+        font-size: .78rem;
+        color: #79c0ff;
+      }
+      .tone-pill .tone-unit { color: #4a7fa5; font-size: .65rem; font-weight: 400; }
+      .tone-pill.local { background: #21262d; border-color: #30363d; color: #8b949e; }
+      .tone-pill.local .tone-unit { color: #6e7681; }
+
+      .empty-cell { color: #30363d; font-size: .9rem; }
+  %body.text-ghtext
+
+    = render 'shared/navbar', active: 'radio'
+
+    .px-3.md:px-4
+
+      - if @fetch_error
+        .flex.items-center.p-3.rounded-lg.mb-3{class: "bg-yellow-900/30 border border-yellow-700 text-yellow-400", role: "alert"}
+          %i.bi.bi-exclamation-triangle-fill.mr-2.shrink-0
+          = @fetch_error
+
+      .flex.items-center.justify-between.flex-wrap.gap-2
+        .page-header.grow.mb-0
+          %i.bi.bi-broadcast.mr-1
+          Radio Programming
+          %span.ml-1.font-normal
+            = "#{@all_tgs.size} talkgroup#{'s' unless @all_tgs.size == 1} · #{@node_rows.size} node#{'s' unless @node_rows.size == 1}"
+        %button#chirp-export.text-sm.px-3.py-1.5.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "exportChirp()"}
+          %i.bi.bi-download.mr-1
+          CHIRP CSV
+
+      .matrix-wrap
+        %table.matrix-table
+          %thead
+            %tr
+              %th.col-node Node
+              - @all_tgs.each do |tg|
+                %th
+                  %span{class: "tg-col-head#{' local' if tg == 0}"}= tg == 0 ? 'Local' : tg
+          %tbody
+            - if @node_rows.empty?
+              %tr
+                %td.text-gray-500.text-sm.py-4.text-center{colspan: @all_tgs.size + 1}
+                  %i.bi.bi-info-circle.mr-1
+                  No tone-to-TG mapping data found.
+            - else
+              - @node_rows.each do |cs, node, tg_tone|
+                - qth     = node.dig('qth', 0) || {}
+                - tx_freq = qth['tx']&.values&.first&.dig('freq')
+                - rx_freq = qth['rx']&.values&.first&.dig('freq')
+                - offset  = (tx_freq && rx_freq && tx_freq.to_f > 0 && rx_freq.to_f > 0) ? ((rx_freq.to_f - tx_freq.to_f) * 1000).round : nil
+                %tr
+                  %td.col-node
+                    .node-cs= cs
+                    - if node['nodeLocation']
+                      .node-loc= node['nodeLocation']
+                    - if tx_freq.to_f > 0
+                      .node-freq
+                        TX
+                        %span.freq-val= "%.4f" % tx_freq
+                        MHz
+                        - if offset && offset != 0
+                          %span.freq-offset= "(#{offset > 0 ? '+' : ''}#{offset} kHz)"
+                  - @all_tgs.each do |tg|
+                    - tone = tg_tone[tg]
+                    %td
+                      - if tone
+                        %span{class: "tone-pill#{' local' if tg == 0}"}
+                          = "%.1f" % tone
+                          %span.tone-unit  Hz
+                      - else
+                        %span.empty-cell ·
+
+    - nodes_json = @nodes.to_json.html_safe
+    :javascript
+      var _tgNodes = #{nodes_json};
+
+      function exportChirp() {
+        var header = 'Location,Name,Frequency,Duplex,Offset,Tone,rToneFreq,cToneFreq,DtcsCode,DtcsPolarity,Mode,TStep,Skip,Comment,URCALL,RPT1CALL,RPT2CALL';
+        var rows = [header];
+        var loc = 1;
+
+        Object.keys(_tgNodes).sort().forEach(function (cs) {
+          var node = _tgNodes[cs];
+          if (node.hidden) return;
+          var ttg = node.toneToTalkgroup;
+          if (!ttg || Object.keys(ttg).length === 0) return;
+
+          var qth    = node.qth && node.qth[0];
+          var txObj  = qth && qth.tx && Object.values(qth.tx)[0];
+          var rxObj  = qth && qth.rx && Object.values(qth.rx)[0];
+          var repTx  = txObj && txObj.freq;
+          var repRx  = rxObj && rxObj.freq;
+
+          if (!repTx || repTx <= 0) return;
+
+          var duplex = '';
+          var offset = 0.600000;
+          if (repRx && repRx > 0) {
+            var diff = repRx - repTx;
+            if (Math.abs(diff) < 0.0001) {
+              duplex = '';
+              offset = 0;
+            } else if (diff > 0) {
+              duplex = '+';
+              offset = Math.abs(diff);
+            } else {
+              duplex = '-';
+              offset = Math.abs(diff);
+            }
+          }
+
+          Object.keys(ttg).sort(function (a, b) { return parseFloat(a) - parseFloat(b); }).forEach(function (toneStr) {
+            var tgNum = ttg[toneStr];
+            var tone  = parseFloat(toneStr);
+            var name  = cs.substring(0, 7) + (tgNum !== 0 ? ' ' + tgNum : '');
+            if (name.length > 16) name = name.substring(0, 16);
+            var comment = (node.nodeLocation || '') + (tgNum !== 0 ? ' TG' + tgNum : ' Local');
+            comment = '"' + comment.replace(/"/g, '""') + '"';
+
+            rows.push([
+              loc++,
+              name,
+              repTx.toFixed(6),
+              duplex,
+              offset.toFixed(6),
+              'Tone',
+              tone.toFixed(1),
+              '88.5',
+              '023',
+              'NN',
+              'FM',
+              '5.00',
+              '',
+              comment,
+              '', '', ''
+            ].join(','));
+          });
+        });
+
+        if (rows.length <= 1) { alert('No exportable data (nodes need TX frequency and tone mappings).'); return; }
+
+        var blob = new Blob([rows.join('\r\n') + '\r\n'], { type: 'text/csv' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'svxreflector_chirp.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
