@@ -205,6 +205,7 @@ module Admin
         pull_image("ghcr.io/audric/svxreflectordashboard-allstar-bridge")
         start_allstar_container(bridge)
       else
+        pull_image("ghcr.io/audric/svxlink-docker")
         start_svxlink_container(bridge)
       end
     rescue => e
@@ -387,7 +388,7 @@ module Admin
       end
 
       body = {
-        Image: "audric/svxlink",
+        Image: "ghcr.io/audric/svxlink-docker",
         Labels: {
           "svx.bridge" => "true",
           "svx.bridge.id" => bridge.id.to_s,
