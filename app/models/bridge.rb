@@ -1,7 +1,8 @@
 class Bridge < ApplicationRecord
   has_many :bridge_tg_mappings, dependent: :destroy
 
-  BRIDGE_TYPES = %w[reflector echolink xlx dmr ysf allstar].freeze
+  ALL_BRIDGE_TYPES = %w[reflector echolink xlx dmr ysf allstar].freeze
+  BRIDGE_TYPES = (ENV.fetch('BRIDGE_TYPES', ALL_BRIDGE_TYPES.join(',')).split(',').map(&:strip) & ALL_BRIDGE_TYPES).freeze
 
   validates :name, presence: true, uniqueness: true
   validates :bridge_type, presence: true, inclusion: { in: BRIDGE_TYPES }
