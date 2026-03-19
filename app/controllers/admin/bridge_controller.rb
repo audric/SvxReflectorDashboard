@@ -193,12 +193,16 @@ module Admin
       end
 
       if bridge.xlx?
+        pull_image("ghcr.io/audric/svxreflectordashboard-xlx-bridge")
         start_xlx_container(bridge)
       elsif bridge.dmr?
+        pull_image("ghcr.io/audric/svxreflectordashboard-dmr-bridge")
         start_dmr_container(bridge)
       elsif bridge.ysf?
+        pull_image("ghcr.io/audric/svxreflectordashboard-ysf-bridge")
         start_ysf_container(bridge)
       elsif bridge.allstar?
+        pull_image("ghcr.io/audric/svxreflectordashboard-allstar-bridge")
         start_allstar_container(bridge)
       else
         start_svxlink_container(bridge)
@@ -514,6 +518,17 @@ module Admin
       body = response.split("\r\n\r\n", 2).last
       Rails.logger.info "[Bridge] Docker API POST #{path}: #{response.split("\r\n").first}"
       JSON.parse(body) rescue {}
+    end
+
+    def pull_image(image)
+      Rails.logger.info "[Bridge] Pulling image #{image}..."
+      sock = UNIXSocket.new("/var/run/docker.sock")
+      sock.write("POST /images/create?fromImage=#{image}&tag=latest HTTP/1.0\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n")
+      response = sock.read
+      sock.close
+      Rails.logger.info "[Bridge] Pull #{image}: #{response.split("\r\n").first}"
+    rescue => e
+      Rails.logger.warn "[Bridge] Failed to pull #{image}: #{e.message}"
     end
 
     def docker_api_delete(path)
