@@ -562,28 +562,27 @@
         var container = document.getElementById('changelog-content');
         var html = '';
 
-        // Build set of deployed SHAs from local changelog
-        var deployedShas = {};
-        localDays.forEach(function(day) {
-          day.commits.forEach(function(c) { deployedShas[c.sha] = true; });
-        });
-
         // Use remote changelog if available, otherwise local
         var days = remoteDays || localDays;
         var hasRemote = !!remoteDays;
 
-        // Count missing commits
+        // Walk all remote commits in order — everything before localSha is deployed
+        var deployedShas = {};
         var missingCount = 0;
-        if (hasRemote) {
+        if (hasRemote && localSha) {
+          var foundDeployed = false;
+          // Commits are newest first — count until we find the deployed SHA
           days.forEach(function(day) {
             day.commits.forEach(function(c) {
-              if (!deployedShas[c.sha]) missingCount++;
+              if (c.sha === localSha) foundDeployed = true;
+              if (foundDeployed) { deployedShas[c.sha] = true; }
+              else { missingCount++; }
             });
           });
           if (missingCount > 0) {
             html += '<div class="p-3 rounded border text-sm mb-4 border-yellow-700/50 text-yellow-400 bg-yellow-900/20">' +
                     '<div class="flex items-center gap-2"><i class="bi bi-arrow-up-circle"></i> ' +
-                    '<span><strong>' + missingCount + ' update' + (missingCount === 1 ? '' : 's') + '</strong> available. Pull the latest image to update.</span></div></div>';
+                    '<span><strong>' + missingCount + ' update' + (missingCount === 1 ? '' : 's') + '</strong> available. Run <code>./update.sh</code> to update.</span></div></div>';
           } else {
             html += '<div class="p-3 rounded border text-sm mb-4 flex items-center gap-2 border-green-700/50 text-green-400 bg-green-900/20">' +
                     '<i class="bi bi-check-circle"></i> You are up to date.</div>';
@@ -637,7 +636,7 @@
           fetch(GITHUB_API_COMMITS).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; })
         ]).then(function(results) {
           var localChangelog = results[0];
-          var localSha = results[1];
+          var localSha = results[1] ? results[1].substring(0, 7) : null;
           var apiCommits = results[2];
           if (!localSha && localChangelog.length > 0 && localChangelog[0].commits.length > 0) {
             localSha = localChangelog[0].commits[0].sha;
@@ -648,6 +647,8 @@
             var grouped = {};
             apiCommits.forEach(function(c) {
               if (!c.commit) return;
+              // Skip merge commits (they have 2+ parents)
+              if (c.parents && c.parents.length > 1) return;
               var date = (c.commit.author && c.commit.author.date || '').substring(0, 10);
               var sha = (c.sha || '').substring(0, 7);
               var msg = c.commit.message.split('\n')[0];
