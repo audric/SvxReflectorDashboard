@@ -65,6 +65,8 @@
   - help["AUTO_QSY_AFTER"] = "Set this to the number of seconds after which an automatic QSY to a random talkgroup is requested. This is typically used to keep call channels and wide area channels clear so that stations does not dwell there for too long. Auto QSY is only triggered directly after a talker stop event. The default is that auto QSY is disabled (AUTO_QSY_AFTER=0)."
   - help["SHOW_ACTIVITY"] = "If set to 0, do not indicate in the HTTP status message when the talkgroup is in use by a node. Default is 1 = show activity."
   - help["ALLOW_MONITOR"] = "A regular expression that must match the callsign of nodes allowed to monitor this talkgroup. Uses the same regex format as ALLOW."
+  - help["LOCAL_PREFIX"] = "GeuReflector: A comma-separated list of TG number prefixes that this reflector owns. Talkgroups whose number starts with one of these prefixes belong to this reflector. Example: LOCAL_PREFIX=1 means this reflector owns TGs 1, 10, 100, 1234, etc."
+  - help["CLUSTER_TGS"] = "GeuReflector: A comma-separated list of TG numbers that should be broadcast to ALL trunk peers regardless of prefix ownership. These are network-wide channels (like BrandMeister nationwide). Must not overlap with any LOCAL_PREFIX or REMOTE_PREFIX. Example: CLUSTER_TGS=222,2221,91"
 
   %body.text-ghtext
     = render 'shared/navbar', active: 'admin'
@@ -227,6 +229,86 @@
                       %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('#{key}')", title: "Help"}
                         %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
                   %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][#{key}]", value: @config.global[key]}
+
+        -# ── 1b. Clustering / Trunking (collapsed) ──
+        .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+          .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('trunking')"}
+            %h5.text-lg.font-semibold.text-gray-100
+              %i.bi.bi-diagram-3.mr-2
+              Clustering / Trunking
+              %span.text-sm.font-normal.text-ghmuted.ml-2 GeuReflector
+            .flex.items-center.gap-2
+              %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-600.cursor-not-allowed.opacity-50{type: "button", id: "btn-trunking", disabled: true, onclick: "event.stopPropagation(); addTrunkPeer()"}
+                %i.bi.bi-plus.mr-1
+                Add Trunk Peer
+              %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-trunking"}
+          .accordion-body.px-4{id: "body-trunking"}
+
+            %h6.text-sm.font-semibold.text-gray-400.mb-3.mt-1 Global Clustering
+            .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1
+                  LOCAL_PREFIX
+                  %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('LOCAL_PREFIX')", title: "Help"}
+                    %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][LOCAL_PREFIX]", value: @config.global['LOCAL_PREFIX'], placeholder: "e.g. 1,24"}
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1
+                  CLUSTER_TGS
+                  %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CLUSTER_TGS')", title: "Help"}
+                    %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][CLUSTER_TGS]", value: @config.global['CLUSTER_TGS'], placeholder: "e.g. 222,2221,91"}
+
+            %h6.text-sm.font-semibold.text-gray-400.mb-3 Satellite Mode
+            .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1 SATELLITE_OF (parent host)
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][SATELLITE_OF]", value: @config.global['SATELLITE_OF'], placeholder: "reflector-01.example.com"}
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1 SATELLITE_PORT
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][SATELLITE_PORT]", value: @config.global['SATELLITE_PORT'], placeholder: "5303"}
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1 SATELLITE_SECRET
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][SATELLITE_SECRET]", value: @config.global['SATELLITE_SECRET']}
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1 SATELLITE_ID
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][SATELLITE_ID]", value: @config.global['SATELLITE_ID']}
+
+            %h6.text-sm.font-semibold.text-gray-400.mb-3 Satellite Server
+            .p-2.rounded.border.text-xs.mb-3{class: "border-blue-700/50 text-blue-400 bg-blue-900/20"}
+              %i.bi.bi-info-circle.mr-1
+              If this reflector accepts satellite connections, configure the listener here.
+            .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1 LISTEN_PORT
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[satellite][LISTEN_PORT]", value: @config.satellite['LISTEN_PORT'], placeholder: "5303"}
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1 SECRET
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[satellite][SECRET]", value: @config.satellite['SECRET']}
+
+            %h6.text-sm.font-semibold.text-gray-400.mb-3 Trunk Peers
+            #trunk-peers.space-y-4
+              - @config.trunks.keys.sort.each do |trunk_name|
+                - trunk = @config.trunks[trunk_name]
+                .trunk-peer.border.border-gray-700.rounded-lg.p-4.relative
+                  %button.absolute.top-2.right-2.text-red-400.hover:text-red-300.cursor-pointer{type: "button", onclick: "confirmRemove(this, '.trunk-peer')"}
+                    %i.bi.bi-x-lg
+                  .grid.grid-cols-1.md:grid-cols-2.gap-3
+                    .col-span-1
+                      %label.block.text-sm.text-gray-500.mb-1 Section Name
+                      %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_names][]", value: trunk_name, placeholder: "TRUNK_2"}
+                    .col-span-1
+                      %label.block.text-sm.text-gray-500.mb-1 HOST
+                      %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_hosts][]", value: trunk['HOST']}
+                    .col-span-1
+                      %label.block.text-sm.text-gray-500.mb-1 PORT
+                      %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_ports][]", value: trunk['PORT'], placeholder: "5302"}
+                    .col-span-1
+                      %label.block.text-sm.text-gray-500.mb-1 SECRET
+                      %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_secrets][]", value: trunk['SECRET']}
+                    .col-span-2
+                      %label.block.text-sm.text-gray-500.mb-1 REMOTE_PREFIX (comma-separated)
+                      %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_remote_prefixes][]", value: trunk['REMOTE_PREFIX'], placeholder: "2,3"}
 
         -# ── 2. Certificates (collapsed) ──
         .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
@@ -607,6 +689,23 @@
         syncGroupSelects();
         var body = document.getElementById('body-passwords');
         if (!body.classList.contains('open')) toggleSection('passwords');
+      }
+
+      function addTrunkPeer() {
+        var container = document.getElementById('trunk-peers');
+        var div = document.createElement('div');
+        div.className = 'trunk-peer border border-gray-700 rounded-lg p-4 relative';
+        div.innerHTML = '<button type="button" class="absolute top-2 right-2 text-red-400 hover:text-red-300 cursor-pointer" onclick="confirmRemove(this,\'.trunk-peer\')"><i class="bi bi-x-lg"></i></button>' +
+          '<div class="grid grid-cols-1 md:grid-cols-2 gap-3">' +
+            '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">Section Name</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_names][]" placeholder="TRUNK_2"></div>' +
+            '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">HOST</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_hosts][]" placeholder="reflector-b.example.com"></div>' +
+            '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">PORT</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_ports][]" placeholder="5302"></div>' +
+            '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">SECRET</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_secrets][]"></div>' +
+            '<div class="col-span-2"><label class="block text-sm text-gray-500 mb-1">REMOTE_PREFIX (comma-separated)</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_remote_prefixes][]" placeholder="2,3"></div>' +
+          '</div>';
+        container.appendChild(div);
+        var body = document.getElementById('body-trunking');
+        if (!body.classList.contains('open')) toggleSection('trunking');
       }
 
       function addTgRule() {

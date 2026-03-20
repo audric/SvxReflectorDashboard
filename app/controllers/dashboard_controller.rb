@@ -3,15 +3,18 @@ class DashboardController < ApplicationController
 
   def index
     fetch_nodes
+    fetch_extended
     load_sql_timeout
   end
 
   def map
     fetch_nodes
+    fetch_extended
   end
 
   def tg
     fetch_nodes
+    fetch_extended
     visible = @nodes.reject { |_, n| n['hidden'] }
 
     @tgs_db = Tg.ordered
@@ -47,6 +50,7 @@ class DashboardController < ApplicationController
 
   def stats
     fetch_nodes
+    fetch_extended
 
     visible = @nodes.reject { |_, n| n['hidden'] }
 
@@ -112,6 +116,23 @@ class DashboardController < ApplicationController
       .group_by { |_, n| n['nodeClass'].to_s }
       .transform_values(&:size)
       .sort_by { |_, count| -count }
+
+    # ── Trunk traffic stats ────────────────────────────────────────────────────
+    @trunk_traffic = scope.where.not(source: [nil, ''])
+                          .group(:source)
+                          .order('count_all DESC')
+                          .count
+
+    # ── Cluster TG usage ───────────────────────────────────────────────────────
+    if @cluster_tgs.any?
+      @cluster_tg_usage = scope.talks
+                               .where(tg: @cluster_tgs)
+                               .group(:tg)
+                               .order('count_all DESC')
+                               .count
+    else
+      @cluster_tg_usage = {}
+    end
   end
 
   def events
@@ -147,6 +168,23 @@ class DashboardController < ApplicationController
     rescue => e
       @nodes       = {}
       @fetch_error = e.message
+    end
+  end
+
+  def fetch_extended
+    begin
+      redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
+      @trunks          = JSON.parse(redis.get('reflector:trunks') || '{}')
+      @satellites       = JSON.parse(redis.get('reflector:satellites') || '{}')
+      @cluster_tgs      = JSON.parse(redis.get('reflector:cluster_tgs') || '[]')
+      @reflector_config = JSON.parse(redis.get('reflector:config') || '{}')
+      @reflector_mode   = @reflector_config['mode'] || 'reflector'
+    rescue => e
+      @trunks          = {}
+      @satellites       = {}
+      @cluster_tgs      = []
+      @reflector_config = {}
+      @reflector_mode   = 'reflector'
     end
   end
 end

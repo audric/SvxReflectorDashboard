@@ -347,6 +347,86 @@
                 %i.bi.bi-diagram-3.block.text-xl.mb-2
                 No bridges connected.
 
+      -# ── Trunk & Cluster stats ─────────────────────────────────────────────
+      - if @trunk_traffic.any? || @cluster_tg_usage.any? || @trunks.any?
+        .divider-label.mb-4{style: "max-width:200px"}
+          %i.bi.bi-diagram-3.mr-1
+          Network Stats
+
+        .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
+
+          -# Trunk traffic
+          - if @trunk_traffic.any?
+            .rounded-lg.border.border-ghborder.h-full
+              .p-4
+                .section-label
+                  %i.bi.bi-diagram-3.mr-1.text-cyan-400
+                  Trunk Traffic
+                - max_trunk = @trunk_traffic.values.first.to_f
+                - @trunk_traffic.each_with_index do |(trunk_name, count), i|
+                  .flex.items-center.gap-2.mb-2
+                    %span.text-gray-500{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
+                    %span.font-mono.text-cyan-400.shrink-0{style: "min-width:90px;font-size:.82rem"}= trunk_name
+                    .rank-bar-wrap.grow
+                      .rank-bar-fill.bg-cyan-500{style: "width:#{(count / max_trunk * 100).round}%"}
+                    %span.text-gray-500.font-semibold{style: "font-size:.78rem;min-width:28px;text-align:right"}= count
+
+          -# Cluster TG usage
+          - if @cluster_tg_usage.any?
+            .rounded-lg.border.border-ghborder.h-full
+              .p-4
+                .section-label
+                  %i.bi.bi-globe2.mr-1.text-cyan-400
+                  Cluster TG Usage
+                - max_cluster = @cluster_tg_usage.values.first.to_f
+                - @cluster_tg_usage.each_with_index do |(tg, count), i|
+                  .flex.items-center.gap-2.mb-2
+                    %span.text-gray-500{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
+                    %span.font-mono.text-cyan-400.font-semibold.shrink-0{style: "min-width:52px;font-size:.82rem"}= "TG #{tg}"
+                    .rank-bar-wrap.grow
+                      .rank-bar-fill.bg-cyan-500{style: "width:#{(count / max_cluster * 100).round}%"}
+                    %span.text-gray-500.font-semibold{style: "font-size:.78rem;min-width:28px;text-align:right"}= count
+
+          -# Live trunk status
+          - if @trunks.any?
+            .rounded-lg.border.border-ghborder.h-full
+              .p-4
+                .section-label
+                  %i.bi.bi-plug.mr-1.text-cyan-400
+                  Trunk Links
+                - @trunks.each do |name, trunk|
+                  .flex.items-center.gap-3.mb-3
+                    - if trunk['connected']
+                      %span.inline-block.w-3.h-3.rounded-full.bg-green-500
+                    - else
+                      %span.inline-block.w-3.h-3.rounded-full.bg-red-500
+                    .flex-1
+                      %span.font-mono.text-gray-200= name
+                      %span.text-xs.text-ghmuted.ml-2= trunk['host']
+                    - talkers = trunk['active_talkers'] || {}
+                    - if talkers.any?
+                      %span.text-sm.text-green-400.font-semibold= "#{talkers.size} active"
+                    - else
+                      %span.text-sm.text-ghmuted idle
+
+          -# Satellite status
+          - if @satellites.any?
+            .rounded-lg.border.border-ghborder.h-full
+              .p-4
+                .section-label
+                  %i.bi.bi-broadcast.mr-1.text-purple-400
+                  Satellites
+                - @satellites.each do |sat_id, sat|
+                  .flex.items-center.gap-3.mb-3
+                    - if sat['authenticated']
+                      %span.inline-block.w-3.h-3.rounded-full.bg-green-500
+                    - else
+                      %span.inline-block.w-3.h-3.rounded-full.bg-yellow-500
+                    .flex-1
+                      %span.font-mono.text-gray-200= sat_id
+                    - active_tgs = sat['active_tgs'] || []
+                    %span.text-sm.text-ghmuted= "#{active_tgs.size} TGs"
+
     :javascript
       (function () {
         'use strict';

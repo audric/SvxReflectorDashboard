@@ -45,9 +45,10 @@ These are stored in the `settings` table and take effect on the next poll cycle 
 
 ![Reflector Config](images/admin-reflector.png)
 
-Users with the **reflector admin** role can configure the SVXReflector itself from `/admin/reflector`. This web UI edits the reflector's configuration file directly and provides sections for:
+Users with the **reflector admin** role can configure the GeuReflector/SVXReflector from `/admin/reflector`. This web UI edits the reflector's configuration file directly and provides sections for:
 
 - **Global settings** — listen port, HTTP port, codecs, callsign accept/reject filters, timeouts, PKI paths, random QSY range
+- **Clustering / Trunking** (GeuReflector) — LOCAL_PREFIX, CLUSTER_TGS, satellite mode configuration, satellite server settings, and trunk peer management (HOST, PORT, SECRET, REMOTE_PREFIX per peer)
 - **Certificates** — ROOT_CA, ISSUING_CA, and SERVER_CERT sections (common name, org, locality, country, etc.)
 - **Users** — callsign-to-password-group mappings
 - **Passwords** — password group definitions

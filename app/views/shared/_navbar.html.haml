@@ -56,6 +56,8 @@
       %i.bi.bi-broadcast-pin.js-ws-icon{class: (local_assigns.fetch(:ws_indicator, false) ? "text-yellow-500 animate-pulse" : "text-green-500"), title: (local_assigns.fetch(:ws_indicator, false) ? "Connecting\u2026" : "")}
       SVXReflector
       %span.text-gray-100.text-sm.font-mono= @reflector_host
+      - if reflector_mode == 'satellite'
+        %span.text-xs.px-1.5.py-0.5.rounded-full.border.font-semibold{class: "bg-purple-900/50 text-purple-300 border-purple-700"} SAT
 
     %button.text-gray-400.p-2.md:hidden{type: "button", onclick: "document.getElementById('mainNav').classList.toggle('hidden')"}
       %i.bi.bi-list.text-2xl
@@ -135,6 +137,8 @@
       %span.font-bold.text-gray-100 SVXReflector
       - if @reflector_host.present?
         %span.text-lg.font-normal.text-ghmuted= @reflector_host
+    - if reflector_mode == 'satellite'
+      %span.text-xs.px-1.5.py-0.5.rounded-full.border.font-semibold.mt-1{class: "bg-purple-900/50 text-purple-300 border-purple-700"} SATELLITE MODE
 
   %nav.flex-1.px-3.py-4.overflow-y-auto
     .space-y-1

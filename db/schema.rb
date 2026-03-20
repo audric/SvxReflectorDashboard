@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_19_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_20_100001) do
   create_table "bridge_tg_mappings", force: :cascade do |t|
     t.string "activate_on_activity"
     t.integer "bridge_id", null: false
@@ -145,11 +145,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_19_120000) do
     t.text "metadata"
     t.string "node_class"
     t.string "node_location"
+    t.string "source"
     t.integer "tg"
     t.datetime "updated_at", null: false
     t.index ["callsign"], name: "index_node_events_on_callsign"
     t.index ["created_at"], name: "index_node_events_on_created_at"
     t.index ["event_type"], name: "index_node_events_on_event_type"
+    t.index ["source"], name: "index_node_events_on_source"
     t.index ["tg"], name: "index_node_events_on_tg"
   end
 
@@ -220,6 +222,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_19_120000) do
   create_table "tgs", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.text "description"
+    t.string "kind", default: "local"
     t.string "name"
     t.string "tg"
     t.datetime "updated_at", null: false

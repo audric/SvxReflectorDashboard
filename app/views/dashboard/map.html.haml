@@ -167,11 +167,13 @@
 
     %script{src: "/vendor/leaflet/leaflet.js"}
     - nodes_json = @nodes.to_json.html_safe
+    - trunks_json = (@trunks || {}).to_json.html_safe
     :javascript
       (function () {
         'use strict';
 
         var nodes = #{nodes_json};
+        var trunksData = #{trunks_json};
 
         // ── Tile layers ────────────────────────────────────────────────────────────
         var tileLayers = {
@@ -197,7 +199,10 @@
         var defaultLayer = tileLayers[Object.keys(tileLayers)[0]];
         var map = L.map('map', { zoomControl: true, layers: [defaultLayer] });
 
-        L.control.layers(tileLayers, {}, { position: 'topright', collapsed: true }).addTo(map);
+        var trunkLinkLayer = L.layerGroup();
+        var overlays = { '<i class="bi bi-diagram-3 mr-1" style="color:#22d3ee"></i>Trunk Links': trunkLinkLayer };
+        L.control.layers(tileLayers, overlays, { position: 'topright', collapsed: true }).addTo(map);
+        trunkLinkLayer.addTo(map);
 
         // ── Legend ─────────────────────────────────────────────────────────────────
         var legend = L.control({ position: 'bottomleft' });
@@ -207,7 +212,8 @@
             '<div class="legend-title">Node status</div>' +
             '<div class="legend-row"><span class="legend-dot" style="background:#3fb950"></span>Talking</div>' +
             '<div class="legend-row"><span class="legend-dot" style="background:#1f6feb"></span>Active (on TG)</div>' +
-            '<div class="legend-row"><span class="legend-dot" style="background:#6e7681"></span>Idle</div>';
+            '<div class="legend-row"><span class="legend-dot" style="background:#6e7681"></span>Idle</div>' +
+            '<div class="legend-row" style="margin-top:.3rem"><span style="width:12px;height:3px;background:#22d3ee;border-radius:1px;flex-shrink:0"></span>Trunk Link</div>';
           return div;
         };
         legend.addTo(map);
@@ -318,6 +324,31 @@
           map.fitBounds(bounds, { padding: [40, 40] });
         } else {
           map.setView([48, 10], 5);
+        }
+
+        // ── Trunk link info control (top-left) ─────────────────────────────────
+        if (Object.keys(trunksData).length > 0) {
+          var trunkCtrl = L.control({ position: 'topleft' });
+          trunkCtrl.onAdd = function () {
+            var div = L.DomUtil.create('div', 'map-legend');
+            var html = '<div class="legend-title"><i class="bi bi-diagram-3 mr-1"></i>Trunk Links</div>';
+            Object.keys(trunksData).forEach(function (name) {
+              var t = trunksData[name];
+              var dotCol = t.connected ? '#3fb950' : '#f85149';
+              var status = t.connected ? 'Connected' : 'Disconnected';
+              var talkers = t.active_talkers || {};
+              var talkerCount = Object.keys(talkers).length;
+              html += '<div class="legend-row">' +
+                '<span class="legend-dot" style="background:' + dotCol + '"></span>' +
+                '<span style="font-family:monospace;font-size:.75rem">' + esc(name) + '</span>' +
+                (talkerCount > 0 ? '<span style="color:#3fb950;font-size:.7rem;margin-left:.3rem">' + talkerCount + ' TX</span>' : '') +
+                '</div>';
+            });
+            div.innerHTML = html;
+            L.DomEvent.disableClickPropagation(div);
+            return div;
+          };
+          trunkCtrl.addTo(map);
         }
 
         // Open popup for any node already talking at page load

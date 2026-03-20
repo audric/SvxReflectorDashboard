@@ -1,5 +1,6 @@
 class ReflectorConfig
-  attr_accessor :global, :root_ca, :issuing_ca, :server_cert, :users, :passwords, :tg_rules
+  attr_accessor :global, :root_ca, :issuing_ca, :server_cert, :users, :passwords,
+                :tg_rules, :trunks, :satellite
 
   def initialize
     @global = {}
@@ -9,6 +10,8 @@ class ReflectorConfig
     @users = {}       # callsign => group
     @passwords = {}   # group => password
     @tg_rules = {}    # tg_number (Integer) => { "ALLOW" => ..., "AUTO_QSY_AFTER" => ..., "SHOW_ACTIVITY" => ..., "ALLOW_MONITOR" => ... }
+    @trunks = {}      # trunk_name => { "HOST" => ..., "PORT" => ..., "SECRET" => ..., "REMOTE_PREFIX" => ... }
+    @satellite = {}   # { "LISTEN_PORT" => ..., "SECRET" => ... }
   end
 
   def self.config_path
@@ -29,6 +32,10 @@ class ReflectorConfig
         # Pre-create empty TG rule entry so it survives even with no keys
         if current_section =~ /\ATG#(\d+)\z/
           config.tg_rules[Regexp.last_match(1).to_i] ||= {}
+        end
+        # Pre-create empty trunk entry
+        if current_section =~ /\ATRUNK_\w+\z/
+          config.trunks[current_section] ||= {}
         end
         next
       end
@@ -56,6 +63,11 @@ class ReflectorConfig
         tg_num = Regexp.last_match(1).to_i
         config.tg_rules[tg_num] ||= {}
         config.tg_rules[tg_num][key] = value
+      when /\ATRUNK_\w+\z/
+        config.trunks[current_section] ||= {}
+        config.trunks[current_section][key] = value
+      when "SATELLITE"
+        config.satellite[key] = value
       end
     end
 
@@ -104,6 +116,20 @@ class ReflectorConfig
     # PASSWORDS
     lines << "[PASSWORDS]"
     passwords.each { |k, v| lines << "#{k}=#{v}" }
+
+    # TRUNK sections (sorted by name)
+    trunks.keys.sort.each do |trunk_name|
+      lines << ""
+      lines << "[#{trunk_name}]"
+      trunks[trunk_name].each { |k, v| lines << "#{k}=#{v}" }
+    end
+
+    # SATELLITE section
+    if satellite.any?
+      lines << ""
+      lines << "[SATELLITE]"
+      satellite.each { |k, v| lines << "#{k}=#{v}" }
+    end
 
     # TG rules sorted numerically
     tg_rules.keys.sort.each do |tg_num|

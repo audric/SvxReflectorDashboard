@@ -302,6 +302,28 @@ module Admin
         config.tg_rules[tg_num] = rules
       end
 
+      # Trunk peers
+      trunk_names = Array(cfg[:trunk_names])
+      trunk_hosts = Array(cfg[:trunk_hosts])
+      trunk_ports = Array(cfg[:trunk_ports])
+      trunk_secrets = Array(cfg[:trunk_secrets])
+      trunk_prefixes = Array(cfg[:trunk_remote_prefixes])
+      trunk_names.each_with_index do |name, i|
+        next if name.blank?
+        config.trunks[name.strip] = {
+          "HOST" => trunk_hosts[i].to_s.strip,
+          "PORT" => trunk_ports[i].to_s.strip,
+          "SECRET" => trunk_secrets[i].to_s.strip,
+          "REMOTE_PREFIX" => trunk_prefixes[i].to_s.strip
+        }.reject { |_, v| v.blank? }
+      end
+
+      # Satellite server section
+      sat_port = cfg.dig(:satellite, :LISTEN_PORT).to_s.strip
+      sat_secret = cfg.dig(:satellite, :SECRET).to_s.strip
+      config.satellite["LISTEN_PORT"] = sat_port if sat_port.present?
+      config.satellite["SECRET"] = sat_secret if sat_secret.present?
+
       config.save
       restart_svxreflector
       redirect_to edit_admin_reflector_path, notice: "Configuration saved and svxreflector restarted."

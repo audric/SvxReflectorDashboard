@@ -1,5 +1,5 @@
 class ApplicationController < ActionController::Base
-  helper_method :current_user, :logged_in?
+  helper_method :current_user, :logged_in?, :reflector_mode
   before_action :set_brand_name
 
   private
@@ -19,6 +19,16 @@ class ApplicationController < ActionController::Base
   def require_login
     unless logged_in?
       redirect_to login_path, alert: "Please log in"
+    end
+  end
+
+  def reflector_mode
+    @_reflector_mode ||= begin
+      redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
+      config = JSON.parse(redis.get('reflector:config') || '{}')
+      config['mode'] || 'reflector'
+    rescue
+      'reflector'
     end
   end
 

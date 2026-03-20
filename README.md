@@ -1,6 +1,6 @@
 # SVX Dashboard
 
-A Rails web application for monitoring amateur radio [SVXReflector](https://www.svxlink.org/) node activity in real time. Registered users can tune in to talkgroups and transmit audio directly from their browser.
+A Rails web application for monitoring amateur radio [SVXReflector](https://www.svxlink.org/) / [GeuReflector](https://github.com/audric/geureflector) node activity in real time. Supports GeuReflector extensions: trunk links, cluster TGs, and satellites. Registered users can tune in to talkgroups and transmit audio directly from their browser.
 
 **[Wiki](https://github.com/audric/SvxReflectorDashboard/wiki)** — full documentation
 
@@ -13,7 +13,8 @@ A Rails web application for monitoring amateur radio [SVXReflector](https://www.
 - S-meter and spectrum analyser showing real-time audio levels (RX and TX)
 - Push-to-Talk from the browser (requires HTTPS)
 - CTCSS tone-to-talkgroup matrix with CHIRP CSV export
-- Web admin for SVXReflector configuration (global settings, certificates, users, passwords, TG rules)
+- GeuReflector support — trunk link status, satellite monitoring, cluster TG indicators, and network-wide analytics
+- Web admin for SVXReflector/GeuReflector configuration (global settings, certificates, users, passwords, TG rules, trunk peers, satellites)
 - SVXLink bridge management — reflector-to-reflector and EchoLink bridges with auto-generated configs, snapshot backups, and 30-day archive on delete
 - User management with callsign validation, admin approval, and role-based permissions
 
@@ -39,7 +40,7 @@ See the wiki for [configuration details](https://github.com/audric/SvxReflectorD
 ## Architecture
 
 ```
-svxreflector  → SVXReflector daemon (reflector server)
+svxreflector  → GeuReflector daemon (SVXReflector-compatible, with trunks/satellites)
 caddy         → Reverse proxy with automatic HTTPS (Let's Encrypt)
 web           → Rails app (Puma) on port 3000
 updater       → Background poller (ReflectorListener)
@@ -47,7 +48,7 @@ audio_bridge  → Go binary, SVXReflector protocol V2
 redis         → ActionCable + audio pub/sub
 ```
 
-**Stack:** Ruby 3.2 · Rails 7.1 · Go · SQLite · Redis · HAML · Tailwind CSS · Leaflet.js
+**Stack:** Ruby 3.2 · Rails 8.0 · Go · SQLite · Redis · HAML · Tailwind CSS · Leaflet.js
 
 See the wiki for [architecture details](https://github.com/audric/SvxReflectorDashboard/wiki/Architecture) and [reflector protocol docs](https://github.com/audric/SvxReflectorDashboard/wiki/Reflector-Protocol).
 

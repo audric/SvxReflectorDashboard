@@ -172,6 +172,78 @@
             %span.text-gray-500.text-xs= s[:label]
             %span.font-bold.text-sm{class: s[:color], id: s[:id]}= s[:val]
 
+      -# ── Trunk & Satellite status ────────────────────────────────────────
+      - if @trunks.any? || @satellites.any?
+        .grid.grid-cols-1.md:grid-cols-2.gap-3.mb-4#trunk-sat-panel
+
+          -# Trunk links
+          - if @trunks.any? && @reflector_mode != 'satellite'
+            .rounded-lg.border.border-ghborder.p-3
+              .flex.items-center.gap-2.mb-2
+                %i.bi.bi-diagram-3.text-cyan-400
+                %span.text-gray-400.uppercase.font-semibold.text-xs Trunk Links
+                %span.text-xs.text-ghmuted= "(#{@trunks.size})"
+              #trunk-list
+                - @trunks.each do |name, trunk|
+                  .flex.items-center.gap-2.py-1.border-b.border-ghborder2{id: "trunk-#{name}"}
+                    - if trunk['connected']
+                      %span.inline-block.w-2.h-2.rounded-full.bg-green-500{title: "Connected"}
+                    - else
+                      %span.inline-block.w-2.h-2.rounded-full.bg-red-500{title: "Disconnected"}
+                    %span.font-mono.text-sm.text-gray-200= name
+                    %span.text-xs.text-ghmuted= trunk['host']
+                    - if trunk['remote_prefix'].present?
+                      %span.text-xs.px-1.5.py-0.5.rounded.border.border-ghborder.text-ghmuted.font-mono
+                        = "pfx: #{Array(trunk['remote_prefix']).join(',')}"
+                    - talkers = trunk['active_talkers'] || {}
+                    - if talkers.any?
+                      .flex.gap-1.ml-auto
+                        - talkers.each do |tg, cs|
+                          %span.text-xs.px-1.5.py-0.5.rounded.font-mono{class: "bg-green-900/50 text-green-400 border border-green-700"}
+                            %i.bi.bi-mic-fill.mr-1{style: "font-size:.6rem"}
+                            = "#{cs} TG#{tg}"
+
+          -# Satellites
+          - if @satellites.any? && @reflector_mode != 'satellite'
+            .rounded-lg.border.border-ghborder.p-3
+              .flex.items-center.gap-2.mb-2
+                %i.bi.bi-broadcast.text-purple-400
+                %span.text-gray-400.uppercase.font-semibold.text-xs Satellites
+                %span.text-xs.text-ghmuted= "(#{@satellites.size})"
+              #satellite-list
+                - @satellites.each do |sat_id, sat|
+                  .flex.items-center.gap-2.py-1.border-b.border-ghborder2{id: "sat-#{sat_id}"}
+                    - if sat['authenticated']
+                      %span.inline-block.w-2.h-2.rounded-full.bg-green-500{title: "Authenticated"}
+                    - else
+                      %span.inline-block.w-2.h-2.rounded-full.bg-yellow-500{title: "Not authenticated"}
+                    %span.font-mono.text-sm.text-gray-200= sat_id
+                    - active_tgs = sat['active_tgs'] || []
+                    - if active_tgs.any?
+                      .flex.gap-1.ml-auto
+                        - active_tgs.first(5).each do |tg|
+                          %span.text-xs.px-1.py-0.5.rounded.border.border-ghborder.text-ghmuted.font-mono= "TG#{tg}"
+                        - if active_tgs.size > 5
+                          %span.text-xs.text-ghmuted= "+#{active_tgs.size - 5}"
+
+          -# Satellite mode: show parent connection
+          - if @reflector_mode == 'satellite' && @reflector_config['satellite'].present?
+            .rounded-lg.border.border-purple-700.p-3{class: "bg-purple-900/20"}
+              .flex.items-center.gap-2
+                %i.bi.bi-broadcast.text-purple-400
+                %span.text-purple-300.font-semibold.text-sm Satellite Mode
+                %span.text-ghmuted.text-xs &mdash; connected to
+                %span.font-mono.text-purple-200.text-sm= @reflector_config.dig('satellite', 'parent_host')
+
+      -# ── Cluster TG indicator ──────────────────────────────────────────────
+      - if @cluster_tgs.any?
+        .flex.items-center.gap-2.mb-3
+          %i.bi.bi-globe2.text-cyan-400
+          %span.text-gray-400.uppercase.font-semibold.text-xs Cluster TGs
+          .flex.gap-1.flex-wrap
+            - @cluster_tgs.each do |tg|
+              %span.text-xs.px-1.5.py-0.5.rounded-full.border.font-mono{class: "bg-cyan-900/30 text-cyan-400 border-cyan-700"}= "TG #{tg}"
+
       -# ── Node grid ──────────────────────────────────────────────────────────
       .flex.items-center.mb-2.gap-2.flex-wrap
         %span.text-gray-500.uppercase.font-semibold.text-sm
@@ -476,6 +548,9 @@
               Block
 
     - nodes_json = @nodes.to_json.html_safe
+    - trunks_json = @trunks.to_json.html_safe
+    - satellites_json = @satellites.to_json.html_safe
+    - cluster_tgs_json = @cluster_tgs.to_json.html_safe
     :javascript
       (function () {
         'use strict';
@@ -485,6 +560,9 @@
         var updateCount = 0;
         var sqlTimeoutMs = #{@sql_timeout_ms || 'null'};
         var talkTimers = {}; // callsign => { start, interval }
+        var clusterTgs = #{cluster_tgs_json};
+        var trunks = #{trunks_json};
+        var satellites = #{satellites_json};
 
         // ── Utilities ──────────────────────────────────────────────────────────────
         function setText(id, val) {
@@ -984,8 +1062,14 @@
               refreshStats();
               rebuildTable();
               if (window.audioPlayerUpdateTgs) window.audioPlayerUpdateTgs(msg.nodes);
-              return;
             }
+
+            // Trunk/satellite/cluster updates
+            if (msg.trunks) { trunks = msg.trunks; updateTrunkPanel(msg.trunks); }
+            if (msg.satellites) { satellites = msg.satellites; updateSatellitePanel(msg.satellites); }
+            if (msg.cluster_tgs) { clusterTgs = msg.cluster_tgs; updateClusterBadges(); }
+
+            if (msg.nodes) return;
 
             // Single-node update
             if (msg.callsign) updateCard(msg.callsign, msg);
@@ -1042,6 +1126,64 @@
           });
           tbody.innerHTML = h;
           applyFilter();
+        }
+
+        // ── Trunk/Satellite/Cluster live update functions ────────────────────
+        function updateTrunkPanel(trunksData) {
+          var list = document.getElementById('trunk-list');
+          if (!list) return;
+          var html = '';
+          Object.keys(trunksData).forEach(function(name) {
+            var t = trunksData[name];
+            var dot = t.connected
+              ? '<span class="inline-block w-2 h-2 rounded-full bg-green-500" title="Connected"></span>'
+              : '<span class="inline-block w-2 h-2 rounded-full bg-red-500" title="Disconnected"></span>';
+            var prefix = (t.remote_prefix && t.remote_prefix.length)
+              ? '<span class="text-xs px-1.5 py-0.5 rounded border border-ghborder text-ghmuted font-mono">pfx: ' + esc(t.remote_prefix.join(',')) + '</span>' : '';
+            var talkerHtml = '';
+            var talkers = t.active_talkers || {};
+            Object.keys(talkers).forEach(function(tg) {
+              talkerHtml += '<span class="text-xs px-1.5 py-0.5 rounded font-mono bg-green-900/50 text-green-400 border border-green-700"><i class="bi bi-mic-fill mr-1" style="font-size:.6rem"></i>' + esc(talkers[tg]) + ' TG' + esc(tg) + '</span>';
+            });
+            html += '<div class="flex items-center gap-2 py-1 border-b border-ghborder2" id="trunk-' + esc(name) + '">' +
+              dot + '<span class="font-mono text-sm text-gray-200">' + esc(name) + '</span>' +
+              '<span class="text-xs text-ghmuted">' + esc(t.host || '') + '</span>' + prefix +
+              (talkerHtml ? '<div class="flex gap-1 ml-auto">' + talkerHtml + '</div>' : '') + '</div>';
+          });
+          list.innerHTML = html;
+        }
+
+        function updateSatellitePanel(satsData) {
+          var list = document.getElementById('satellite-list');
+          if (!list) return;
+          var html = '';
+          Object.keys(satsData).forEach(function(id) {
+            var s = satsData[id];
+            var dot = s.authenticated
+              ? '<span class="inline-block w-2 h-2 rounded-full bg-green-500" title="Authenticated"></span>'
+              : '<span class="inline-block w-2 h-2 rounded-full bg-yellow-500" title="Not authenticated"></span>';
+            var tgs = s.active_tgs || [];
+            var tgHtml = '';
+            tgs.slice(0, 5).forEach(function(tg) {
+              tgHtml += '<span class="text-xs px-1 py-0.5 rounded border border-ghborder text-ghmuted font-mono">TG' + tg + '</span>';
+            });
+            if (tgs.length > 5) tgHtml += '<span class="text-xs text-ghmuted">+' + (tgs.length - 5) + '</span>';
+            html += '<div class="flex items-center gap-2 py-1 border-b border-ghborder2" id="sat-' + esc(id) + '">' +
+              dot + '<span class="font-mono text-sm text-gray-200">' + esc(id) + '</span>' +
+              (tgHtml ? '<div class="flex gap-1 ml-auto">' + tgHtml + '</div>' : '') + '</div>';
+          });
+          list.innerHTML = html;
+        }
+
+        function updateClusterBadges() {
+          // Update the cluster TGs indicator bar
+          var container = document.querySelector('.js-cluster-tgs');
+          if (!container) return;
+          var html = '';
+          clusterTgs.forEach(function(tg) {
+            html += '<span class="text-xs px-1.5 py-0.5 rounded-full border font-mono bg-cyan-900/30 text-cyan-400 border-cyan-700">TG ' + tg + '</span>';
+          });
+          container.innerHTML = html;
         }
 
         connect();
