@@ -65,12 +65,18 @@
           %button.evt-filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "connection"}
             %i.bi.bi-plug-fill.mr-1
             Connection
+          %button.evt-filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "trunk"}
+            %i.bi.bi-diagram-3.mr-1
+            Trunk
+          %button.evt-filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "satellite"}
+            %i.bi.bi-broadcast.mr-1
+            Satellite
 
       .rounded-lg.border.border-ghborder#events-container
         - if @recent_events.any?
           .overflow-y-auto#events-list{style: "max-height: calc(100vh - 150px); scrollbar-width: thin"}
             - @recent_events.each do |ev|
-              - type_style = {'talking_start' => ['bg-green-600 text-white', 'bi-mic-fill'], 'talking_stop' => ['bg-gray-600 text-white', 'bi-mic-mute'], 'tg_join' => ['bg-blue-600 text-white', 'bi-collection'], 'tg_leave' => ['bg-gray-600 text-white', 'bi-collection'], 'connected' => ['bg-cyan-600 text-white', 'bi-plug-fill'], 'disconnected' => ['bg-red-600 text-white', 'bi-plug']}.fetch(ev.event_type, ['bg-gray-600 text-white', 'bi-dot'])
+              - type_style = {'talking_start' => ['bg-green-600 text-white', 'bi-mic-fill'], 'talking_stop' => ['bg-gray-600 text-white', 'bi-mic-mute'], 'tg_join' => ['bg-blue-600 text-white', 'bi-collection'], 'tg_leave' => ['bg-gray-600 text-white', 'bi-collection'], 'connected' => ['bg-cyan-600 text-white', 'bi-plug-fill'], 'disconnected' => ['bg-red-600 text-white', 'bi-plug'], 'trunk_connected' => ['bg-cyan-700 text-white', 'bi-diagram-3'], 'trunk_disconnected' => ['bg-red-700 text-white', 'bi-diagram-3'], 'remote_talk_start' => ['bg-emerald-600 text-white', 'bi-mic-fill'], 'remote_talk_stop' => ['bg-gray-600 text-white', 'bi-mic-mute'], 'satellite_connected' => ['bg-purple-600 text-white', 'bi-broadcast'], 'satellite_disconnected' => ['bg-red-700 text-white', 'bi-broadcast']}.fetch(ev.event_type, ['bg-gray-600 text-white', 'bi-dot'])
               - rx = ev.metadata.present? ? (JSON.parse(ev.metadata) rescue nil) : nil
               .px-3.py-1.5.border-b.border-ghborder2.hover:bg-ghcard.flex.items-center.gap-2.flex-wrap.evt-row{"data-event-type" => ev.event_type, "data-callsign" => ev.callsign.downcase}
                 %span.text-gray-500.font-mono.shrink-0{style: "font-size:.72rem"}= ev.created_at.strftime('%Y-%m-%d %H:%M')
@@ -101,6 +107,10 @@
                   - elsif rx['src_radio'].present?
                     %i.bi.bi-soundwave.text-pink-400{style: "font-size:.65rem"}
                     %span.text-pink-300.font-mono.text-xs= rx['src_radio']
+                - if ev.source.present?
+                  %span.text-xs.font-mono{class: "text-cyan-400"}
+                    %i.bi.bi-diagram-3.mr-1{style: "font-size:.6rem"}
+                    = ev.source
                 - if ev.node_location.present?
                   %span.text-gray-500.text-xs.ml-auto.shrink-0
                     %i.bi.bi-geo-alt.mr-1
@@ -124,9 +134,11 @@
         var searchInput = document.getElementById('events-search');
 
         var filterMap = {
-          talking: ['talking_start', 'talking_stop'],
+          talking: ['talking_start', 'talking_stop', 'remote_talk_start', 'remote_talk_stop'],
           tg: ['tg_join', 'tg_leave'],
-          connection: ['connected', 'disconnected']
+          connection: ['connected', 'disconnected'],
+          trunk: ['trunk_connected', 'trunk_disconnected', 'remote_talk_start', 'remote_talk_stop'],
+          satellite: ['satellite_connected', 'satellite_disconnected']
         };
 
         function applyFilters() {
@@ -165,12 +177,18 @@
         }
         applyFilters();
         var typeStyles = {
-          talking_start:  ['bg-green-600 text-white', 'bi-mic-fill'],
-          talking_stop:   ['bg-gray-600 text-white',  'bi-mic-mute'],
-          tg_join:        ['bg-blue-600 text-white',  'bi-collection'],
-          tg_leave:       ['bg-gray-600 text-white',  'bi-collection'],
-          connected:      ['bg-cyan-600 text-white',  'bi-plug-fill'],
-          disconnected:   ['bg-red-600 text-white',   'bi-plug']
+          talking_start:          ['bg-green-600 text-white', 'bi-mic-fill'],
+          talking_stop:           ['bg-gray-600 text-white',  'bi-mic-mute'],
+          tg_join:                ['bg-blue-600 text-white',  'bi-collection'],
+          tg_leave:               ['bg-gray-600 text-white',  'bi-collection'],
+          connected:              ['bg-cyan-600 text-white',  'bi-plug-fill'],
+          disconnected:           ['bg-red-600 text-white',   'bi-plug'],
+          trunk_connected:        ['bg-cyan-700 text-white',  'bi-diagram-3'],
+          trunk_disconnected:     ['bg-red-700 text-white',   'bi-diagram-3'],
+          remote_talk_start:      ['bg-emerald-600 text-white','bi-mic-fill'],
+          remote_talk_stop:       ['bg-gray-600 text-white',  'bi-mic-mute'],
+          satellite_connected:    ['bg-purple-600 text-white', 'bi-broadcast'],
+          satellite_disconnected: ['bg-red-700 text-white',   'bi-broadcast']
         };
         function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
         function now() { var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
