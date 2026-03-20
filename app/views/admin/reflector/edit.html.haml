@@ -296,7 +296,7 @@
                         %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_hosts][]", value: trunk['HOST']}
                       .col-span-1
                         %label.block.text-sm.text-gray-500.mb-1 PORT
-                        %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_ports][]", value: trunk['PORT'], placeholder: "5302"}
+                        %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_ports][]", value: (trunk['PORT'] || '5302')}
                       .col-span-1
                         %label.block.text-sm.text-gray-500.mb-1 SECRET
                         %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_secrets][]", value: trunk['SECRET']}
@@ -311,7 +311,7 @@
               .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
                 .mb-1
                   %label.block.text-sm.text-gray-500.mb-1 LISTEN_PORT
-                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[satellite][LISTEN_PORT]", value: @config.satellite['LISTEN_PORT'], placeholder: "5303"}
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[satellite][LISTEN_PORT]", value: (@config.satellite['LISTEN_PORT'] || '5303')}
                 .mb-1
                   %label.block.text-sm.text-gray-500.mb-1 SECRET
                   %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[satellite][SECRET]", value: @config.satellite['SECRET']}
@@ -331,7 +331,7 @@
                   %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][SATELLITE_OF]", value: @config.global['SATELLITE_OF'], placeholder: "reflector-01.example.com", id: "satellite-of-input"}
                 .mb-1
                   %label.block.text-sm.text-gray-500.mb-1 SATELLITE_PORT
-                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][SATELLITE_PORT]", value: @config.global['SATELLITE_PORT'], placeholder: "5303"}
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][SATELLITE_PORT]", value: (@config.global['SATELLITE_PORT'] || '5303')}
                 .mb-1
                   %label.block.text-sm.text-gray-500.mb-1 SATELLITE_SECRET
                   %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][SATELLITE_SECRET]", value: @config.global['SATELLITE_SECRET']}
