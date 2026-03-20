@@ -246,6 +246,7 @@
           .accordion-body.px-4{id: "body-trunking"}
 
             -# ── Mode selector ──
+            %input{type: "hidden", name: "config[trunk_mode]", value: (is_satellite ? "satellite" : "reflector"), id: "trunk-mode-input"}
             .mb-4
               %label.block.text-sm.font-semibold.text-gray-400.mb-2 This reflector operates as:
               .inline-flex.rounded-lg.border.border-gray-600.overflow-hidden
@@ -725,6 +726,8 @@
         var refBtn = document.getElementById('mode-btn-reflector');
         var satBtn = document.getElementById('mode-btn-satellite');
         var addBtn = document.getElementById('btn-trunking');
+        var modeInput = document.getElementById('trunk-mode-input');
+        if (modeInput) modeInput.value = mode;
         if (mode === 'satellite') {
           refPanel.classList.add('hidden');
           satPanel.classList.remove('hidden');
@@ -737,9 +740,6 @@
           refBtn.className = 'px-4 py-2 text-sm font-semibold cursor-pointer transition-colors bg-blue-600 text-white';
           satBtn.className = 'px-4 py-2 text-sm font-semibold cursor-pointer transition-colors border-l border-gray-600 text-gray-400 hover:text-gray-200';
           if (addBtn) { addBtn.style.display = ''; }
-          // Clear satellite fields when switching to reflector
-          var satOf = document.getElementById('satellite-of-input');
-          if (satOf) satOf.value = '';
         }
       }
 

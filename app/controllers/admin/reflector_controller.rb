@@ -249,8 +249,14 @@ module Admin
       config = ReflectorConfig.new
       existing = ReflectorConfig.load
 
+      # Trunk mode: reflector or satellite — strip the opposite mode's keys
+      trunk_mode = params.dig(:config, :trunk_mode).to_s
+      satellite_keys = %w[SATELLITE_OF SATELLITE_PORT SATELLITE_SECRET SATELLITE_ID]
+
       # Global settings
       (params.dig(:config, :global) || {}).each do |key, value|
+        # In reflector mode, skip satellite global keys
+        next if trunk_mode == 'reflector' && satellite_keys.include?(key)
         config.global[key] = value if value.present?
       end
 
@@ -302,27 +308,29 @@ module Admin
         config.tg_rules[tg_num] = rules
       end
 
-      # Trunk peers
-      trunk_names = Array(cfg[:trunk_names])
-      trunk_hosts = Array(cfg[:trunk_hosts])
-      trunk_ports = Array(cfg[:trunk_ports])
-      trunk_secrets = Array(cfg[:trunk_secrets])
-      trunk_prefixes = Array(cfg[:trunk_remote_prefixes])
-      trunk_names.each_with_index do |name, i|
-        next if name.blank?
-        config.trunks[name.strip] = {
-          "HOST" => trunk_hosts[i].to_s.strip,
-          "PORT" => trunk_ports[i].to_s.strip,
-          "SECRET" => trunk_secrets[i].to_s.strip,
-          "REMOTE_PREFIX" => trunk_prefixes[i].to_s.strip
-        }.reject { |_, v| v.blank? }
-      end
+      # Trunk peers (reflector mode only)
+      if trunk_mode != 'satellite'
+        trunk_names = Array(cfg[:trunk_names])
+        trunk_hosts = Array(cfg[:trunk_hosts])
+        trunk_ports = Array(cfg[:trunk_ports])
+        trunk_secrets = Array(cfg[:trunk_secrets])
+        trunk_prefixes = Array(cfg[:trunk_remote_prefixes])
+        trunk_names.each_with_index do |name, i|
+          next if name.blank?
+          config.trunks[name.strip] = {
+            "HOST" => trunk_hosts[i].to_s.strip,
+            "PORT" => trunk_ports[i].to_s.strip,
+            "SECRET" => trunk_secrets[i].to_s.strip,
+            "REMOTE_PREFIX" => trunk_prefixes[i].to_s.strip
+          }.reject { |_, v| v.blank? }
+        end
 
-      # Satellite server section
-      sat_port = cfg.dig(:satellite, :LISTEN_PORT).to_s.strip
-      sat_secret = cfg.dig(:satellite, :SECRET).to_s.strip
-      config.satellite["LISTEN_PORT"] = sat_port if sat_port.present?
-      config.satellite["SECRET"] = sat_secret if sat_secret.present?
+        # Satellite server section (reflector mode only)
+        sat_port = cfg.dig(:satellite, :LISTEN_PORT).to_s.strip
+        sat_secret = cfg.dig(:satellite, :SECRET).to_s.strip
+        config.satellite["LISTEN_PORT"] = sat_port if sat_port.present?
+        config.satellite["SECRET"] = sat_secret if sat_secret.present?
+      end
 
       config.save
       restart_svxreflector
