@@ -231,6 +231,7 @@
                   %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][#{key}]", value: @config.global[key]}
 
         -# ── 1b. Clustering / Trunking (collapsed) ──
+        - is_satellite = @config.global['SATELLITE_OF'].present?
         .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
           .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('trunking')"}
             %h5.text-lg.font-semibold.text-gray-100
@@ -244,71 +245,98 @@
               %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-trunking"}
           .accordion-body.px-4{id: "body-trunking"}
 
-            %h6.text-sm.font-semibold.text-gray-400.mb-3.mt-1 Global Clustering
-            .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
-              .mb-1
-                %label.block.text-sm.text-gray-500.mb-1
-                  LOCAL_PREFIX
-                  %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('LOCAL_PREFIX')", title: "Help"}
-                    %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
-                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][LOCAL_PREFIX]", value: @config.global['LOCAL_PREFIX'], placeholder: "e.g. 1,24"}
-              .mb-1
-                %label.block.text-sm.text-gray-500.mb-1
-                  CLUSTER_TGS
-                  %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CLUSTER_TGS')", title: "Help"}
-                    %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
-                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][CLUSTER_TGS]", value: @config.global['CLUSTER_TGS'], placeholder: "e.g. 222,2221,91"}
+            -# ── Mode selector ──
+            .mb-4
+              %label.block.text-sm.font-semibold.text-gray-400.mb-2 This reflector operates as:
+              .inline-flex.rounded-lg.border.border-gray-600.overflow-hidden
+                %button.px-4.py-2.text-sm.font-semibold.cursor-pointer.transition-colors{type: "button", id: "mode-btn-reflector", class: (is_satellite ? "text-gray-400 hover:text-gray-200" : "bg-blue-600 text-white"), onclick: "setTrunkMode('reflector')"}
+                  %i.bi.bi-broadcast-pin.mr-1
+                  Reflector
+                %button.px-4.py-2.text-sm.font-semibold.cursor-pointer.transition-colors.border-l.border-gray-600{type: "button", id: "mode-btn-satellite", class: (is_satellite ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-200"), onclick: "setTrunkMode('satellite')"}
+                  %i.bi.bi-broadcast.mr-1
+                  Satellite
 
-            %h6.text-sm.font-semibold.text-gray-400.mb-3 Satellite Mode
-            .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
-              .mb-1
-                %label.block.text-sm.text-gray-500.mb-1 SATELLITE_OF (parent host)
-                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][SATELLITE_OF]", value: @config.global['SATELLITE_OF'], placeholder: "reflector-01.example.com"}
-              .mb-1
-                %label.block.text-sm.text-gray-500.mb-1 SATELLITE_PORT
-                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][SATELLITE_PORT]", value: @config.global['SATELLITE_PORT'], placeholder: "5303"}
-              .mb-1
-                %label.block.text-sm.text-gray-500.mb-1 SATELLITE_SECRET
-                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][SATELLITE_SECRET]", value: @config.global['SATELLITE_SECRET']}
-              .mb-1
-                %label.block.text-sm.text-gray-500.mb-1 SATELLITE_ID
-                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][SATELLITE_ID]", value: @config.global['SATELLITE_ID']}
+            -# ════════════════════════════════════════════════════════════════
+            -# REFLECTOR MODE sections
+            -# ════════════════════════════════════════════════════════════════
+            #trunk-mode-reflector{class: (is_satellite ? 'hidden' : nil)}
+              .p-2.rounded.border.text-xs.mb-4{class: "border-blue-700/50 text-blue-400 bg-blue-900/20"}
+                %i.bi.bi-info-circle.mr-1
+                Reflector mode: this instance owns talkgroups and can trunk with other reflectors. Configure your local TG prefix, cluster TGs, trunk peers, and optionally accept satellite connections.
 
-            %h6.text-sm.font-semibold.text-gray-400.mb-3 Satellite Server
-            .p-2.rounded.border.text-xs.mb-3{class: "border-blue-700/50 text-blue-400 bg-blue-900/20"}
-              %i.bi.bi-info-circle.mr-1
-              If this reflector accepts satellite connections, configure the listener here.
-            .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
-              .mb-1
-                %label.block.text-sm.text-gray-500.mb-1 LISTEN_PORT
-                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[satellite][LISTEN_PORT]", value: @config.satellite['LISTEN_PORT'], placeholder: "5303"}
-              .mb-1
-                %label.block.text-sm.text-gray-500.mb-1 SECRET
-                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[satellite][SECRET]", value: @config.satellite['SECRET']}
+              %h6.text-sm.font-semibold.text-gray-400.mb-3 TG Ownership
+              .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1
+                    LOCAL_PREFIX
+                    %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('LOCAL_PREFIX')", title: "Help"}
+                      %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][LOCAL_PREFIX]", value: @config.global['LOCAL_PREFIX'], placeholder: "e.g. 1,24"}
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1
+                    CLUSTER_TGS
+                    %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CLUSTER_TGS')", title: "Help"}
+                      %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][CLUSTER_TGS]", value: @config.global['CLUSTER_TGS'], placeholder: "e.g. 222,2221,91"}
 
-            %h6.text-sm.font-semibold.text-gray-400.mb-3 Trunk Peers
-            #trunk-peers.space-y-4
-              - @config.trunks.keys.sort.each do |trunk_name|
-                - trunk = @config.trunks[trunk_name]
-                .trunk-peer.border.border-gray-700.rounded-lg.p-4.relative
-                  %button.absolute.top-2.right-2.text-red-400.hover:text-red-300.cursor-pointer{type: "button", onclick: "confirmRemove(this, '.trunk-peer')"}
-                    %i.bi.bi-x-lg
-                  .grid.grid-cols-1.md:grid-cols-2.gap-3
-                    .col-span-1
-                      %label.block.text-sm.text-gray-500.mb-1 Section Name
-                      %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_names][]", value: trunk_name, placeholder: "TRUNK_2"}
-                    .col-span-1
-                      %label.block.text-sm.text-gray-500.mb-1 HOST
-                      %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_hosts][]", value: trunk['HOST']}
-                    .col-span-1
-                      %label.block.text-sm.text-gray-500.mb-1 PORT
-                      %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_ports][]", value: trunk['PORT'], placeholder: "5302"}
-                    .col-span-1
-                      %label.block.text-sm.text-gray-500.mb-1 SECRET
-                      %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_secrets][]", value: trunk['SECRET']}
-                    .col-span-2
-                      %label.block.text-sm.text-gray-500.mb-1 REMOTE_PREFIX (comma-separated)
-                      %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_remote_prefixes][]", value: trunk['REMOTE_PREFIX'], placeholder: "2,3"}
+              %h6.text-sm.font-semibold.text-gray-400.mb-3 Trunk Peers
+              #trunk-peers.space-y-4
+                - @config.trunks.keys.sort.each do |trunk_name|
+                  - trunk = @config.trunks[trunk_name]
+                  .trunk-peer.border.border-gray-700.rounded-lg.p-4.relative
+                    %button.absolute.top-2.right-2.text-red-400.hover:text-red-300.cursor-pointer{type: "button", onclick: "confirmRemove(this, '.trunk-peer')"}
+                      %i.bi.bi-x-lg
+                    .grid.grid-cols-1.md:grid-cols-2.gap-3
+                      .col-span-1
+                        %label.block.text-sm.text-gray-500.mb-1 Section Name
+                        %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_names][]", value: trunk_name, placeholder: "TRUNK_2"}
+                      .col-span-1
+                        %label.block.text-sm.text-gray-500.mb-1 HOST
+                        %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_hosts][]", value: trunk['HOST']}
+                      .col-span-1
+                        %label.block.text-sm.text-gray-500.mb-1 PORT
+                        %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_ports][]", value: trunk['PORT'], placeholder: "5302"}
+                      .col-span-1
+                        %label.block.text-sm.text-gray-500.mb-1 SECRET
+                        %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_secrets][]", value: trunk['SECRET']}
+                      .col-span-2
+                        %label.block.text-sm.text-gray-500.mb-1 REMOTE_PREFIX (comma-separated)
+                        %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_remote_prefixes][]", value: trunk['REMOTE_PREFIX'], placeholder: "2,3"}
+
+              %h6.text-sm.font-semibold.text-gray-400.mb-3.mt-4 Accept Satellite Connections
+              .p-2.rounded.border.text-xs.mb-3{class: "border-gray-700 text-ghmuted bg-ghbg"}
+                %i.bi.bi-info-circle.mr-1
+                Optional. Configure a listener so satellite instances can connect to this reflector.
+              .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1 LISTEN_PORT
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[satellite][LISTEN_PORT]", value: @config.satellite['LISTEN_PORT'], placeholder: "5303"}
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1 SECRET
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[satellite][SECRET]", value: @config.satellite['SECRET']}
+
+            -# ════════════════════════════════════════════════════════════════
+            -# SATELLITE MODE sections
+            -# ════════════════════════════════════════════════════════════════
+            #trunk-mode-satellite{class: (is_satellite ? nil : 'hidden')}
+              .p-2.rounded.border.text-xs.mb-4{class: "border-purple-700/50 text-purple-300 bg-purple-900/20"}
+                %i.bi.bi-info-circle.mr-1
+                Satellite mode: this instance connects to a parent reflector and relays traffic. It does not own talkgroups, manage trunk peers, or accept satellite connections. Only configure the parent connection below.
+
+              %h6.text-sm.font-semibold.text-gray-400.mb-3 Parent Reflector Connection
+              .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1 SATELLITE_OF (parent host)
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][SATELLITE_OF]", value: @config.global['SATELLITE_OF'], placeholder: "reflector-01.example.com", id: "satellite-of-input"}
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1 SATELLITE_PORT
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][SATELLITE_PORT]", value: @config.global['SATELLITE_PORT'], placeholder: "5303"}
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1 SATELLITE_SECRET
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][SATELLITE_SECRET]", value: @config.global['SATELLITE_SECRET']}
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1 SATELLITE_ID
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][SATELLITE_ID]", value: @config.global['SATELLITE_ID']}
 
         -# ── 2. Certificates (collapsed) ──
         .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
@@ -689,6 +717,30 @@
         syncGroupSelects();
         var body = document.getElementById('body-passwords');
         if (!body.classList.contains('open')) toggleSection('passwords');
+      }
+
+      function setTrunkMode(mode) {
+        var refPanel = document.getElementById('trunk-mode-reflector');
+        var satPanel = document.getElementById('trunk-mode-satellite');
+        var refBtn = document.getElementById('mode-btn-reflector');
+        var satBtn = document.getElementById('mode-btn-satellite');
+        var addBtn = document.getElementById('btn-trunking');
+        if (mode === 'satellite') {
+          refPanel.classList.add('hidden');
+          satPanel.classList.remove('hidden');
+          refBtn.className = 'px-4 py-2 text-sm font-semibold cursor-pointer transition-colors text-gray-400 hover:text-gray-200';
+          satBtn.className = 'px-4 py-2 text-sm font-semibold cursor-pointer transition-colors border-l border-gray-600 bg-purple-600 text-white';
+          if (addBtn) { addBtn.style.display = 'none'; }
+        } else {
+          refPanel.classList.remove('hidden');
+          satPanel.classList.add('hidden');
+          refBtn.className = 'px-4 py-2 text-sm font-semibold cursor-pointer transition-colors bg-blue-600 text-white';
+          satBtn.className = 'px-4 py-2 text-sm font-semibold cursor-pointer transition-colors border-l border-gray-600 text-gray-400 hover:text-gray-200';
+          if (addBtn) { addBtn.style.display = ''; }
+          // Clear satellite fields when switching to reflector
+          var satOf = document.getElementById('satellite-of-input');
+          if (satOf) satOf.value = '';
+        }
       }
 
       function addTrunkPeer() {

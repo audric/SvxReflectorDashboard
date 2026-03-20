@@ -326,6 +326,7 @@ module Admin
 
       config.save
       restart_svxreflector
+      refresh_reflector_config_cache
       redirect_to edit_admin_reflector_path, notice: "Configuration saved and svxreflector restarted."
     end
     private
@@ -335,6 +336,29 @@ module Admin
       return if performed?
       unless current_user.reflector_admin?
         redirect_to root_path, alert: "Reflector admin access required"
+      end
+    end
+
+    # After saving config and restarting the reflector, immediately refresh
+    # the cached /config so the UI reflects the new mode without waiting for
+    # the updater's 60-second poll cycle.
+    def refresh_reflector_config_cache
+      status_url = Setting.get('reflector_status_url', ENV.fetch('REFLECTOR_STATUS_URL', 'http://svxreflector:8080/status'))
+      uri = URI.parse(status_url)
+      uri.path = '/config'
+      # Give the reflector a moment to restart before fetching
+      Thread.new do
+        sleep 6
+        begin
+          res = Net::HTTP.get_response(uri)
+          if res.is_a?(Net::HTTPSuccess)
+            redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
+            redis.set('reflector:config', res.body)
+            Rails.logger.info "[ReflectorConfig] Refreshed /config cache after save"
+          end
+        rescue => e
+          Rails.logger.warn "[ReflectorConfig] /config cache refresh failed: #{e.message}"
+        end
       end
     end
 
