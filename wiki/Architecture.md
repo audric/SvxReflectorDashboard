@@ -124,6 +124,108 @@ Browser mic → MediaStreamTrackProcessor → Opus encoder
 | `web_node_info` | Hash | Per-callsign browser metadata for web listeners |
 | `dstar_rx:<callsign>` | String (JSON) | D-STAR RX metadata from XLX bridges (MYCALL, suffix, slow data text). Set with 30s TTL on voice start, updated with decoded text each superframe, deleted on stream end. |
 
+## GeuReflector extensions
+
+The dashboard is built on [GeuReflector](https://github.com/audric/geureflector), a drop-in replacement for SVXReflector that adds server-to-server networking. It is 100% backward-compatible — the dashboard works with vanilla SVXReflector too (trunk/satellite features simply remain empty).
+
+### Trunking
+
+Trunk links are persistent TCP connections between independent reflector instances that share talkgroups as parallel voice channels. SvxLink client nodes connect normally and are unaware of the trunk.
+
+```
+                     ┌────────────────┐
+                     │  TRUNK_2       │
+  Reflector A        │  Host: B       │        Reflector B
+  LOCAL_PREFIX=1     │  Port: 5302    │        LOCAL_PREFIX=2
+  ┌──────────┐       │  Secret: ***   │       ┌──────────┐
+  │ TG 1xx   │◄─────►│  REMOTE_PFX=2 │◄─────►│ TG 2xx   │
+  │ nodes    │       └────────────────┘       │ nodes    │
+  └──────────┘                                └──────────┘
+       │              CLUSTER_TGS=222               │
+       └──────────── TG 222 broadcasts ────────────►┘
+                     to ALL peers
+```
+
+TG ownership is prefix-based: `LOCAL_PREFIX=1` means this reflector owns TGs starting with `1` (1, 10, 100, 1234…). Each peer gets a `[TRUNK_x]` config section with `HOST`, `PORT`, `SECRET`, `REMOTE_PREFIX`.
+
+**Cluster TGs** (`CLUSTER_TGS=222,2221,91`) are broadcast to all trunk peers regardless of prefix ownership — network-wide channels like BrandMeister nationwide groups.
+
+### Satellites
+
+Satellites are lightweight relay instances that connect to a parent reflector instead of joining the full mesh. The parent always wins talker arbitration.
+
+```
+  Parent reflector                     Satellite
+  ┌──────────┐         TCP 5303        ┌──────────┐
+  │ [SATELLITE]│◄──────────────────────│ SATELLITE_OF=parent │
+  │ PORT=5303  │     authenticated      │ SATELLITE_ID=sat-1 │
+  │ SECRET=*** │                        │ SATELLITE_SECRET=** │
+  └──────────┘                         └──────────┘
+```
+
+Config: `SATELLITE_OF`, `SATELLITE_PORT`, `SATELLITE_SECRET`, `SATELLITE_ID` in `[GLOBAL]` on the satellite side. `[SATELLITE]` section with `LISTEN_PORT` and `SECRET` on the parent side.
+
+### Mode detection
+
+The poller fetches the `/config` endpoint every 60 seconds and caches the result in Redis at `reflector:config`. The `mode` field (`"reflector"` or `"satellite"`) drives the mode-aware UI — satellite mode hides trunk management and shows the parent connection status instead.
+
+### Status API extensions
+
+GeuReflector's `/status` response adds three top-level keys alongside `nodes`:
+
+```json
+{
+  "nodes": { ... },
+  "trunks": {
+    "TRUNK_2": {
+      "host": "reflector-b.example.com",
+      "port": 5302,
+      "connected": true,
+      "local_prefix": ["1"],
+      "remote_prefix": ["2"],
+      "active_talkers": { "222": "IW1GEU" }
+    }
+  },
+  "cluster_tgs": [222, 2221, 91],
+  "satellites": {
+    "my-sat": {
+      "id": "my-sat",
+      "authenticated": true,
+      "active_tgs": [1, 100]
+    }
+  }
+}
+```
+
+The `/config` endpoint returns static topology:
+
+```json
+{
+  "mode": "reflector",
+  "local_prefix": ["1"],
+  "cluster_tgs": [222, 2221, 91],
+  "listen_port": "5300",
+  "http_port": "8080",
+  "trunks": {
+    "TRUNK_2": { "host": "...", "port": 5302, "remote_prefix": ["2"] }
+  },
+  "satellite_server": { "listen_port": "5303", "connected_count": 2 }
+}
+```
+
+### Dashboard integration
+
+The poller caches all extended data in Redis and broadcasts changes via ActionCable. The dashboard renders:
+
+- **Trunk status panel** — connected/disconnected indicator per peer, active remote talkers with TG
+- **Satellite panel** — authenticated status, active TGs per satellite
+- **Cluster TG badges** — visual indicators distinguishing cluster-wide TGs from local/remote
+- **Map trunk info** — connection status overlay control
+- **Stats** — per-trunk traffic rankings, cluster TG usage analytics
+- **Navbar SAT badge** — visible when running in satellite mode
+
+All panels are conditionally rendered — they stay hidden when running vanilla SVXReflector or when no trunks/satellites are configured.
+
 ## Web listener node enrichment
 
 When a browser connects to the audio bridge, it sends metadata (browser name, version, geolocation, sysop name) via ActionCable. This metadata is stored in the `web_node_info` Redis hash. On each poll cycle, `ReflectorListener` merges this metadata into the reflector snapshot so web listener cards display the same info as real radio nodes.
