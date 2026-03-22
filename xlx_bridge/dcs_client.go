@@ -147,6 +147,13 @@ func (c *DCSClient) StartTX() {
 	log.Printf("[DCS] TX started (stream %04X)", c.txStreamID)
 }
 
+// TXStreamID returns the current outgoing stream ID (used to filter self-echo).
+func (c *DCSClient) TXStreamID() uint16 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.txStreamID
+}
+
 // rptCallsign returns the 8-char RPT field: reflector name (7 chars, space-padded) + module.
 // e.g. "XLX585" + 'A' → "XLX585 A"
 func (c *DCSClient) rptCallsign() string {
@@ -261,10 +268,13 @@ func (c *DCSClient) RunReader() {
 				continue
 			}
 
-			// Skip our own transmissions
+			// Skip our own transmissions (by callsign or by stream ID echo)
 			myCS := strings.TrimSpace(c.callsign)
 			srcCS := strings.TrimSpace(frame.MYCall)
 			if strings.EqualFold(myCS, srcCS) {
+				continue
+			}
+			if txSID := c.TXStreamID(); txSID != 0 && frame.StreamID == txSID {
 				continue
 			}
 

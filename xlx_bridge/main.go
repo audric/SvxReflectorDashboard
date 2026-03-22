@@ -132,6 +132,9 @@ func runBridge(
 		// AGC instances for each direction
 		agcSvxToXlx = NewAGC()
 		agcXlxToSvx = NewAGC()
+		// Safety timer: auto-reset xlxTalking if no DCS frames for 2s
+		// (protects against lost last-frame over UDP)
+		xlxTalkTimer *time.Timer
 	)
 
 	// --- Redis client for D-STAR RX metadata ---
@@ -293,8 +296,27 @@ func runBridge(
 					log.Printf("[Redis] SETEX error: %v", err)
 				}
 			}
+
+			// Start safety timer for this stream
+			if xlxTalkTimer != nil {
+				xlxTalkTimer.Stop()
+			}
+			xlxTalkTimer = time.AfterFunc(2*time.Second, func() {
+				xlxTalkMu.Lock()
+				if xlxTalking {
+					log.Printf("[XLX→SVX] Talk timeout — resetting xlxTalking (last frame likely lost)")
+					xlxTalking = false
+					xlxCurrentStream = 0
+				}
+				xlxTalkMu.Unlock()
+			})
 		} else {
 			xlxTalkMu.Unlock()
+		}
+
+		// Reset safety timer on every frame (keeps it alive during active stream)
+		if xlxTalkTimer != nil {
+			xlxTalkTimer.Reset(2 * time.Second)
 		}
 
 		// Feed slow data to decoder (every frame except last)
@@ -317,8 +339,13 @@ func runBridge(
 
 		// Last frame = end of transmission
 		if frame.IsLastFrame() {
+			if xlxTalkTimer != nil {
+				xlxTalkTimer.Stop()
+			}
+
 			xlxTalkMu.Lock()
 			xlxTalking = false
+			xlxCurrentStream = 0
 			xlxTalkMu.Unlock()
 
 			log.Printf("[XLX→SVX] Voice end (stream %04X)", frame.StreamID)
