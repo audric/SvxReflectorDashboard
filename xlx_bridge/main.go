@@ -166,6 +166,15 @@ func runBridge(
 	// OPUS → PCM → AMBE (one frame at a time via DCS)
 	var svxAudioDropped uint64
 	svx.SetAudioCallback(func(opusFrame []byte) {
+		// Don't process audio until TalkerStart has fired and StartTX is called
+		// (UDP audio can arrive before the TCP TalkerStart message)
+		svxTalkMu.Lock()
+		if !svxTalking {
+			svxTalkMu.Unlock()
+			return
+		}
+		svxTalkMu.Unlock()
+
 		xlxTalkMu.Lock()
 		if xlxTalking {
 			xlxTalkMu.Unlock()

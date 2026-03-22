@@ -188,6 +188,10 @@ func (c *DCSClient) SendVoice(ambe [9]byte) error {
 	rpt := c.rptCallsign()
 
 	pkt := BuildDCSVoice(rpt, rpt, "CQCQCQ", mycall, c.mycallSuffix, streamID, byte(frameID), ambe, slowData, seq)
+	if seq == 0 {
+		log.Printf("[DCS] TX first frame: RPT=%q MY=%q/%q stream=%04X pkt[0:62]: % X",
+			rpt, mycall, c.mycallSuffix, streamID, pkt[:62])
+	}
 	_, err := c.conn.Write(pkt)
 	return err
 }
