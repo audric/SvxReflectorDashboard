@@ -165,16 +165,8 @@ func runBridge(
 	// --- SVXReflector → XLX audio path ---
 	// OPUS → PCM → AMBE (one frame at a time via DCS)
 	var svxAudioDropped uint64
+	var svxAudioProcessed uint64
 	svx.SetAudioCallback(func(opusFrame []byte) {
-		// Don't process audio until TalkerStart has fired and StartTX is called
-		// (UDP audio can arrive before the TCP TalkerStart message)
-		svxTalkMu.Lock()
-		if !svxTalking {
-			svxTalkMu.Unlock()
-			return
-		}
-		svxTalkMu.Unlock()
-
 		xlxTalkMu.Lock()
 		if xlxTalking {
 			xlxTalkMu.Unlock()
@@ -190,10 +182,18 @@ func runBridge(
 		pcm := make([]int16, 960)
 		n, err := opusDec.Decode(opusFrame, pcm)
 		if err != nil {
-			log.Printf("[SVX→XLX] OPUS decode error: %v", err)
+			log.Printf("[SVX→XLX] OPUS decode error: %v (frame %d bytes)", err, len(opusFrame))
+			return
+		}
+		if n == 0 {
+			log.Printf("[SVX→XLX] OPUS decode returned 0 samples (frame %d bytes)", len(opusFrame))
 			return
 		}
 		pcm = pcm[:n]
+		svxAudioProcessed++
+		if svxAudioProcessed <= 3 {
+			log.Printf("[SVX→XLX] OPUS decoded: %d samples from %d bytes", n, len(opusFrame))
+		}
 
 		// Normalize audio level before AMBE encoding
 		agcSvxToXlx.Process(pcm)
@@ -228,6 +228,7 @@ func runBridge(
 		svxTalkMu.Unlock()
 
 		log.Printf("[SVX→XLX] Talker start: %s on TG %d", cs, tg)
+		svxAudioProcessed = 0
 
 		agcSvxToXlx.Reset()
 		ambeBufMu.Lock()
