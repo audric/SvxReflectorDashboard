@@ -119,10 +119,11 @@ func runBridge(
 ) error {
 
 	var (
-		svxTalking bool
-		xlxTalking bool
-		svxTalkMu  sync.Mutex
-		xlxTalkMu  sync.Mutex
+		svxTalking    bool
+		svxTalkStopAt time.Time // when svxTalking last went false (echo grace window)
+		xlxTalking    bool
+		svxTalkMu     sync.Mutex
+		xlxTalkMu     sync.Mutex
 		// Buffer PCM samples for AMBE encoding (one frame = 160 samples = 20ms)
 		ambeBuffer []int16
 		ambeBufMu  sync.Mutex
@@ -163,13 +164,19 @@ func runBridge(
 
 	// --- SVXReflector → XLX audio path ---
 	// OPUS → PCM → AMBE (one frame at a time via DCS)
+	var svxAudioDropped uint64
 	svx.SetAudioCallback(func(opusFrame []byte) {
 		xlxTalkMu.Lock()
 		if xlxTalking {
 			xlxTalkMu.Unlock()
+			svxAudioDropped++
+			if svxAudioDropped == 1 || svxAudioDropped%50 == 0 {
+				log.Printf("[SVX→XLX] Audio dropped (xlxTalking=true), total=%d", svxAudioDropped)
+			}
 			return
 		}
 		xlxTalkMu.Unlock()
+		svxAudioDropped = 0
 
 		pcm := make([]int16, 960)
 		n, err := opusDec.Decode(opusFrame, pcm)
@@ -230,6 +237,7 @@ func runBridge(
 
 		svxTalkMu.Lock()
 		svxTalking = false
+		svxTalkStopAt = time.Now()
 		svxTalkMu.Unlock()
 
 		log.Printf("[SVX→XLX] Talker stop: %s", cs)
@@ -263,15 +271,25 @@ func runBridge(
 
 	dcs.SetVoiceCallback(func(frame *DCSVoiceFrame) {
 		svxTalkMu.Lock()
-		if svxTalking {
-			svxTalkMu.Unlock()
+		isSvxTalking := svxTalking
+		echoGrace := !svxTalking && !svxTalkStopAt.IsZero() && time.Since(svxTalkStopAt) < 3*time.Second
+		svxTalkMu.Unlock()
+
+		if isSvxTalking {
 			return
 		}
-		svxTalkMu.Unlock()
 
 		// Track stream changes
 		xlxTalkMu.Lock()
 		if frame.StreamID != xlxCurrentStream {
+			// Ignore new DCS streams that arrive shortly after our own SVX→XLX TX
+			// ended — these are XLX echo frames with a potentially different stream ID.
+			if echoGrace {
+				xlxTalkMu.Unlock()
+				log.Printf("[XLX→SVX] Ignoring echo stream %04X (within 3s of SVX TX stop)", frame.StreamID)
+				return
+			}
+
 			xlxCurrentStream = frame.StreamID
 			xlxTalking = true
 			xlxTalkMu.Unlock()
