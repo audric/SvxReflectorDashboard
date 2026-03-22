@@ -33,6 +33,9 @@ type DCSClient struct {
 	// Callbacks
 	onVoiceFrame func(frame *DCSVoiceFrame)
 
+	// Diagnostic: last RX stream ID logged (to log first frame of each stream)
+	lastRxLogStream uint16
+
 	done   chan struct{}
 	mu     sync.Mutex
 	closed bool
@@ -270,6 +273,15 @@ func (c *DCSClient) RunReader() {
 			frame := ParseDCSVoice(data)
 			if frame == nil {
 				continue
+			}
+
+			// Log first frame of each new stream for format comparison
+			if frame.StreamID != c.lastRxLogStream {
+				c.lastRxLogStream = frame.StreamID
+				log.Printf("[DCS] RX first voice: RPT=%q/%q MY=%q/%q stream=%04X pkt[0:62]: % X",
+					strings.TrimSpace(frame.RPT2), strings.TrimSpace(frame.RPT1),
+					strings.TrimSpace(frame.MYCall), strings.TrimSpace(frame.MYSuffix),
+					frame.StreamID, data[:62])
 			}
 
 			// Skip our own transmissions (by callsign or by stream ID echo)
