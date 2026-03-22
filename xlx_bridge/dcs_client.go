@@ -157,10 +157,16 @@ func (c *DCSClient) TXStreamID() uint16 {
 	return c.txStreamID
 }
 
-// rptCallsign returns the 8-char RPT field: reflector name (7 chars, space-padded) + module.
-// e.g. "XLX585" + 'A' → "XLX585 A"
-func (c *DCSClient) rptCallsign() string {
+// rptReflector returns the 8-char RPT2 field (destination): reflector name + module.
+// e.g. "DCS585" + 'A' → "DCS585 A"
+func (c *DCSClient) rptReflector() string {
 	return string(padCallsign(c.reflectorName, 7)) + string(c.module)
+}
+
+// rptGateway returns the 8-char RPT1 field (source gateway): client callsign.
+// e.g. "SVX585 A"
+func (c *DCSClient) rptGateway() string {
+	return string(padCallsign(c.callsign, 8))
 }
 
 // SendVoice sends a single AMBE voice frame.
@@ -193,12 +199,13 @@ func (c *DCSClient) SendVoice(ambe [9]byte) error {
 		slowData = dvSlowDataSync
 	}
 
-	rpt := c.rptCallsign()
+	rpt2 := c.rptReflector() // destination: reflector module
+	rpt1 := c.rptGateway()   // source: our client callsign
 
-	pkt := BuildDCSVoice(rpt, rpt, "CQCQCQ", mycall, c.mycallSuffix, streamID, byte(frameID), ambe, slowData, seq)
+	pkt := BuildDCSVoice(rpt2, rpt1, "CQCQCQ", mycall, c.mycallSuffix, streamID, byte(frameID), ambe, slowData, seq)
 	if seq == 0 {
-		log.Printf("[DCS] TX first frame: RPT=%q MY=%q/%q stream=%04X pkt[0:62]: % X",
-			rpt, mycall, c.mycallSuffix, streamID, pkt[:62])
+		log.Printf("[DCS] TX first frame: RPT2=%q RPT1=%q MY=%q/%q stream=%04X pkt[0:62]: % X",
+			rpt2, rpt1, mycall, c.mycallSuffix, streamID, pkt[:62])
 	}
 	_, err := c.conn.Write(pkt)
 	return err
@@ -221,11 +228,12 @@ func (c *DCSClient) StopTX() error {
 		mycall = c.mycall
 	}
 
-	rpt := c.rptCallsign()
+	rpt2 := c.rptReflector()
+	rpt1 := c.rptGateway()
 
 	// Last frame: packetID has bit 6 set, AMBE is silence
 	packetID := byte(0x40) // last frame flag
-	pkt := BuildDCSVoice(rpt, rpt, "CQCQCQ", mycall, c.mycallSuffix, streamID, packetID, dstarSilenceAMBE, [3]byte{}, seq)
+	pkt := BuildDCSVoice(rpt2, rpt1, "CQCQCQ", mycall, c.mycallSuffix, streamID, packetID, dstarSilenceAMBE, [3]byte{}, seq)
 	_, err := c.conn.Write(pkt)
 	if err != nil {
 		return err
