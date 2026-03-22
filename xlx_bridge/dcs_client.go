@@ -164,9 +164,14 @@ func (c *DCSClient) rptCallsign() string {
 }
 
 // SendVoice sends a single AMBE voice frame.
+// Returns nil without sending if no TX session is active (StartTX not called).
 func (c *DCSClient) SendVoice(ambe [9]byte) error {
 	c.mu.Lock()
 	streamID := c.txStreamID
+	if streamID == 0 {
+		c.mu.Unlock()
+		return nil // no active TX — drop frame (audio arrived before StartTX)
+	}
 	seq := c.txSeq
 	c.txSeq++
 	frameID := c.txFrameID
@@ -206,9 +211,10 @@ func (c *DCSClient) StopTX() error {
 	seq := c.txSeq
 	c.txSeq++
 	mycall := c.txMycall
-	// Clear TX origin for next transmission
+	// Clear TX state for next transmission
 	c.txMycall = ""
 	c.txSlowData = nil
+	c.txStreamID = 0 // mark TX inactive so SendVoice won't send stale frames
 	c.mu.Unlock()
 
 	if mycall == "" {
