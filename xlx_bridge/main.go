@@ -279,7 +279,16 @@ func runBridge(
 	var slowDecoder SlowDataDecoder
 	var lastSlowText string
 
+	var lastRxLogStream uint16
 	dcs.SetVoiceCallback(func(frame *DCSVoiceFrame) {
+		// Log first frame of each RX stream for format comparison with TX
+		if frame.StreamID != lastRxLogStream {
+			lastRxLogStream = frame.StreamID
+			log.Printf("[DCS] RX voice: MY=%q/%q RPT=%q stream=%04X AMBE=% X",
+				strings.TrimSpace(frame.MYCall), strings.TrimSpace(frame.MYSuffix),
+				strings.TrimSpace(frame.RPT1), frame.StreamID, frame.AMBE)
+		}
+
 		svxTalkMu.Lock()
 		isSvxTalking := svxTalking
 		echoGrace := !svxTalking && !svxTalkStopAt.IsZero() && time.Since(svxTalkStopAt) < 3*time.Second
