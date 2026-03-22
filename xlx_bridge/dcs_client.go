@@ -254,6 +254,7 @@ func (c *DCSClient) RunReader() {
 	}()
 
 	missedPings := 0
+	rxVoiceLogged := false
 	buf := make([]byte, 1024)
 	for {
 		c.conn.SetReadDeadline(time.Now().Add(30 * time.Second))
@@ -284,18 +285,14 @@ func (c *DCSClient) RunReader() {
 
 		// Voice frame (100 bytes, starts with "0001")
 		if n >= DCSVoiceSize && string(data[0:4]) == "0001" {
+			if !rxVoiceLogged {
+				rxVoiceLogged = true
+				log.Printf("[DCS] RX raw voice pkt[0:62]: % X", data[:62])
+			}
+
 			frame := ParseDCSVoice(data)
 			if frame == nil {
 				continue
-			}
-
-			// Log first frame of each new stream for format comparison
-			if frame.StreamID != c.lastRxLogStream {
-				c.lastRxLogStream = frame.StreamID
-				log.Printf("[DCS] RX first voice: RPT=%q/%q MY=%q/%q stream=%04X pkt[0:62]: % X",
-					strings.TrimSpace(frame.RPT2), strings.TrimSpace(frame.RPT1),
-					strings.TrimSpace(frame.MYCall), strings.TrimSpace(frame.MYSuffix),
-					frame.StreamID, data[:62])
 			}
 
 			// Skip our own transmissions (by callsign or by stream ID echo)
