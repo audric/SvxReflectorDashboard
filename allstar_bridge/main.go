@@ -114,13 +114,23 @@ func runBridge(
 		// AGC
 		agcSvxToAs = NewAGC()
 		agcAsToSvx = NewAGC()
+		// Mutex-protected IAX client — nil when AllStar is disconnected
+		iaxMu      sync.Mutex
+		currentIAX *IAX2Client
+
+		asStreamActive bool
 	)
+
+	getIAX := func() *IAX2Client {
+		iaxMu.Lock()
+		defer iaxMu.Unlock()
+		return currentIAX
+	}
 
 	svx := NewSVXLinkClient(svxHost, svxPort, svxAuthKey, callsign, nodeLocation, sysop)
 	svx.SetExtraNodeInfo(map[string]interface{}{
 		"remoteHost": asServer,
 	})
-	iax := NewIAX2Client(asServer, asPort, asNode, asPassword, asServer, callsign)
 
 	// --- SVXReflector → AllStar audio path ---
 	// OPUS → PCM → ulaw → IAX2 mini frames
@@ -131,6 +141,11 @@ func runBridge(
 			return
 		}
 		asTalkMu.Unlock()
+
+		iax := getIAX()
+		if iax == nil {
+			return // AllStar not connected, drop audio
+		}
 
 		pcm := make([]int16, 960)
 		n, err := opusDec.Decode(opusFrame, pcm)
@@ -176,7 +191,9 @@ func runBridge(
 		ulawBuffer = ulawBuffer[:0]
 		ulawBufMu.Unlock()
 
-		iax.SendKey()
+		if iax := getIAX(); iax != nil {
+			iax.SendKey()
+		}
 	})
 
 	svx.SetTalkerStopCallback(func(tg uint32, cs string) {
@@ -190,6 +207,8 @@ func runBridge(
 
 		log.Printf("[SVX→AS] Talker stop: %s", cs)
 
+		iax := getIAX()
+
 		// Flush remaining buffer
 		ulawBufMu.Lock()
 		if len(ulawBuffer) > 0 {
@@ -200,72 +219,19 @@ func runBridge(
 			ulawBuffer = ulawBuffer[:0]
 			ulawBufMu.Unlock()
 			ulaw := PCMToUlaw(chunk)
-			iax.SendAudio(ulaw)
+			if iax != nil {
+				iax.SendAudio(ulaw)
+			}
 		} else {
 			ulawBufMu.Unlock()
 		}
 
-		iax.SendUnkey()
-	})
-
-	// --- AllStar → SVXReflector audio path ---
-	// ulaw → PCM → OPUS
-	var asStreamActive bool
-
-	iax.SetAudioCallback(func(pcm []int16) {
-		svxTalkMu.Lock()
-		if svxTalking {
-			svxTalkMu.Unlock()
-			return
-		}
-		svxTalkMu.Unlock()
-
-		// Detect new transmission (first audio after silence)
-		asTalkMu.Lock()
-		if !asStreamActive {
-			asStreamActive = true
-			asTalking = true
-			asTalkMu.Unlock()
-
-			log.Printf("[AS→SVX] Voice from AllStar node %s", asNode)
-			svx.SendTalkerStart(svxTG, callsign)
-			agcAsToSvx.Reset()
-
-			pcmBufMu.Lock()
-			pcmBuffer = pcmBuffer[:0]
-			pcmBufMu.Unlock()
-		} else {
-			asTalkMu.Unlock()
-		}
-
-		agcAsToSvx.Process(pcm)
-
-		pcmBufMu.Lock()
-		pcmBuffer = append(pcmBuffer, pcm...)
-
-		// Encode to OPUS in 60ms chunks (480 samples)
-		if len(pcmBuffer) >= 480 {
-			samples := make([]int16, 480)
-			copy(samples, pcmBuffer[:480])
-			pcmBuffer = pcmBuffer[480:]
-			pcmBufMu.Unlock()
-
-			opusBuf := make([]byte, 256)
-			n, err := opusEnc.Encode(samples, opusBuf)
-			if err != nil {
-				log.Printf("[AS→SVX] OPUS encode error: %v", err)
-				return
-			}
-
-			if err := svx.SendAudio(opusBuf[:n]); err != nil {
-				log.Printf("[AS→SVX] SendAudio error: %v", err)
-			}
-		} else {
-			pcmBufMu.Unlock()
+		if iax != nil {
+			iax.SendUnkey()
 		}
 	})
 
-	// --- Connect both sides ---
+	// --- Connect SVX (stable connection, stays alive across AllStar reconnects) ---
 	if err := svx.Connect(); err != nil {
 		return fmt.Errorf("SVX connect: %w", err)
 	}
@@ -274,98 +240,204 @@ func runBridge(
 		return fmt.Errorf("SVX SelectTG: %w", err)
 	}
 
-	if err := iax.Connect(); err != nil {
-		svx.Close()
-		return fmt.Errorf("AllStar connect: %w", err)
-	}
-
-	// --- Start background goroutines ---
 	go svx.RunTCPReader()
 	go svx.RunTCPHeartbeat()
 	go svx.RunUDPReader()
 	go svx.RunUDPHeartbeat()
-	go iax.RunReader()
 
-	// Silence detection for AllStar → SVX direction
-	// AllStar doesn't send explicit end-of-transmission markers via audio,
-	// but KEY/UNKEY control frames are handled in the reader.
-	// For audio-based detection: if no audio for 1 second, consider TX ended.
-	go func() {
-		ticker := time.NewTicker(500 * time.Millisecond)
-		defer ticker.Stop()
-		lastAudioTime := time.Now()
-		for {
-			select {
-			case <-ticker.C:
-			case <-sigCh:
+	log.Printf("SVX connected on TG %d, starting AllStar connection loop...", svxTG)
+
+	// --- AllStar reconnect loop (SVX stays connected) ---
+	asBackoff := 2 * time.Second
+	maxAsBackoff := time.Minute
+
+	for {
+		iax := NewIAX2Client(asServer, asPort, asNode, asPassword, asServer, callsign)
+
+		// AllStar → SVXReflector audio path (ulaw → PCM → OPUS)
+		iax.SetAudioCallback(func(pcm []int16) {
+			svxTalkMu.Lock()
+			if svxTalking {
+				svxTalkMu.Unlock()
 				return
 			}
+			svxTalkMu.Unlock()
 
+			// Detect new transmission (first audio after silence)
 			asTalkMu.Lock()
-			active := asStreamActive
-			asTalkMu.Unlock()
+			if !asStreamActive {
+				asStreamActive = true
+				asTalking = true
+				asTalkMu.Unlock()
 
-			if !active {
-				lastAudioTime = time.Now()
-				continue
+				log.Printf("[AS→SVX] Voice from AllStar node %s", asNode)
+				svx.SendTalkerStart(svxTG, callsign)
+				agcAsToSvx.Reset()
+
+				pcmBufMu.Lock()
+				pcmBuffer = pcmBuffer[:0]
+				pcmBufMu.Unlock()
+			} else {
+				asTalkMu.Unlock()
 			}
 
-			pcmBufMu.Lock()
-			bufLen := len(pcmBuffer)
-			pcmBufMu.Unlock()
+			agcAsToSvx.Process(pcm)
 
-			if bufLen > 0 {
-				lastAudioTime = time.Now()
-			} else if time.Since(lastAudioTime) > 1*time.Second {
+			pcmBufMu.Lock()
+			pcmBuffer = append(pcmBuffer, pcm...)
+
+			// Encode to OPUS in 60ms chunks (480 samples)
+			if len(pcmBuffer) >= 480 {
+				samples := make([]int16, 480)
+				copy(samples, pcmBuffer[:480])
+				pcmBuffer = pcmBuffer[480:]
+				pcmBufMu.Unlock()
+
+				opusBuf := make([]byte, 256)
+				n, err := opusEnc.Encode(samples, opusBuf)
+				if err != nil {
+					log.Printf("[AS→SVX] OPUS encode error: %v", err)
+					return
+				}
+
+				if err := svx.SendAudio(opusBuf[:n]); err != nil {
+					log.Printf("[AS→SVX] SendAudio error: %v", err)
+				}
+			} else {
+				pcmBufMu.Unlock()
+			}
+		})
+
+		if err := iax.Connect(); err != nil {
+			log.Printf("[AllStar] Connect failed: %v", err)
+		} else {
+			iaxMu.Lock()
+			currentIAX = iax
+			iaxMu.Unlock()
+
+			go iax.RunReader()
+
+			// Start silence detection for this AllStar session
+			stopSilence := make(chan struct{})
+			go func() {
+				ticker := time.NewTicker(500 * time.Millisecond)
+				defer ticker.Stop()
+				lastAudioTime := time.Now()
+				for {
+					select {
+					case <-ticker.C:
+					case <-stopSilence:
+						return
+					}
+
+					asTalkMu.Lock()
+					active := asStreamActive
+					asTalkMu.Unlock()
+
+					if !active {
+						lastAudioTime = time.Now()
+						continue
+					}
+
+					pcmBufMu.Lock()
+					bufLen := len(pcmBuffer)
+					pcmBufMu.Unlock()
+
+					if bufLen > 0 {
+						lastAudioTime = time.Now()
+					} else if time.Since(lastAudioTime) > 1*time.Second {
+						asTalkMu.Lock()
+						asStreamActive = false
+						asTalking = false
+						asTalkMu.Unlock()
+
+						log.Println("[AS→SVX] Voice end (silence timeout)")
+
+						pcmBufMu.Lock()
+						if len(pcmBuffer) > 0 {
+							samples := pcmBuffer
+							pcmBuffer = nil
+							pcmBufMu.Unlock()
+							for len(samples) < 480 {
+								samples = append(samples, 0)
+							}
+							opusBuf := make([]byte, 256)
+							n, err := opusEnc.Encode(samples[:480], opusBuf)
+							if err == nil {
+								svx.SendAudio(opusBuf[:n])
+							}
+						} else {
+							pcmBufMu.Unlock()
+						}
+
+						svx.SendTalkerStop(svxTG, callsign)
+					}
+				}
+			}()
+
+			asBackoff = 2 * time.Second // reset on successful connect
+			log.Printf("Bridge active: SVX TG %d ↔ AllStar node %s", svxTG, asNode)
+
+			// Wait for either side to drop or shutdown
+			select {
+			case <-svx.Done():
+				close(stopSilence)
+				iaxMu.Lock()
+				currentIAX = nil
+				iaxMu.Unlock()
+				iax.Close()
+				return fmt.Errorf("SVX connection lost")
+
+			case <-iax.Done():
+				close(stopSilence)
+				log.Println("[AllStar] Connection lost, reconnecting (SVX stays connected)...")
+				iaxMu.Lock()
+				currentIAX = nil
+				iaxMu.Unlock()
+				iax.Close()
+
+				// Reset AllStar-related state
 				asTalkMu.Lock()
 				asStreamActive = false
 				asTalking = false
 				asTalkMu.Unlock()
-
-				log.Println("[AS→SVX] Voice end (silence timeout)")
-
+				ulawBufMu.Lock()
+				ulawBuffer = ulawBuffer[:0]
+				ulawBufMu.Unlock()
 				pcmBufMu.Lock()
-				if len(pcmBuffer) > 0 {
-					samples := pcmBuffer
-					pcmBuffer = nil
-					pcmBufMu.Unlock()
-					for len(samples) < 480 {
-						samples = append(samples, 0)
-					}
-					opusBuf := make([]byte, 256)
-					n, err := opusEnc.Encode(samples[:480], opusBuf)
-					if err == nil {
-						svx.SendAudio(opusBuf[:n])
-					}
-				} else {
-					pcmBufMu.Unlock()
-				}
+				pcmBuffer = pcmBuffer[:0]
+				pcmBufMu.Unlock()
+				agcSvxToAs.Reset()
+				agcAsToSvx.Reset()
 
-				svx.SendTalkerStop(svxTG, callsign)
+			case <-sigCh:
+				close(stopSilence)
+				iaxMu.Lock()
+				currentIAX = nil
+				iaxMu.Unlock()
+				iax.Close()
+				svx.Close()
+				return errShutdown
 			}
 		}
-	}()
 
-	log.Printf("Bridge active: SVX TG %d ↔ AllStar node %s", svxTG, asNode)
+		// Wait before reconnecting AllStar (SVX stays alive)
+		log.Printf("[AllStar] Reconnecting in %s...", asBackoff)
+		select {
+		case <-svx.Done():
+			svx.Close()
+			return fmt.Errorf("SVX connection lost during AllStar reconnect")
+		case <-sigCh:
+			svx.Close()
+			return errShutdown
+		case <-time.After(asBackoff):
+		}
 
-	// --- Wait for disconnect or shutdown ---
-	var result error
-	select {
-	case <-svx.Done():
-		log.Println("SVXReflector connection lost")
-		result = fmt.Errorf("SVX connection lost")
-	case <-iax.Done():
-		log.Println("AllStar connection lost")
-		result = fmt.Errorf("AllStar connection lost")
-	case <-sigCh:
-		log.Println("Shutting down...")
-		result = errShutdown
+		asBackoff *= 2
+		if asBackoff > maxAsBackoff {
+			asBackoff = maxAsBackoff
+		}
 	}
-
-	iax.Close()
-	svx.Close()
-
-	return result
 }
 
 func envRequired(key string) string {
