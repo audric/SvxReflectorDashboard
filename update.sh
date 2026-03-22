@@ -25,20 +25,25 @@ fi
 
 # Pull latest code (skip on first install — just cloned)
 if [ "$FIRST_INSTALL" = false ]; then
-  echo "[1/4] Pulling latest code..."
+  echo "[1/5] Pulling latest code..."
   git pull --ff-only
 else
-  echo "[1/4] Code already up to date (fresh clone)."
+  echo "[1/5] Code already up to date (fresh clone)."
 fi
 
-# Pull latest Docker images from GHCR
+# Pull latest Docker images from GHCR (dashboard + reflector)
 echo ""
 echo "[2/4] Pulling Docker images..."
 docker compose pull
 
-# Start/restart services
+# Rebuild reflector image if it has a remote build context
 echo ""
-echo "[3/4] Starting services..."
+echo "[3/5] Updating reflector..."
+docker compose build --pull svxreflector
+
+# Start/restart services (recreates containers whose images changed)
+echo ""
+echo "[4/5] Starting services..."
 docker compose up -d
 
 # Wait for web to be ready
@@ -56,7 +61,7 @@ done
 # Database setup
 echo ""
 if [ "$FIRST_INSTALL" = true ]; then
-  echo "[4/4] Initializing database..."
+  echo "[5/5] Initializing database..."
   docker compose exec -T web bin/rails db:prepare
   echo ""
   echo "=== Installation complete ==="
@@ -67,7 +72,7 @@ if [ "$FIRST_INSTALL" = true ]; then
   echo ""
   echo "Change this password immediately after first login."
 else
-  echo "[4/4] Running database migrations..."
+  echo "[5/5] Running database migrations..."
   docker compose exec -T web bin/rails db:migrate 2>/dev/null || true
   echo ""
   echo "=== Update complete ==="

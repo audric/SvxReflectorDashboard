@@ -143,7 +143,7 @@
           %i.bi.bi-broadcast.mr-1
           Radio Programming
           %span.ml-1.font-normal
-            = "#{@all_tgs.size} talkgroup#{'s' unless @all_tgs.size == 1} · #{@node_rows.size} node#{'s' unless @node_rows.size == 1}"
+            = "#{@all_tgs.size} talkgroup#{'s' unless @all_tgs.size == 1} · #{@node_rows.size} repeater#{'s' unless @node_rows.size == 1}"
         %button#chirp-export.text-sm.px-3.py-1.5.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "exportChirp()"}
           %i.bi.bi-download.mr-1
           CHIRP CSV
@@ -199,9 +199,10 @@
         var rows = [header];
         var loc = 1;
 
+        var bridgeClasses = ['bridge','xlx','dmr','ysf','allstar','echolink','web'];
         Object.keys(_tgNodes).sort().forEach(function (cs) {
           var node = _tgNodes[cs];
-          if (node.hidden) return;
+          if (node.hidden || bridgeClasses.indexOf(node.nodeClass) !== -1) return;
           var ttg = node.toneToTalkgroup;
           if (!ttg || Object.keys(ttg).length === 0) return;
 

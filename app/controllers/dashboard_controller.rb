@@ -32,7 +32,8 @@ class DashboardController < ApplicationController
 
   def radio
     fetch_nodes
-    visible = @nodes.reject { |_, n| n['hidden'] }
+    bridge_classes = %w[bridge xlx dmr ysf allstar echolink web].freeze
+    visible = @nodes.reject { |_, n| n['hidden'] || bridge_classes.include?(n['nodeClass'].to_s) }
 
     all_tg_set = []
     raw_rows = visible.sort_by { |cs, _| cs }.map do |cs, node|
