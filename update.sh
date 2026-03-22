@@ -33,7 +33,7 @@ fi
 
 # Pull latest Docker images from GHCR (dashboard + reflector)
 echo ""
-echo "[2/4] Pulling Docker images..."
+echo "[2/5] Pulling Docker images..."
 docker compose pull
 
 # Rebuild reflector image if it has a remote build context
