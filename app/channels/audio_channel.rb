@@ -23,14 +23,15 @@ class AudioChannel < ApplicationCable::Channel
       ref_key = "web_node_refs:#{callsign}"
       ref = redis.incr(ref_key)
       redis.expire(ref_key, 120)
-      if ref == 1
-        redis.publish("audio:commands", {
-          action: "connect", tg: tg, callsign: callsign, auth_key: auth_key,
-          sw: params[:sw].to_s, sw_ver: params[:sw_ver].to_s,
-          node_class: params[:node_class].to_s, node_location: params[:node_location].to_s,
-          sysop: params[:sysop].to_s
-        }.to_json)
-      end
+      # Always publish connect — the audio_bridge deduplicates via session
+      # refCount. Skipping on ref > 1 caused stale keys (after audio_bridge
+      # restart) to silently prevent new sessions from being created.
+      redis.publish("audio:commands", {
+        action: "connect", tg: tg, callsign: callsign, auth_key: auth_key,
+        sw: params[:sw].to_s, sw_ver: params[:sw_ver].to_s,
+        node_class: params[:node_class].to_s, node_location: params[:node_location].to_s,
+        sysop: params[:sysop].to_s
+      }.to_json)
       update_web_node_info(redis, callsign)
       @ref_key = ref_key
       redis.close
