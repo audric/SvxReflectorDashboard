@@ -144,6 +144,8 @@ class ReflectorConfig
 
   # Syncs all users with a reflector_auth_key into the [USERS] and [PASSWORDS]
   # sections of svxreflector.conf. Adds CALLSIGN-WEB entries, removes stale ones.
+  # Writes to disk for persistence AND sends CFG commands via the control pipe
+  # for immediate effect without restarting the reflector.
   def self.sync_web_users
     config = load
     existing_web_callsigns = config.users.keys.select { |k| k.end_with?("-WEB") }
@@ -156,6 +158,7 @@ class ReflectorConfig
     end
 
     changed = false
+    cfg_commands = []
 
     # Add or update entries
     desired.each do |web_cs, auth_key|
@@ -164,6 +167,8 @@ class ReflectorConfig
       unless config.users[web_cs] == group && config.passwords[group] == auth_key
         config.users[web_cs] = group
         config.passwords[group] = auth_key
+        cfg_commands << "CFG USERS #{web_cs} #{group}"
+        cfg_commands << "CFG PASSWORDS #{group} #{auth_key}"
         changed = true
       end
     end
@@ -173,13 +178,16 @@ class ReflectorConfig
       unless desired.key?(web_cs)
         config.users.delete(web_cs)
         config.passwords.delete(web_cs)
+        cfg_commands << "CFG USERS #{web_cs}"
+        cfg_commands << "CFG PASSWORDS #{web_cs}"
         changed = true
       end
     end
 
     if changed
       config.save
-      Rails.logger.info "[ReflectorConfig] Synced #{desired.size} web user(s)"
+      send_cfg_commands(cfg_commands)
+      Rails.logger.info "[ReflectorConfig] Synced #{desired.size} web user(s) (#{cfg_commands.size} CFG commands)"
     end
 
     changed
@@ -188,13 +196,7 @@ class ReflectorConfig
   # Restarts the svxreflector container to pick up config changes.
   def self.restart_svxreflector
     require "socket"
-    sock = UNIXSocket.new("/var/run/docker.sock")
-    sock.write("GET /containers/json HTTP/1.0\r\nHost: localhost\r\n\r\n")
-    response = sock.read
-    sock.close
-    body = response.split("\r\n\r\n", 2).last
-    containers = JSON.parse(body)
-    container = containers.find { |c| c["Names"].any? { |n| n =~ /-svxreflector-\d+$/ } }
+    container = find_reflector_container
     return unless container
 
     sock = UNIXSocket.new("/var/run/docker.sock")
@@ -204,6 +206,51 @@ class ReflectorConfig
     Rails.logger.info "[ReflectorConfig] Restarted svxreflector"
   rescue => e
     Rails.logger.error "[ReflectorConfig] Failed to restart svxreflector: #{e.message}"
+  end
+
+  # Sends CFG commands to the running reflector via its control pipe.
+  # Changes take effect immediately in memory without a restart.
+  def self.send_cfg_commands(commands)
+    require "socket"
+    container = find_reflector_container
+    return unless container
+
+    commands.each do |cmd|
+      docker_exec(container["Id"], ["sh", "-c", "printf '%s\\n' \"$1\" > /dev/shm/reflector_ctrl", "--", cmd])
+    end
+    Rails.logger.info "[ReflectorConfig] Sent #{commands.size} CFG command(s) to reflector"
+  rescue => e
+    Rails.logger.error "[ReflectorConfig] Failed to send CFG commands: #{e.message}"
+  end
+
+  def self.find_reflector_container
+    require "socket"
+    sock = UNIXSocket.new("/var/run/docker.sock")
+    sock.write("GET /containers/json HTTP/1.0\r\nHost: localhost\r\n\r\n")
+    response = sock.read
+    sock.close
+    body = response.split("\r\n\r\n", 2).last
+    containers = JSON.parse(body)
+    containers.find { |c| c["Names"].any? { |n| n =~ /-svxreflector-\d+$/ } }
+  end
+
+  def self.docker_exec(container_id, cmd)
+    require "socket"
+    json = { Cmd: cmd, AttachStdout: true, AttachStderr: true }.to_json
+    sock = UNIXSocket.new("/var/run/docker.sock")
+    sock.write("POST /containers/#{container_id}/exec HTTP/1.0\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: #{json.bytesize}\r\n\r\n#{json}")
+    response = sock.read
+    sock.close
+    body = response.split("\r\n\r\n", 2).last
+    result = JSON.parse(body) rescue {}
+    exec_id = result["Id"]
+    return unless exec_id
+
+    start_body = { Detach: false, Tty: false }.to_json
+    sock = UNIXSocket.new("/var/run/docker.sock")
+    sock.write("POST /exec/#{exec_id}/start HTTP/1.0\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: #{start_body.bytesize}\r\n\r\n#{start_body}")
+    sock.read
+    sock.close
   end
 
   private

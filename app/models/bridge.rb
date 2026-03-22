@@ -25,6 +25,7 @@ class Bridge < ApplicationRecord
   with_options if: :echolink? do
     validates :echolink_callsign, presence: true
     validates :echolink_password, presence: true
+    validate :only_one_echolink_bridge
   end
 
   # XLX-specific validations
@@ -556,6 +557,14 @@ class Bridge < ApplicationRecord
       snapshot_dir = backups_dir.join(stamp)
       FileUtils.mkdir_p(snapshot_dir)
       FileUtils.mv(path, snapshot_dir.join(config_name))
+    end
+  end
+
+  def only_one_echolink_bridge
+    scope = Bridge.where(bridge_type: "echolink")
+    scope = scope.where.not(id: id) if persisted?
+    if scope.exists?
+      errors.add(:base, "Only one EchoLink bridge is allowed per server (EchoLink protocol limitation: one connection per IP/port)")
     end
   end
 end

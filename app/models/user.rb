@@ -46,8 +46,7 @@ class User < ApplicationRecord
   end
 
   def sync_reflector_web_users
-    return unless ReflectorConfig.sync_web_users
-    ReflectorConfig.restart_svxreflector
+    ReflectorConfig.sync_web_users
   rescue => e
     Rails.logger.error "[User] Failed to sync reflector web users: #{e.message}"
   end
