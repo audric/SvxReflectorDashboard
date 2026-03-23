@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_20_100001) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_23_113340) do
   create_table "bridge_tg_mappings", force: :cascade do |t|
     t.string "activate_on_activity"
     t.integer "bridge_id", null: false
@@ -115,6 +115,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_20_100001) do
     t.string "xlx_mycall"
     t.string "xlx_mycall_suffix"
     t.integer "xlx_port"
+    t.string "xlx_protocol", default: "DCS"
     t.string "xlx_reflector_name"
     t.string "ysf_callsign"
     t.string "ysf_description"

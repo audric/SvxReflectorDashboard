@@ -32,7 +32,12 @@ func main() {
 	callsign := envRequired("CALLSIGN")
 
 	xlxHost := envRequired("XLX_HOST")
-	xlxPort := envInt("XLX_PORT", DCSPort)
+	xlxProtocol := strings.ToUpper(envDefault("XLX_PROTOCOL", "DCS"))
+	defaultPort := DCSPort
+	if xlxProtocol == "DEXTRA" {
+		defaultPort = DExtraPort
+	}
+	xlxPort := envInt("XLX_PORT", defaultPort)
 	xlxModule := envDefault("XLX_MODULE", "A")[0]
 	xlxReflectorName := envDefault("XLX_REFLECTOR_NAME", "XLX585")
 	dcsCallsign := envDefault("DCS_CALLSIGN", callsign)
@@ -43,8 +48,8 @@ func main() {
 
 	redisURL := os.Getenv("REDIS_URL")
 
-	log.Printf("Config: SVX=%s:%d TG=%d | XLX=%s:%d module=%c (%s) | svx_cs=%s dcs_cs=%q mycall=%s",
-		svxHost, svxPort, svxTG, xlxHost, xlxPort, xlxModule, xlxReflectorName, callsign, dcsCallsign, dcsMycall)
+	log.Printf("Config: SVX=%s:%d TG=%d | XLX=%s:%d module=%c (%s) proto=%s | svx_cs=%s dcs_cs=%q mycall=%s",
+		svxHost, svxPort, svxTG, xlxHost, xlxPort, xlxModule, xlxReflectorName, xlxProtocol, callsign, dcsCallsign, dcsMycall)
 
 	// --- Initialize vocoders (separate instances for encode/decode to preserve state) ---
 	vocEnc, err := NewVocoder()
@@ -82,7 +87,7 @@ func main() {
 
 	for {
 		err := runBridge(svxHost, svxPort, svxAuthKey, svxTG, callsign, nodeLocation, sysop,
-			xlxHost, xlxPort, xlxModule, xlxReflectorName, dcsCallsign, dcsMycall, dcsMycallSuffix,
+			xlxHost, xlxPort, xlxModule, xlxReflectorName, xlxProtocol, dcsCallsign, dcsMycall, dcsMycallSuffix,
 			redisURL, vocEnc, vocDec, opusDec, opusEnc, sigCh)
 
 		if err == errShutdown {
@@ -113,7 +118,7 @@ var errShutdown = fmt.Errorf("shutdown")
 
 func runBridge(
 	svxHost string, svxPort int, svxAuthKey string, svxTG uint32, callsign string, nodeLocation string, sysop string,
-	xlxHost string, xlxPort int, xlxModule byte, xlxReflectorName string, dcsCallsign string, dcsMycall string, dcsMycallSuffix string,
+	xlxHost string, xlxPort int, xlxModule byte, xlxReflectorName string, xlxProtocol string, dcsCallsign string, dcsMycall string, dcsMycallSuffix string,
 	redisURL string, vocEnc *Vocoder, vocDec *Vocoder, opusDec *opus.Decoder, opusEnc *opus.Encoder,
 	sigCh <-chan os.Signal,
 ) error {
@@ -160,7 +165,12 @@ func runBridge(
 			{"localTg": svxTG, "remoteTg": fmt.Sprintf("%s %c", xlxReflectorName, xlxModule)},
 		},
 	})
-	dcs := NewDCSClient(xlxHost, xlxPort, dcsCallsign, xlxModule, xlxReflectorName, dcsMycall, dcsMycallSuffix)
+	var xlxClient XLXClient
+	if xlxProtocol == "DEXTRA" {
+		xlxClient = NewDExtraClient(xlxHost, xlxPort, dcsCallsign, xlxModule, xlxReflectorName, dcsMycall, dcsMycallSuffix)
+	} else {
+		xlxClient = NewDCSClient(xlxHost, xlxPort, dcsCallsign, xlxModule, xlxReflectorName, dcsMycall, dcsMycallSuffix)
+	}
 
 	// --- SVXReflector → XLX audio path ---
 	// OPUS → PCM → AMBE (one frame at a time via DCS)
@@ -209,7 +219,7 @@ func runBridge(
 			ambeBufMu.Unlock()
 
 			ambe := vocEnc.Encode(chunk)
-			if err := dcs.SendVoice(ambe); err != nil {
+			if err := xlxClient.SendVoice(ambe); err != nil {
 				log.Printf("[SVX→XLX] SendVoice error: %v", err)
 			}
 
@@ -235,9 +245,10 @@ func runBridge(
 		ambeBuffer = ambeBuffer[:0]
 		ambeBufMu.Unlock()
 
-		// Set originating callsign as MYCALL and slow data text for D-STAR users
-		dcs.SetTXOrigin(cs)
-		dcs.StartTX()
+		// Set originating callsign as MYCALL for D-STAR — strip "-WEB" suffix
+		dstarCall := strings.TrimSuffix(cs, "-WEB")
+		xlxClient.SetTXOrigin(dstarCall)
+		xlxClient.StartTX()
 	})
 
 	svx.SetTalkerStopCallback(func(tg uint32, cs string) {
@@ -263,12 +274,12 @@ func runBridge(
 			ambeBuffer = ambeBuffer[:0]
 			ambeBufMu.Unlock()
 			ambe := vocEnc.Encode(chunk)
-			dcs.SendVoice(ambe)
+			xlxClient.SendVoice(ambe)
 		} else {
 			ambeBufMu.Unlock()
 		}
 
-		if err := dcs.StopTX(); err != nil {
+		if err := xlxClient.StopTX(); err != nil {
 			log.Printf("[SVX→XLX] StopTX error: %v", err)
 		}
 	})
@@ -280,7 +291,7 @@ func runBridge(
 	var lastSlowText string
 
 	var lastRxLogStream uint16
-	dcs.SetVoiceCallback(func(frame *DCSVoiceFrame) {
+	xlxClient.SetVoiceCallback(func(frame *DCSVoiceFrame) {
 		// Log first frame of each RX stream for format comparison with TX
 		if frame.StreamID != lastRxLogStream {
 			lastRxLogStream = frame.StreamID
@@ -291,7 +302,7 @@ func runBridge(
 
 		svxTalkMu.Lock()
 		isSvxTalking := svxTalking
-		echoGrace := !svxTalking && !svxTalkStopAt.IsZero() && time.Since(svxTalkStopAt) < 3*time.Second
+		echoGrace := !svxTalking && !svxTalkStopAt.IsZero() && time.Since(svxTalkStopAt) < 1500*time.Millisecond
 		svxTalkMu.Unlock()
 
 		if isSvxTalking {
@@ -456,7 +467,7 @@ func runBridge(
 		return fmt.Errorf("SVX SelectTG: %w", err)
 	}
 
-	if err := dcs.Connect(); err != nil {
+	if err := xlxClient.Connect(); err != nil {
 		svx.Close()
 		return fmt.Errorf("DCS connect: %w", err)
 	}
@@ -466,10 +477,10 @@ func runBridge(
 	go svx.RunTCPHeartbeat()
 	go svx.RunUDPReader()
 	go svx.RunUDPHeartbeat()
-	go dcs.RunReader()
-	go dcs.RunKeepalive()
+	go xlxClient.RunReader()
+	go xlxClient.RunKeepalive()
 
-	log.Printf("Bridge active: SVX TG %d ↔ %s module %c (DCS)", svxTG, xlxReflectorName, xlxModule)
+	log.Printf("Bridge active: SVX TG %d ↔ %s module %c (%s)", svxTG, xlxReflectorName, xlxModule, xlxProtocol)
 
 	// --- Wait for disconnect or shutdown ---
 	var result error
@@ -477,15 +488,15 @@ func runBridge(
 	case <-svx.Done():
 		log.Println("SVXReflector connection lost")
 		result = fmt.Errorf("SVX connection lost")
-	case <-dcs.Done():
-		log.Println("DCS connection lost")
-		result = fmt.Errorf("DCS connection lost")
+	case <-xlxClient.Done():
+		log.Printf("%s connection lost", xlxProtocol)
+		result = fmt.Errorf("%s connection lost", xlxProtocol)
 	case <-sigCh:
 		log.Println("Shutting down...")
 		result = errShutdown
 	}
 
-	dcs.Close()
+	xlxClient.Close()
 	svx.Close()
 	if redisCli != nil {
 		redisCli.Del(redisKey)

@@ -33,6 +33,9 @@ Rails.application.routes.draw do
       post :revoke_cert, on: :collection
     end
     resources :bridges, controller: "bridge" do
+      collection do
+        get :xlx_hosts
+      end
       member do
         patch :toggle
         get :backups

@@ -204,8 +204,8 @@ func (c *DCSClient) SendVoice(ambe [9]byte) error {
 
 	pkt := BuildDCSVoice(rpt2, rpt1, "CQCQCQ", mycall, c.mycallSuffix, streamID, byte(frameID), ambe, slowData, seq)
 	if seq == 0 {
-		log.Printf("[DCS] TX first frame: RPT2=%q RPT1=%q MY=%q/%q stream=%04X pkt[0:62]: % X",
-			rpt2, rpt1, mycall, c.mycallSuffix, streamID, pkt[:62])
+		log.Printf("[DCS] TX pkt[0:62]:  % X", pkt[:62])
+		log.Printf("[DCS] TX pkt[62:100]: % X", pkt[62:])
 	}
 	_, err := c.conn.Write(pkt)
 	return err
@@ -255,6 +255,7 @@ func (c *DCSClient) RunReader() {
 
 	missedPings := 0
 	rxVoiceLogged := false
+	echoTestDone := false
 	buf := make([]byte, 1024)
 	for {
 		c.conn.SetReadDeadline(time.Now().Add(30 * time.Second))
@@ -288,6 +289,24 @@ func (c *DCSClient) RunReader() {
 			if !rxVoiceLogged {
 				rxVoiceLogged = true
 				log.Printf("[DCS] RX raw voice pkt[0:62]: % X", data[:62])
+				log.Printf("[DCS] RX raw voice pkt[62:100]: % X", data[62:100])
+			}
+
+			// Echo test: send back 10 received frames with a new stream ID
+			// to verify XLX will distribute packets from our UDP socket
+			if !echoTestDone {
+				echo := make([]byte, n)
+				copy(echo, data[:n])
+				// Replace stream ID with a random one
+				sid := newStreamID16()
+				echo[43] = byte(sid >> 8)
+				echo[44] = byte(sid)
+				nn, werr := c.conn.Write(echo)
+				log.Printf("[DCS] ECHO TEST: sent %d/%d bytes (stream %04X), err=%v", nn, len(echo), sid, werr)
+				if echo[45]&0x40 != 0 { // last frame
+					echoTestDone = true
+					log.Println("[DCS] ECHO TEST complete (last frame sent)")
+				}
 			}
 
 			frame := ParseDCSVoice(data)

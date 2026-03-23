@@ -29,7 +29,8 @@ module Admin
       elsif bridge_type == "xlx"
         defaults.merge!(
           xlx_port: 30051,
-          xlx_module: "A"
+          xlx_module: "A",
+          xlx_protocol: "DCS"
         )
       elsif bridge_type == "dmr"
         defaults.merge!(
@@ -106,6 +107,27 @@ module Admin
       render json: snapshots
     end
 
+    def xlx_hosts
+      protocol = params[:protocol].to_s.upcase
+      url = case protocol
+            when "DEXTRA" then "https://www.pistar.uk/downloads/DExtra_Hosts.txt"
+            else "https://www.pistar.uk/downloads/DCS_Hosts.txt"
+            end
+      Rails.cache.delete("xlx_hosts:#{protocol}") if params[:refresh] == "1"
+      body = Rails.cache.fetch("xlx_hosts:#{protocol}", expires_in: 1.day) do
+        require "net/http"
+        uri = URI(url)
+        Net::HTTP.get(uri) rescue ""
+      end
+      hosts = body.lines.filter_map do |line|
+        next if line.start_with?("#") || line.strip.empty?
+        parts = line.strip.split("\t")
+        next unless parts.length >= 2
+        { name: parts[0], host: parts[1] }
+      end
+      render json: hosts
+    end
+
     def toggle
       if @bridge.enabled?
         stop_container(@bridge)
@@ -144,7 +166,7 @@ module Admin
         :echolink_accept_outgoing, :echolink_reject_outgoing,
         :echolink_reject_conf, :echolink_use_gsm_only, :echolink_bind_addr,
         :echolink_servers, :default_active,
-        :xlx_host, :xlx_port, :xlx_module, :xlx_callsign, :xlx_callsign_suffix, :xlx_mycall, :xlx_mycall_suffix, :xlx_reflector_name,
+        :xlx_host, :xlx_port, :xlx_module, :xlx_callsign, :xlx_callsign_suffix, :xlx_mycall, :xlx_mycall_suffix, :xlx_reflector_name, :xlx_protocol,
         :dmr_host, :dmr_port, :dmr_id, :dmr_password, :dmr_talkgroup, :dmr_timeslot, :dmr_color_code, :dmr_callsign,
         :ysf_host, :ysf_port, :ysf_callsign, :ysf_description,
         :allstar_node, :allstar_password, :allstar_server, :allstar_port
@@ -229,8 +251,9 @@ module Admin
           "REFLECTOR_AUTH_KEY=#{bridge.local_auth_key}",
           "REFLECTOR_TG=#{bridge.local_default_tg}",
           "XLX_HOST=#{bridge.xlx_host}",
-          "XLX_PORT=#{bridge.xlx_port || 30051}",
+          "XLX_PORT=#{bridge.xlx_port || (bridge.xlx_protocol == 'DEXTRA' ? 30001 : 30051)}",
           "XLX_MODULE=#{bridge.xlx_module}",
+          "XLX_PROTOCOL=#{bridge.xlx_protocol.presence || 'DCS'}",
           "XLX_REFLECTOR_NAME=#{bridge.xlx_reflector_name.presence || 'XLX000'}",
           "CALLSIGN=#{bridge.local_callsign}",
           "DCS_CALLSIGN=#{bridge.dcs_callsign}",
