@@ -40,9 +40,9 @@ func main() {
 	xlxPort := envInt("XLX_PORT", defaultPort)
 	xlxModule := envDefault("XLX_MODULE", "A")[0]
 	xlxReflectorName := envDefault("XLX_REFLECTOR_NAME", "XLX585")
-	dcsCallsign := envDefault("DCS_CALLSIGN", callsign)
-	dcsMycall := envDefault("DCS_MYCALL", callsign)
-	dcsMycallSuffix := envDefault("DCS_MYCALL_SUFFIX", "AMBE")
+	dcsCallsign := envDefault("XLX_CALLSIGN", envDefault("DCS_CALLSIGN", callsign))
+	dcsMycall := envDefault("XLX_MYCALL", envDefault("DCS_MYCALL", callsign))
+	dcsMycallSuffix := envDefault("XLX_MYCALL_SUFFIX", envDefault("DCS_MYCALL_SUFFIX", "AMBE"))
 	nodeLocation := envDefault("NODE_LOCATION", "")
 	sysop := envDefault("SYSOP", "")
 

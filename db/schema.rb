@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_23_113340) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_23_154404) do
   create_table "bridge_tg_mappings", force: :cascade do |t|
     t.string "activate_on_activity"
     t.integer "bridge_id", null: false
@@ -121,6 +121,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_23_113340) do
     t.string "ysf_description"
     t.string "ysf_host"
     t.integer "ysf_port"
+    t.string "zello_channel"
+    t.string "zello_channel_password"
+    t.string "zello_issuer_id"
+    t.string "zello_password"
+    t.text "zello_private_key"
+    t.string "zello_username"
   end
 
   create_table "ctcss_tones", force: :cascade do |t|

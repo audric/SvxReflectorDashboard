@@ -62,7 +62,7 @@
             %i.bi.bi-plus.mr-1
             New Bridge
             %i.bi.bi-chevron-down{style: "font-size: 0.6rem"}
-          - bridge_meta = {'reflector' => ['bi-diagram-3', 'Reflector'], 'echolink' => ['bi-headset', 'EchoLink'], 'xlx' => ['bi-globe', 'XLX'], 'dmr' => ['bi-broadcast-pin', 'DMR'], 'ysf' => ['bi-soundwave', 'YSF'], 'allstar' => ['bi-telephone', 'AllStar']}
+          - bridge_meta = {'reflector' => ['bi-diagram-3', 'Reflector'], 'echolink' => ['bi-headset', 'EchoLink'], 'xlx' => ['bi-globe', 'XLX'], 'dmr' => ['bi-broadcast-pin', 'DMR'], 'ysf' => ['bi-soundwave', 'YSF'], 'allstar' => ['bi-telephone', 'AllStar'], 'zello' => ['bi-phone', 'Zello']}
           #new-menu.absolute.right-0.mt-1.w-48.rounded-md.border.border-gray-600.bg-ghcard.shadow-xl.z-50.hidden
             - Bridge::BRIDGE_TYPES.each_with_index do |bt, i|
               - icon, label = bridge_meta[bt] || ['bi-link-45deg', bt.titleize]
@@ -72,11 +72,12 @@
                 = "#{label} Bridge"
 
       - counts = @bridges.group_by(&:bridge_type).transform_values(&:size)
+      - visible_types = (Bridge::BRIDGE_TYPES | counts.keys) & Bridge::ALL_BRIDGE_TYPES
       .inline-flex.rounded.border.border-ghborder.overflow-hidden.mb-4#bridge-filters
         %button.bridge-filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", "data-filter" => "all"}
           All
           %span.ml-1.text-xs.opacity-70= @bridges.size
-        - Bridge::BRIDGE_TYPES.each do |bt|
+        - visible_types.each do |bt|
           - icon, label = bridge_meta[bt] || ['bi-link-45deg', bt.titleize]
           %button.bridge-filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => bt}
             %i.bi{class: "#{icon} mr-1"}
@@ -181,6 +182,13 @@
                       .flex.items-center.gap-2
                         %span.text-ghmuted AllStar:
                         %span.text-gray-300.font-mono= "Node #{bridge.allstar_node} @ #{bridge.allstar_server}:#{bridge.allstar_port || 4569}"
+                      .flex.items-center.gap-2
+                        %span.text-ghmuted Reflector:
+                        %span.text-gray-300.font-mono= "#{bridge.local_callsign}@#{bridge.local_host}:#{bridge.local_port} TG#{bridge.local_default_tg}"
+                    - elsif bridge.zello?
+                      .flex.items-center.gap-2
+                        %span.text-ghmuted Zello:
+                        %span.text-gray-300.font-mono= "#{bridge.zello_username} @ #{bridge.zello_channel}"
                       .flex.items-center.gap-2
                         %span.text-ghmuted Reflector:
                         %span.text-gray-300.font-mono= "#{bridge.local_callsign}@#{bridge.local_host}:#{bridge.local_port} TG#{bridge.local_default_tg}"

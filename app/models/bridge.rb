@@ -1,8 +1,8 @@
 class Bridge < ApplicationRecord
   has_many :bridge_tg_mappings, dependent: :destroy
 
-  ALL_BRIDGE_TYPES = %w[reflector echolink xlx dmr ysf allstar].freeze
-  BRIDGE_TYPES = (ENV.fetch('BRIDGE_TYPES', ALL_BRIDGE_TYPES.join(',')).split(',').map(&:strip) & ALL_BRIDGE_TYPES).freeze
+  ALL_BRIDGE_TYPES = %w[reflector echolink xlx dmr ysf allstar zello].freeze
+  BRIDGE_TYPES = (ENV.fetch('BRIDGE_TYPES', 'reflector').split(',').map(&:strip) & ALL_BRIDGE_TYPES).freeze
 
   validates :name, presence: true, uniqueness: true
   validates :bridge_type, presence: true, inclusion: { in: BRIDGE_TYPES }
@@ -58,6 +58,15 @@ class Bridge < ApplicationRecord
     validates :allstar_server, presence: true
   end
 
+  # Zello-specific validations
+  with_options if: :zello? do
+    validates :zello_username, presence: true
+    validates :zello_password, presence: true
+    validates :zello_channel, presence: true
+    validates :zello_issuer_id, presence: true
+    validates :zello_private_key, presence: true
+  end
+
   # Returns the 8-char DCS callsign: base callsign (space-padded to 7) + suffix letter.
   def dcs_callsign
     "%-7s%s" % [xlx_callsign.to_s.upcase, xlx_callsign_suffix.to_s.upcase]
@@ -90,6 +99,10 @@ class Bridge < ApplicationRecord
     bridge_type == "allstar"
   end
 
+  def zello?
+    bridge_type == "zello"
+  end
+
   def config_dir
     Rails.root.join("bridge", id.to_s)
   end
@@ -107,6 +120,8 @@ class Bridge < ApplicationRecord
       "ysf-bridge-#{id}"
     elsif allstar?
       "allstar-bridge-#{id}"
+    elsif zello?
+      "zello-bridge-#{id}"
     else
       "svxlink-bridge-#{id}"
     end
@@ -126,12 +141,14 @@ class Bridge < ApplicationRecord
       generate_ysf_config
     elsif allstar?
       generate_allstar_config
+    elsif zello?
+      generate_zello_config
     elsif echolink?
       generate_echolink_config
     else
       generate_reflector_config
     end
-    write_node_info unless xlx? || dmr? || ysf? || allstar?
+    write_node_info unless xlx? || dmr? || ysf? || allstar? || zello?
   end
 
   def echolink_conf_path
@@ -219,12 +236,13 @@ class Bridge < ApplicationRecord
     lines << "REFLECTOR_TG=#{local_default_tg}"
     lines << "CALLSIGN=#{local_callsign}"
     lines << "XLX_HOST=#{xlx_host}"
-    lines << "XLX_PORT=#{xlx_port || 30051}"
+    lines << "XLX_PORT=#{xlx_port || (xlx_protocol == 'DEXTRA' ? 30001 : 30051)}"
     lines << "XLX_MODULE=#{xlx_module}"
+    lines << "XLX_PROTOCOL=#{xlx_protocol.presence || 'DCS'}"
     lines << "XLX_REFLECTOR_NAME=#{xlx_reflector_name.presence || 'XLX000'}"
-    lines << "DCS_CALLSIGN=#{dcs_callsign}"
-    lines << "DCS_MYCALL=#{xlx_mycall}" if xlx_mycall.present?
-    lines << "DCS_MYCALL_SUFFIX=#{xlx_mycall_suffix.presence || 'AMBE'}"
+    lines << "XLX_CALLSIGN=#{dcs_callsign}"
+    lines << "XLX_MYCALL=#{xlx_mycall}" if xlx_mycall.present?
+    lines << "XLX_MYCALL_SUFFIX=#{xlx_mycall_suffix.presence || 'AMBE'}"
     lines << "NODE_LOCATION=#{node_location.presence || name}"
     lines << "SYSOP=#{sysop}" if sysop.present?
     lines << ""
@@ -287,6 +305,30 @@ class Bridge < ApplicationRecord
     lines << "SYSOP=#{sysop}" if sysop.present?
     lines << ""
     File.write(config_dir.join("allstar_bridge.env"), lines.join("\n"))
+  end
+
+  def generate_zello_config
+    lines = []
+    lines << "# Zello Bridge configuration (passed as env vars to container)"
+    lines << "REFLECTOR_HOST=#{local_host}"
+    lines << "REFLECTOR_PORT=#{local_port}"
+    lines << "REFLECTOR_AUTH_KEY=#{local_auth_key}"
+    lines << "REFLECTOR_TG=#{local_default_tg}"
+    lines << "CALLSIGN=#{local_callsign}"
+    lines << "ZELLO_USERNAME=#{zello_username}"
+    lines << "ZELLO_PASSWORD=#{zello_password}"
+    lines << "ZELLO_CHANNEL=#{zello_channel}"
+    lines << "ZELLO_ISSUER_ID=#{zello_issuer_id}"
+    lines << "NODE_LOCATION=#{node_location.presence || name}"
+    lines << "SYSOP=#{sysop}" if sysop.present?
+    lines << ""
+    File.write(config_dir.join("zello_bridge.env"), lines.join("\n"))
+    # Write private key to a separate PEM file
+    if zello_private_key.present?
+      path = config_dir.join("zello_private_key.pem")
+      File.write(path, zello_private_key.to_s)
+      FileUtils.chmod(0o600, path)
+    end
   end
 
   def generate_reflector_config
@@ -531,7 +573,8 @@ class Bridge < ApplicationRecord
 
     files = [config_path, node_info_path, echolink_conf_path,
              config_dir.join("xlx_bridge.env"), config_dir.join("dmr_bridge.env"),
-             config_dir.join("ysf_bridge.env"), config_dir.join("allstar_bridge.env")].select(&:exist?)
+             config_dir.join("ysf_bridge.env"), config_dir.join("allstar_bridge.env"),
+             config_dir.join("zello_bridge.env"), config_dir.join("zello_private_key.pem")].select(&:exist?)
     return if files.empty?
 
     migrate_legacy_backups if Dir.glob(config_dir.join("*.bak")).any?

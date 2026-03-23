@@ -41,5 +41,7 @@
         = render 'form_ysf'
       - elsif @bridge.allstar?
         = render 'form_allstar'
+      - elsif @bridge.zello?
+        = render 'form_zello'
       - else
         = render 'form'

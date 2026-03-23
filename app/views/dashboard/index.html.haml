@@ -261,40 +261,43 @@
         %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-gray-600.text-gray-200#nodes-count
           = @nodes.reject { |_, n| n['hidden'] }.size
         .inline-flex.rounded.border.border-ghborder.overflow-hidden
-          %button#view-cards.px-2.py-0.5.text-xs.text-gray-200.cursor-pointer.transition-colors.view-toggle-active{type: "button", title: "Card view"}
+          %button#view-cards.px-3.py-1.5.text-sm.text-gray-200.cursor-pointer.transition-colors.view-toggle-active{type: "button", title: "Card view"}
             %i.bi.bi-grid-3x3-gap
-          %button#view-table.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", title: "Table view"}
+          %button#view-table.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", title: "Table view"}
             %i.bi.bi-table
-        %button#toggle-detail.px-2.py-0.5.text-xs.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.hover:border-gray-500.cursor-pointer.transition-colors{type: "button", title: "Toggle node details"}
+        %button#toggle-detail.px-3.py-1.5.text-sm.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.hover:border-gray-500.cursor-pointer.transition-colors{type: "button", title: "Toggle node details"}
           %i.bi.bi-eye-fill#toggle-detail-icon
           %span#toggle-detail-label Detailed
       .overflow-x-auto.mb-3.pb-1{style: "-webkit-overflow-scrolling:touch"}
         .inline-flex.rounded.border.border-ghborder.overflow-hidden#node-filters
-          %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", "data-filter" => "all"}
+          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", "data-filter" => "all"}
             %i.bi.bi-grid.mr-1
             All
-          %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "repeater"}
+          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "repeater"}
             %i.bi.bi-arrow-repeat.mr-1
             Repeaters
-          %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "bridge"}
+          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "bridge"}
             %i.bi.bi-link-45deg.mr-1
             Bridges
-          %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "echolink"}
+          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "echolink"}
             %i.bi.bi-headset.mr-1
             EchoLink
-          %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "xlx"}
+          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "xlx"}
             %i.bi.bi-globe.mr-1
             XLX
-          %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "dmr"}
+          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "dmr"}
             %i.bi.bi-broadcast-pin.mr-1
             DMR
-          %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "ysf"}
+          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "ysf"}
             %i.bi.bi-soundwave.mr-1
             YSF
-          %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "allstar"}
+          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "allstar"}
             %i.bi.bi-telephone.mr-1
             AllStar
-          %button.filter-btn.px-2.py-0.5.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "simplex"}
+          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "zello"}
+            %i.bi.bi-phone.mr-1
+            Zello
+          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "simplex"}
             %i.bi.bi-broadcast.mr-1
             Simplex
 
@@ -481,12 +484,12 @@
           %table.w-full.text-left.text-sm
             %thead
               %tr.bg-ghcard.border-b.border-ghborder
-                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Callsign
-                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Status
                 %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Type
-                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Location
-                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold TG
+                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Callsign
                 %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Signal
+                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Status
+                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold TG
+                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Location
                 %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Software
             %tbody
               - sorted.each do |callsign, node|
@@ -500,32 +503,30 @@
                 - best_sig = rx_ports.map { |_, r| r['siglev'] }.compact.max
                 %tr.border-b.border-ghborder2.hover:bg-ghcard{"data-node-class" => node_cls}
                   %td.px-3.py-2
+                    %i.bi.mr-1{class: node_icon}
+                    %span.capitalize= node_cls.presence || '—'
+                  %td.px-3.py-2
                     - if is_talker
                       %i.bi.bi-mic-fill.text-green-500.mr-1{style: "font-size:.7rem"}
                     %strong.font-mono.text-gray-100= callsign
-                  %td.px-3.py-2
-                    %span.inline-block.px-2.py-0.5.text-xs.rounded.font-semibold{class: "bg-#{st_col}-600 text-white"}= st_txt
-                    - if tg != 0
-                      %span.text-yellow-500.font-mono.ml-1= "TG#{tg}"
-                  %td.px-3.py-2
-                    %i.bi.mr-1{class: node_icon}
-                    %span.capitalize= node_cls.presence || '—'
-                  %td.px-3.py-2.text-gray-400= node['nodeLocation'].presence || '—'
-                  %td.px-3.py-2
-                    - if tg != 0
-                      %span.font-mono.text-yellow-500.font-semibold= tg
-                    - else
-                      %span.text-gray-500 —
                   %td.px-3.py-2
                     - if best_sig
                       - pct = best_sig < 0 ? [[((best_sig + 120) / 100.0 * 100).round, 0].max, 100].min : [[best_sig.to_i, 0].max, 100].min
                       - bar_col = pct > 66 ? 'green' : (pct > 33 ? 'yellow' : 'red')
                       .flex.items-center.gap-2
-                        .h-1.5.rounded-full.bg-ghborder2{style: "width:50px"}
+                        .h-1.5.rounded-full.bg-ghborder2{style: "width:80px"}
                           .h-full.rounded-full{class: "bg-#{bar_col}-500", style: "width:#{pct}%"}
                         %span.font-mono.text-gray-500{style: "font-size:.7rem"}= "#{best_sig.round}#{best_sig < 0 ? ' dBm' : '%'}"
                     - else
                       %span.text-gray-500 —
+                  %td.px-3.py-2
+                    %span.inline-block.px-2.py-0.5.text-xs.rounded.font-semibold{class: "bg-#{st_col}-600 text-white"}= st_txt
+                  %td.px-3.py-2
+                    - if tg != 0
+                      %span.font-mono.text-yellow-500.font-semibold= tg
+                    - else
+                      %span.text-gray-500 —
+                  %td.px-3.py-2.text-gray-400= node['nodeLocation'].presence || '—'
                   %td.px-3.py-2.text-gray-500{style: "font-size:.75rem"}= [node['sw'], node['swVer']].compact.join(' ').presence || '—'
 
 
@@ -1119,17 +1120,17 @@
                 if (best !== null) {
                   var pct = best < 0 ? Math.max(0, Math.min(100, Math.round((best + 120) / 100 * 100))) : Math.max(0, Math.min(100, best));
                   var bc = pct > 66 ? 'green' : (pct > 33 ? 'yellow' : 'red');
-                  sig = '<div class="flex items-center gap-2"><div class="h-1.5 rounded-full bg-ghborder2" style="width:50px"><div class="h-full rounded-full bg-' + bc + '-500" style="width:' + pct + '%"></div></div><span class="font-mono text-gray-500" style="font-size:.7rem">' + Math.round(best) + (best < 0 ? ' dBm' : '%') + '</span></div>';
+                  sig = '<div class="flex items-center gap-2"><div class="h-1.5 rounded-full bg-ghborder2" style="width:80px"><div class="h-full rounded-full bg-' + bc + '-500" style="width:' + pct + '%"></div></div><span class="font-mono text-gray-500" style="font-size:.7rem">' + Math.round(best) + (best < 0 ? ' dBm' : '%') + '</span></div>';
                 }
               }
             }
             h += '<tr class="border-b border-ghborder2 hover:bg-ghcard" data-node-class="' + esc(nc) + '">';
-            h += '<td class="px-3 py-2">' + (isTalker ? '<i class="bi bi-mic-fill text-green-500 mr-1" style="font-size:.7rem"></i>' : '') + '<strong class="font-mono text-gray-100">' + esc(cs) + '</strong></td>';
-            h += '<td class="px-3 py-2"><span class="inline-block px-2 py-0.5 text-xs rounded font-semibold bg-' + stCol + '-600 text-white">' + stTxt + '</span>' + (tg ? ' <span class="text-yellow-500 font-mono ml-1">TG' + tg + '</span>' : '') + '</td>';
             h += '<td class="px-3 py-2"><i class="bi ' + icon + ' mr-1"></i><span class="capitalize">' + (nc || '—') + '</span></td>';
-            h += '<td class="px-3 py-2 text-gray-400">' + esc(n.nodeLocation || '—') + '</td>';
-            h += '<td class="px-3 py-2">' + (tg ? '<span class="font-mono text-yellow-500 font-semibold">' + tg + '</span>' : '<span class="text-gray-500">—</span>') + '</td>';
+            h += '<td class="px-3 py-2">' + (isTalker ? '<i class="bi bi-mic-fill text-green-500 mr-1" style="font-size:.7rem"></i>' : '') + '<strong class="font-mono text-gray-100">' + esc(cs) + '</strong></td>';
             h += '<td class="px-3 py-2">' + (sig || '<span class="text-gray-500">—</span>') + '</td>';
+            h += '<td class="px-3 py-2"><span class="inline-block px-2 py-0.5 text-xs rounded font-semibold bg-' + stCol + '-600 text-white">' + stTxt + '</span></td>';
+            h += '<td class="px-3 py-2">' + (tg ? '<span class="font-mono text-yellow-500 font-semibold">' + tg + '</span>' : '<span class="text-gray-500">—</span>') + '</td>';
+            h += '<td class="px-3 py-2 text-gray-400">' + esc(n.nodeLocation || '—') + '</td>';
             h += '<td class="px-3 py-2 text-gray-500" style="font-size:.75rem">' + esc([n.sw, n.swVer].filter(Boolean).join(' ') || '—') + '</td>';
             h += '</tr>';
           });
@@ -1226,7 +1227,28 @@
         var currentFilter = localStorage.getItem('nodes-filter') || 'all';
         var filterBtns = document.querySelectorAll('.filter-btn');
         var nodesTable = document.getElementById('nodes-table');
+        function updateFilterVisibility() {
+          // Collect all node classes present in the grid
+          var present = {};
+          grid.querySelectorAll('[data-node-class]').forEach(function(col) {
+            present[col.dataset.nodeClass] = true;
+          });
+          // "bridge" matches any non-repeater, non-simplex node class
+          var hasBridges = Object.keys(present).some(function(k) { return k !== 'repeater' && k !== 'simplex'; });
+          filterBtns.forEach(function(btn) {
+            var f = btn.dataset.filter;
+            if (f === 'all') { btn.style.display = ''; return; }
+            if (f === 'bridge') { btn.style.display = hasBridges ? '' : 'none'; return; }
+            btn.style.display = present[f] ? '' : 'none';
+          });
+          // Reset to 'all' if current filter has no nodes
+          if (currentFilter !== 'all' && !present[currentFilter] && currentFilter !== 'bridge') {
+            currentFilter = 'all';
+            localStorage.setItem('nodes-filter', currentFilter);
+          }
+        }
         function applyFilter() {
+          updateFilterVisibility();
           filterBtns.forEach(function(b) { b.classList.toggle('active', b.dataset.filter === currentFilter); });
           grid.querySelectorAll('[data-node-class]').forEach(function(col) {
             col.style.display = (currentFilter === 'all' || col.dataset.nodeClass === currentFilter) ? '' : 'none';

@@ -169,7 +169,8 @@ module Admin
         :xlx_host, :xlx_port, :xlx_module, :xlx_callsign, :xlx_callsign_suffix, :xlx_mycall, :xlx_mycall_suffix, :xlx_reflector_name, :xlx_protocol,
         :dmr_host, :dmr_port, :dmr_id, :dmr_password, :dmr_talkgroup, :dmr_timeslot, :dmr_color_code, :dmr_callsign,
         :ysf_host, :ysf_port, :ysf_callsign, :ysf_description,
-        :allstar_node, :allstar_password, :allstar_server, :allstar_port
+        :allstar_node, :allstar_password, :allstar_server, :allstar_port,
+        :zello_username, :zello_password, :zello_channel, :zello_channel_password, :zello_issuer_id, :zello_private_key
       )
     end
 
@@ -226,6 +227,9 @@ module Admin
       elsif bridge.allstar?
         pull_image("ghcr.io/audric/svxreflectordashboard-allstar-bridge")
         start_allstar_container(bridge)
+      elsif bridge.zello?
+        pull_image("ghcr.io/audric/svxreflectordashboard-zello-bridge") rescue nil
+        start_zello_container(bridge)
       else
         pull_image("ghcr.io/audric/svxlink-docker")
         start_svxlink_container(bridge)
@@ -256,9 +260,9 @@ module Admin
           "XLX_PROTOCOL=#{bridge.xlx_protocol.presence || 'DCS'}",
           "XLX_REFLECTOR_NAME=#{bridge.xlx_reflector_name.presence || 'XLX000'}",
           "CALLSIGN=#{bridge.local_callsign}",
-          "DCS_CALLSIGN=#{bridge.dcs_callsign}",
-          "DCS_MYCALL=#{bridge.xlx_mycall}",
-          "DCS_MYCALL_SUFFIX=#{bridge.xlx_mycall_suffix.presence || 'AMBE'}",
+          "XLX_CALLSIGN=#{bridge.dcs_callsign}",
+          "XLX_MYCALL=#{bridge.xlx_mycall}",
+          "XLX_MYCALL_SUFFIX=#{bridge.xlx_mycall_suffix.presence || 'AMBE'}",
           "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
           "SYSOP=#{bridge.sysop}",
           "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
@@ -391,6 +395,49 @@ module Admin
       if result && result["Id"]
         docker_api_post("/containers/#{result["Id"]}/start")
         Rails.logger.info "[Bridge] Created and started AllStar container #{bridge.container_name}"
+      end
+    end
+
+    def start_zello_container(bridge)
+      bridge.generate_config
+      network = docker_network
+      bridge_dir = File.join(bridge_host_dir, bridge.id.to_s)
+      body = {
+        Image: "ghcr.io/audric/svxreflectordashboard-zello-bridge",
+        Labels: {
+          "svx.bridge" => "true",
+          "svx.bridge.id" => bridge.id.to_s,
+          "svx.bridge.name" => bridge.name,
+          "com.docker.compose.project" => "",
+          "com.docker.compose.service" => ""
+        },
+        Env: [
+          "REFLECTOR_HOST=#{bridge.local_host}",
+          "REFLECTOR_PORT=#{bridge.local_port}",
+          "REFLECTOR_AUTH_KEY=#{bridge.local_auth_key}",
+          "REFLECTOR_TG=#{bridge.local_default_tg}",
+          "CALLSIGN=#{bridge.local_callsign}",
+          "ZELLO_USERNAME=#{bridge.zello_username}",
+          "ZELLO_PASSWORD=#{bridge.zello_password}",
+          "ZELLO_CHANNEL=#{bridge.zello_channel}",
+          "ZELLO_CHANNEL_PASSWORD=#{bridge.zello_channel_password}",
+          "ZELLO_ISSUER_ID=#{bridge.zello_issuer_id}",
+          "ZELLO_PRIVATE_KEY_FILE=/etc/zello/private_key.pem",
+          "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
+          "SYSOP=#{bridge.sysop}",
+          "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
+        ],
+        HostConfig: {
+          Binds: ["#{bridge_dir}/zello_private_key.pem:/etc/zello/private_key.pem:ro"],
+          RestartPolicy: { Name: "unless-stopped" }
+        }
+      }
+      body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
+
+      result = docker_api_post_json("/containers/create?name=#{bridge.container_name}", body)
+      if result && result["Id"]
+        docker_api_post("/containers/#{result["Id"]}/start")
+        Rails.logger.info "[Bridge] Created and started Zello container #{bridge.container_name}"
       end
     end
 
@@ -548,9 +595,15 @@ module Admin
       Rails.logger.info "[Bridge] Pulling image #{image}..."
       sock = UNIXSocket.new("/var/run/docker.sock")
       sock.write("POST /images/create?fromImage=#{image}&tag=latest HTTP/1.0\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n")
-      response = sock.read
+      # Timeout after 30s to avoid blocking the request indefinitely
+      if IO.select([sock], nil, nil, 30)
+        response = sock.read_nonblock(65536) rescue ""
+      else
+        response = ""
+        Rails.logger.warn "[Bridge] Pull #{image}: timeout (image may not exist in registry)"
+      end
       sock.close
-      Rails.logger.info "[Bridge] Pull #{image}: #{response.split("\r\n").first}"
+      Rails.logger.info "[Bridge] Pull #{image}: #{response.split("\r\n").first}" unless response.empty?
     rescue => e
       Rails.logger.warn "[Bridge] Failed to pull #{image}: #{e.message}"
     end

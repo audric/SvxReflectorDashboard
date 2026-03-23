@@ -61,11 +61,11 @@
             = f.text_field :xlx_mycall_suffix, class: "w-20 px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext uppercase", placeholder: "AMBE", maxlength: 4, style: "text-transform: uppercase", value: (@bridge.xlx_mycall_suffix.presence || "AMBE")
           %p.text-xs.text-ghmuted.mt-1 Source callsign (8 chars) + suffix (4 chars) shown on D-STAR
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 DCS CALLSIGN
+          %label.block.text-sm.text-gray-500.mb-1 LINK CALLSIGN
           .flex.items-center.gap-2
             = f.text_field :xlx_callsign, class: "flex-1 px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext uppercase", placeholder: "e.g. F1ABC", maxlength: 7, style: "text-transform: uppercase"
             = f.select :xlx_callsign_suffix, ("A".."Z").map { |m| [m, m] }, {}, class: "w-16 px-2 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext text-center"
-          %p.text-xs.text-ghmuted.mt-1 Callsign + suffix letter for DCS (8 chars total, letter last)
+          %p.text-xs.text-ghmuted.mt-1 Callsign + suffix letter for XLX link (8 chars total, letter last)
 
   -# ── node_info.json ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
