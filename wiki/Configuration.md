@@ -14,6 +14,7 @@ All configuration is done via environment variables. Docker Compose loads `.env`
 | `REFLECTOR_PORT` | No | `5300` | Reflector port for the audio bridge |
 | `REDIS_URL` | No | `redis://redis:6379/1` | Redis connection URL |
 | `DOCKER_SOCK` | No | `/var/run/docker.sock` | Path to the Docker socket (set for rootless Docker) |
+| `BRIDGE_TYPES` | No | `reflector` | Comma-separated list of enabled bridge types (e.g. `reflector,xlx,zello`) |
 | `RAILS_ENV` | No | `production` | Rails environment |
 
 ## Generating SECRET_KEY_BASE

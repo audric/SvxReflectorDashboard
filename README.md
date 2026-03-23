@@ -15,7 +15,7 @@ A Rails web application for monitoring amateur radio [SVXReflector](https://www.
 - CTCSS tone-to-talkgroup matrix with CHIRP CSV export
 - GeuReflector support — trunk link status, satellite monitoring, cluster TG indicators, and network-wide analytics
 - Web admin for SVXReflector/GeuReflector configuration (global settings, certificates, users, passwords, TG rules, trunk peers, satellites)
-- SVXLink bridge management — reflector-to-reflector and EchoLink bridges with auto-generated configs, snapshot backups, and 30-day archive on delete
+- Multi-protocol bridge management — SVXLink reflector-to-reflector, EchoLink, XLX (DCS/DExtra), DMR, YSF, AllStar, and Zello bridges with auto-generated configs, snapshot backups, and 30-day archive on delete
 - User management with callsign validation, admin approval, and role-based permissions
 
 ## Quick start
@@ -45,6 +45,8 @@ caddy         → Reverse proxy with automatic HTTPS (Let's Encrypt)
 web           → Rails app (Puma) on port 3000
 updater       → Background poller (ReflectorListener)
 audio_bridge  → Go binary, SVXReflector protocol V2
+xlx_bridge    → Go binary, D-STAR XLX bridge (DCS + DExtra protocols)
+zello_bridge  → Go binary, Zello channel bridge (WebSocket/OPUS)
 redis         → ActionCable + audio pub/sub
 ```
 
