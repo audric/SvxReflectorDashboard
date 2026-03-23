@@ -5,7 +5,7 @@
   %head
     %meta{charset: "UTF-8"}
     %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
-    %title SVXReflector Dashboard
+    %title= "SVXReflector #{@reflector_host}"
     = csrf_meta_tags
     %script{src: "/vendor/tailwind/tailwind.js"}
     :javascript
@@ -510,13 +510,19 @@
                       %i.bi.bi-mic-fill.text-green-500.mr-1{style: "font-size:.7rem"}
                     %strong.font-mono.text-gray-100= callsign
                   %td.px-3.py-2
-                    - if best_sig
-                      - pct = best_sig < 0 ? [[((best_sig + 120) / 100.0 * 100).round, 0].max, 100].min : [[best_sig.to_i, 0].max, 100].min
-                      - bar_col = pct > 66 ? 'green' : (pct > 33 ? 'yellow' : 'red')
-                      .flex.items-center.gap-2
-                        .h-1.5.rounded-full.bg-ghborder2{style: "width:80px"}
-                          .h-full.rounded-full{class: "bg-#{bar_col}-500", style: "width:#{pct}%"}
-                        %span.font-mono.text-gray-500{style: "font-size:.7rem"}= "#{best_sig.round}#{best_sig < 0 ? ' dBm' : '%'}"
+                    - if rx_ports.any? { |_, r| r['siglev'] }
+                      .flex.flex-col.gap-1
+                        - rx_ports.each do |port_name, rx_data|
+                          - sig = rx_data['siglev']
+                          - next unless sig
+                          - pct = sig < 0 ? [[((sig + 120) / 100.0 * 100).round, 0].max, 100].min : [[sig.to_i, 0].max, 100].min
+                          - bar_col = pct > 66 ? 'green' : (pct > 33 ? 'yellow' : 'red')
+                          .flex.items-center.gap-2
+                            - if rx_ports.size > 1
+                              %span.text-gray-600.font-mono{style: "font-size:.6rem; min-width:24px"}= port_name
+                            .h-1.5.rounded-full.bg-ghborder2{style: "width:150px"}
+                              .h-full.rounded-full{class: "bg-#{bar_col}-500", style: "width:#{pct}%"}
+                            %span.font-mono.text-gray-500{style: "font-size:.7rem"}= "#{sig.round}#{sig < 0 ? ' dBm' : '%'}"
                     - else
                       %span.text-gray-500 —
                   %td.px-3.py-2
@@ -1112,16 +1118,26 @@
             var nc = n.nodeClass || '';
             var icon = iconMap[nc] || 'bi-broadcast';
             var sig = '';
-            if (n.qth && n.qth[0]) {
-              var rx = n.qth[0].rx;
-              if (rx) {
-                var best = null;
-                Object.keys(rx).forEach(function(p) { var s = rx[p].siglev; if (s !== undefined && s !== null && (best === null || s > best)) best = s; });
-                if (best !== null) {
-                  var pct = best < 0 ? Math.max(0, Math.min(100, Math.round((best + 120) / 100 * 100))) : Math.max(0, Math.min(100, best));
+            if (n.qth) {
+              var rxPorts = [];
+              n.qth.forEach(function(q) {
+                if (q.rx) Object.keys(q.rx).forEach(function(p) {
+                  var s = q.rx[p].siglev;
+                  if (s !== undefined && s !== null) rxPorts.push({name: p, sig: s});
+                });
+              });
+              if (rxPorts.length > 0) {
+                var multi = rxPorts.length > 1;
+                sig = '<div class="flex flex-col gap-1">';
+                rxPorts.forEach(function(rp) {
+                  var pct = rp.sig < 0 ? Math.max(0, Math.min(100, Math.round((rp.sig + 120) / 100 * 100))) : Math.max(0, Math.min(100, rp.sig));
                   var bc = pct > 66 ? 'green' : (pct > 33 ? 'yellow' : 'red');
-                  sig = '<div class="flex items-center gap-2"><div class="h-1.5 rounded-full bg-ghborder2" style="width:80px"><div class="h-full rounded-full bg-' + bc + '-500" style="width:' + pct + '%"></div></div><span class="font-mono text-gray-500" style="font-size:.7rem">' + Math.round(best) + (best < 0 ? ' dBm' : '%') + '</span></div>';
-                }
+                  sig += '<div class="flex items-center gap-2">';
+                  if (multi) sig += '<span class="text-gray-600 font-mono" style="font-size:.6rem;min-width:24px">' + esc(rp.name) + '</span>';
+                  sig += '<div class="h-1.5 rounded-full bg-ghborder2" style="width:150px"><div class="h-full rounded-full bg-' + bc + '-500" style="width:' + pct + '%"></div></div>';
+                  sig += '<span class="font-mono text-gray-500" style="font-size:.7rem">' + Math.round(rp.sig) + (rp.sig < 0 ? ' dBm' : '%') + '</span></div>';
+                });
+                sig += '</div>';
               }
             }
             h += '<tr class="border-b border-ghborder2 hover:bg-ghcard" data-node-class="' + esc(nc) + '">';

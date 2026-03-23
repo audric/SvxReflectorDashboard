@@ -44,7 +44,7 @@
         .inline-flex.items-center.justify-center.w-12.h-12.rounded-full.border.border-ghborder.bg-ghcard.mb-3
           %i.bi.bi-key.text-blue-400.text-xl
         %h1.text-xl.font-semibold.text-gray-100 Sign in to your account
-        %p.text-sm.text-ghmuted.mt-1 SVXReflector Dashboard
+        %p.text-sm.text-ghmuted.mt-1= "SVXReflector #{@reflector_host}"
 
       -# Flash messages
       - if flash[:notice]
