@@ -31,10 +31,22 @@ else
   echo "[1/5] Code already up to date (fresh clone)."
 fi
 
-# Pull latest Docker images from GHCR (dashboard + reflector)
+# Pull latest Docker images from GHCR (dashboard + reflector + bridges)
 echo ""
 echo "[2/5] Pulling Docker images..."
 docker compose pull
+# Pull bridge images (managed dynamically, not in docker-compose.yml)
+BRIDGE_IMAGES="
+ghcr.io/audric/svxreflectordashboard-xlx-bridge
+ghcr.io/audric/svxreflectordashboard-dmr-bridge
+ghcr.io/audric/svxreflectordashboard-ysf-bridge
+ghcr.io/audric/svxreflectordashboard-allstar-bridge
+ghcr.io/audric/svxreflectordashboard-zello-bridge
+"
+for img in $BRIDGE_IMAGES; do
+  echo "  Pulling $img..."
+  docker pull -q "$img:latest" 2>/dev/null || true
+done
 
 # Rebuild reflector image if it has a remote build context
 echo ""
