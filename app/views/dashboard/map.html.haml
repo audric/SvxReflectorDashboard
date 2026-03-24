@@ -203,7 +203,7 @@
         var trunkLinkLayer = L.layerGroup();
         var overlays = { '<i class="bi bi-diagram-3 mr-1" style="color:#22d3ee"></i>Trunk Links': trunkLinkLayer };
 
-        L.control.layers(tileLayers, overlays, { position: 'topright', collapsed: true }).addTo(map);
+        var layerControl = L.control.layers(tileLayers, overlays, { position: 'topright', collapsed: true }).addTo(map);
         trunkLinkLayer.addTo(map);
 
         // External SVX reflector layers (wrapped in try/catch to never break local map)
@@ -239,7 +239,7 @@
               marker.bindTooltip(esc(cs), { permanent: false, direction: 'right', className: 'map-tooltip' });
               layer.addLayer(marker);
             });
-            overlays['<i class="bi bi-globe2 mr-1" style="color:#d97706"></i>' + refName] = layer;
+            layerControl.addOverlay(layer, '<i class="bi bi-globe2 mr-1" style="color:#d97706"></i>' + esc(refName));
             layer.addTo(map);
           });
         } catch(e) { console.warn('[External SVX] Map overlay error:', e); }
