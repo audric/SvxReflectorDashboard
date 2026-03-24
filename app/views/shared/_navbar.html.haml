@@ -149,6 +149,7 @@
           - admin_links = [['bi-people', 'Web Users', admin_users_path], ['bi-collection', 'Talkgroups', admin_tgs_path]]
           - admin_links << ['bi-broadcast', 'Reflector', edit_admin_reflector_path] if current_user.reflector_admin?
           - admin_links << ['bi-diagram-3', 'Bridge', admin_bridges_path] if current_user.reflector_admin?
+          - admin_links << ['bi-globe2', 'External SVX', admin_external_reflectors_path]
           - admin_links << ['bi-cpu', 'System', admin_system_info_path]
           - admin_links.each do |icon, label, path|
             %a.flex.items-center.gap-3.px-3.py-2.rounded-md.text-sm.transition-colors{class: (request.path.start_with?(path) ? 'bg-ghborder2 text-gray-100' : 'text-ghmuted hover:bg-ghborder2 hover:text-gray-300'), href: path}

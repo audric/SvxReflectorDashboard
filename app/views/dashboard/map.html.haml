@@ -168,6 +168,7 @@
     %script{src: "/vendor/leaflet/leaflet.js"}
     - nodes_json = @nodes.to_json.html_safe
     - trunks_json = (@trunks || {}).to_json.html_safe
+    - external_json = (@external_reflectors || {}).to_json.html_safe
     :javascript
       (function () {
         'use strict';
@@ -201,8 +202,47 @@
 
         var trunkLinkLayer = L.layerGroup();
         var overlays = { '<i class="bi bi-diagram-3 mr-1" style="color:#22d3ee"></i>Trunk Links': trunkLinkLayer };
+
+        // External SVX reflector layers
+        var extData = #{external_json};
+        var extLayers = {};
+        Object.keys(extData).forEach(function(refName) {
+          var layer = L.layerGroup();
+          var ref = extData[refName];
+          var refNodes = ref.nodes || {};
+          var portalUrl = ref.portal_url;
+          Object.keys(refNodes).forEach(function(cs) {
+            var node = refNodes[cs];
+            var pos = node.qth && node.qth[0] && node.qth[0].pos;
+            var lat = pos && pos.lat;
+            var lng = pos && (pos.long || pos.lon);
+            if (!lat || !lng) return;
+            var tg = node.tg || 0;
+            var col = node.isTalker ? '#f59e0b' : (tg ? '#d97706' : '#92400e');
+            var marker = L.circleMarker([lat, lng], {
+              radius: 6, fillColor: col, color: '#78350f', weight: 1.5,
+              fillOpacity: 0.85, dashArray: '4 3'
+            });
+            var popup = '<div style="min-width:180px"><strong class="font-mono">' + cs + '</strong>';
+            popup += '<br><span style="font-size:.75rem;color:#d97706"><i class="bi bi-globe2 mr-1"></i>' + refName + '</span>';
+            if (tg) popup += '<br><span style="font-size:.8rem">TG ' + tg + '</span>';
+            if (node.nodeLocation) popup += '<br><span style="font-size:.75rem;color:#8b949e"><i class="bi bi-geo-alt mr-1"></i>' + node.nodeLocation + '</span>';
+            if (node.nodeClass) popup += '<br><span style="font-size:.75rem;color:#8b949e"><i class="bi bi-broadcast mr-1"></i>' + node.nodeClass + '</span>';
+            if (node.sysop) popup += '<br><span style="font-size:.75rem;color:#8b949e"><i class="bi bi-person mr-1"></i>' + node.sysop + '</span>';
+            if (portalUrl) popup += '<br><a href="' + portalUrl + '" target="_blank" style="font-size:.75rem;color:#58a6ff"><i class="bi bi-box-arrow-up-right mr-1"></i>' + refName + ' dashboard</a>';
+            popup += '</div>';
+            marker.bindPopup(popup);
+            marker.bindTooltip(cs, { permanent: false, direction: 'right', className: 'map-tooltip' });
+            layer.addLayer(marker);
+          });
+          extLayers[refName] = layer;
+          overlays['<i class="bi bi-globe2 mr-1" style="color:#d97706"></i>' + refName] = layer;
+        });
+
         L.control.layers(tileLayers, overlays, { position: 'topright', collapsed: true }).addTo(map);
         trunkLinkLayer.addTo(map);
+        // External layers visible by default
+        Object.keys(extLayers).forEach(function(k) { extLayers[k].addTo(map); });
 
         // ── Legend ─────────────────────────────────────────────────────────────────
         var legend = L.control({ position: 'bottomleft' });
@@ -213,7 +253,8 @@
             '<div class="legend-row"><span class="legend-dot" style="background:#3fb950"></span>Talking</div>' +
             '<div class="legend-row"><span class="legend-dot" style="background:#1f6feb"></span>Active (on TG)</div>' +
             '<div class="legend-row"><span class="legend-dot" style="background:#6e7681"></span>Idle</div>' +
-            '<div class="legend-row" style="margin-top:.3rem"><span style="width:12px;height:3px;background:#22d3ee;border-radius:1px;flex-shrink:0"></span>Trunk Link</div>';
+            '<div class="legend-row" style="margin-top:.3rem"><span style="width:12px;height:3px;background:#22d3ee;border-radius:1px;flex-shrink:0"></span>Trunk Link</div>' +
+            '<div class="legend-row"><span class="legend-dot" style="background:#d97706;border:1px dashed #78350f"></span>External SVX</div>';
           return div;
         };
         legend.addTo(map);

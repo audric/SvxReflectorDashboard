@@ -1,0 +1,95 @@
+!!!
+%html{lang: "en"}
+  :javascript
+    (function(){var t=localStorage.getItem('theme')||'auto';var r=(t==='auto'?(window.matchMedia('(prefers-color-scheme:light)').matches?'light':'auto'):t);document.documentElement.setAttribute('data-theme',r);})();
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title SVXReflector · External SVX
+    = csrf_meta_tags
+    %script{src: "/vendor/tailwind/tailwind.js"}
+    :javascript
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ghbg: '#0d1117',
+              ghcard: '#161b22',
+              ghborder: '#30363d',
+              ghborder2: '#21262d',
+              ghtext: '#c9d1d9',
+              ghmuted: '#8b949e',
+              ghdim: '#6e7681',
+            }
+          }
+        }
+      }
+    %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
+    :css
+      body { background: #0d1117; }
+      .admin-table th { font-size: .73rem; text-transform: uppercase; letter-spacing: .05em; color: #6e7681; border-color: #21262d; }
+      .admin-table td { font-size: .85rem; border-color: #21262d; vertical-align: middle; }
+
+  %body.text-ghtext
+    = render 'shared/navbar', active: 'admin'
+
+    .max-w-7xl.mx-auto.px-4.pb-12
+      .flex.items-center.justify-between.mb-6
+        %h4.text-xl.font-semibold.text-gray-100
+          %i.bi.bi-globe2.mr-2
+          External SVX Reflectors
+        = link_to new_admin_external_reflector_path, class: "inline-block text-sm px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold" do
+          %i.bi.bi-plus-lg.mr-1
+          Add Reflector
+
+      - if flash[:notice]
+        %div.p-2.rounded.border.border-green-700.text-green-400.text-sm.mb-4.flex.items-center.justify-between{class: "bg-green-900/30", id: "flash-notice"}
+          %span= flash[:notice]
+          %button.text-green-400.hover:text-green-200.cursor-pointer{type: "button", onclick: "this.parentElement.remove()"}
+            %i.bi.bi-x
+
+      %p.text-sm.text-ghmuted.mb-4 External SVX reflectors appear as toggleable overlay layers on the map. Their nodes are fetched on demand and cached briefly.
+
+      - if @reflectors.empty?
+        .text-center.text-ghmuted.py-8
+          %i.bi.bi-globe2.text-2xl.block.mb-2
+          No external reflectors configured yet.
+      - else
+        .overflow-x-auto
+          %table.w-full.text-left.admin-table
+            %thead
+              %tr.border-b.border-ghborder2
+                %th.py-2.px-3 Name
+                %th.py-2 Status URL
+                %th.py-2 Portal
+                %th.py-2 Description
+                %th.py-2.text-center Enabled
+                %th.py-2.text-right.pr-3 Actions
+            %tbody
+              - @reflectors.each do |ref|
+                %tr.border-b.border-ghborder2.hover:bg-ghcard
+                  %td.py-2.px-3.font-semibold= ref.name
+                  %td.py-2.font-mono.text-xs.text-ghmuted.truncate{style: "max-width:250px;"}= ref.status_url
+                  %td.py-2
+                    - if ref.portal_url.present?
+                      %a.text-blue-400.hover:underline.text-xs{href: ref.portal_url, target: "_blank"}= ref.portal_url
+                    - else
+                      %span.text-ghdim —
+                  %td.py-2.text-ghmuted.text-sm.truncate{style: "max-width:200px;"}= ref.description.presence || '—'
+                  %td.py-2.text-center
+                    - if ref.enabled?
+                      %span.inline-block.w-2.h-2.rounded-full.bg-green-500{title: "Enabled"}
+                    - else
+                      %span.inline-block.w-2.h-2.rounded-full.bg-gray-600{title: "Disabled"}
+                  %td.py-2.text-right.pr-3
+                    .inline-flex.gap-1.justify-end
+                      = link_to edit_admin_external_reflector_path(ref), class: "inline-block text-sm px-2 py-1 rounded border border-gray-600 text-gray-400 hover:text-gray-200" do
+                        %i.bi.bi-pencil
+                      = button_to admin_external_reflector_path(ref), method: :delete, class: "inline-block text-sm px-2 py-1 rounded border border-red-700 text-red-400 hover:text-red-300", form_class: "inline", form: { data: { turbo_confirm: "Remove \"#{ref.name}\"?" } } do
+                        %i.bi.bi-trash
+
+    :javascript
+      (function() {
+        var el = document.getElementById('flash-notice');
+        if (el) setTimeout(function() { el.style.transition = 'opacity 0.5s'; el.style.opacity = '0'; setTimeout(function() { el.remove(); }, 500); }, 5000);
+      })();

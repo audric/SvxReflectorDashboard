@@ -2,11 +2,17 @@ module Admin
   class BridgeController < ApplicationController
     layout false
     before_action :require_reflector_admin
-    before_action :set_bridge, only: %i[edit update destroy toggle backups]
+    before_action :set_bridge, only: %i[edit update destroy toggle backups logs]
 
     def index
       @bridges = Bridge.includes(:bridge_tg_mappings).order(:name)
       @container_statuses = fetch_container_statuses
+      @container_last_lines = {}
+      @bridges.each do |bridge|
+        next unless bridge.enabled? && @container_statuses[bridge.id]
+        lines = fetch_container_logs(bridge, tail: 5)
+        @container_last_lines[bridge.id] = lines if lines.present?
+      end
     end
 
     def new
@@ -105,6 +111,11 @@ module Admin
         { label: time_label, files: files }
       end
       render json: snapshots
+    end
+
+    def logs
+      logs = fetch_container_logs(@bridge, tail: params.fetch(:tail, 50).to_i)
+      render json: { logs: logs || "No logs available (container not found)" }
     end
 
     def xlx_hosts
@@ -541,6 +552,31 @@ module Admin
     rescue => e
       Rails.logger.error "[Bridge] Failed to fetch container statuses: #{e.class} #{e.message}"
       {}
+    end
+
+    def fetch_container_logs(bridge, tail: 30)
+      container = find_container(bridge, all: true)
+      return nil unless container
+
+      sock = UNIXSocket.new("/var/run/docker.sock")
+      sock.write("GET /containers/#{container["Id"]}/logs?stdout=true&stderr=true&tail=#{tail}&timestamps=false HTTP/1.0\r\nHost: localhost\r\n\r\n")
+      response = sock.read
+      sock.close
+
+      raw = response.force_encoding("BINARY").split("\r\n\r\n", 2).last
+      # Docker multiplexed stream: 8-byte header per frame (type[1] + padding[3] + size[4])
+      output = "".b
+      pos = 0
+      while pos + 8 <= raw.bytesize
+        size = raw[pos + 4, 4].unpack1("N")
+        break if pos + 8 + size > raw.bytesize
+        output << raw[pos + 8, size]
+        pos += 8 + size
+      end
+      output.encode("UTF-8", invalid: :replace, undef: :replace, replace: "")
+    rescue => e
+      Rails.logger.error "[Bridge] Failed to fetch logs: #{e.class} #{e.message}"
+      nil
     end
 
     def bridge_host_dir

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_24_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_24_140000) do
   create_table "bridge_tg_mappings", force: :cascade do |t|
     t.string "activate_on_activity"
     t.integer "bridge_id", null: false
@@ -144,6 +144,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_24_120000) do
     t.datetime "updated_at", null: false
     t.index ["code"], name: "index_ctcss_tones_on_code", unique: true
     t.index ["frequency"], name: "index_ctcss_tones_on_frequency", unique: true
+  end
+
+  create_table "external_reflectors", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "enabled", default: true
+    t.string "name", null: false
+    t.string "portal_url"
+    t.string "status_url", null: false
+    t.datetime "updated_at", null: false
   end
 
   create_table "node_classes", force: :cascade do |t|

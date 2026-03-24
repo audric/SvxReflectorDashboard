@@ -216,11 +216,20 @@
                         - bridge.bridge_tg_mappings.each do |m|
                           %span.inline-block.px-2.py-0.5.text-xs.font-mono.rounded.border.border-ghborder2.text-gray-300= "#{m.local_tg} \u2194 #{m.remote_tg}"
 
+                - last_lines = @container_last_lines[bridge.id]
+                - if last_lines.present?
+                  - has_error = last_lines.include?('error') || last_lines.include?('Error') || last_lines.include?('failed') || last_lines.include?('denied')
+                  .mt-2.rounded-md.border.px-3.py-2.font-mono.text-xs.overflow-x-auto{class: has_error ? "border-red-800 bg-red-950/30 text-red-300" : "border-gray-700 bg-[#0d1117] text-gray-500", style: "max-height:5rem; white-space:pre-wrap; word-break:break-all"}
+                    = last_lines.strip
+
                 .flex.items-center.gap-2.ml-4
                   = link_to edit_admin_bridge_path(bridge), class: "p-2 rounded-md text-gray-400 hover:text-gray-200 hover:bg-ghborder2", title: "Edit" do
                     %i.bi.bi-pencil
                   %button.p-2.rounded-md.text-gray-400.hover:text-gray-200.hover:bg-ghborder2.cursor-pointer{type: "button", title: "Backups", onclick: "openBackups('#{backups_admin_bridge_path(bridge)}', '#{j bridge.name}')"}
                     %i.bi.bi-clock-history
+                  - if bridge.enabled? && status
+                    %button.p-2.rounded-md.text-gray-400.hover:text-gray-200.hover:bg-ghborder2.cursor-pointer{type: "button", title: "Logs", onclick: "openLogs('#{logs_admin_bridge_path(bridge)}', '#{j bridge.name}')"}
+                      %i.bi.bi-terminal
                   - show_stop = bridge.enabled? && running
                   = button_to toggle_admin_bridge_path(bridge), method: :patch, class: "p-2 rounded-md hover:bg-ghborder2 cursor-pointer #{show_stop ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}", title: show_stop ? "Stop" : "Start" do
                     %i.bi{class: show_stop ? "bi-stop-fill" : "bi-play-fill"}
@@ -230,6 +239,23 @@
                   - else
                     %button.p-2.rounded-md.text-red-400.hover:text-red-300.hover:bg-ghborder2.cursor-pointer{type: "button", title: "Delete", onclick: "confirmDelete('#{j bridge.name}', '#{admin_bridge_path(bridge)}')"}
                       %i.bi.bi-trash3
+
+    -# Logs modal
+    #logs-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
+      .bg-ghcard.border.border-gray-600.rounded-lg.max-w-4xl.w-full.mx-4.shadow-xl.flex.flex-col{style: "max-height: 85vh"}
+        .flex.items-center.justify-between.px-5.py-4.border-b.border-ghborder.shrink-0
+          %h6.text-base.font-semibold.text-gray-100#logs-modal-title
+            %i.bi.bi-terminal.mr-2
+            Container Logs
+          .flex.items-center.gap-2
+            %button.px-3.py-1.rounded-md.border.border-gray-600.text-xs.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "refreshLogs()", title: "Refresh"}
+              %i.bi.bi-arrow-clockwise.mr-1
+              Refresh
+            %button.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "closeLogs()"}
+              %i.bi.bi-x-lg
+        .flex-1.overflow-auto.p-4
+          %pre.text-xs.font-mono.text-gray-300.whitespace-pre-wrap#logs-modal-content
+            %span.text-ghdim Loading...
 
     -# Backup browser modal
     #backup-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
@@ -295,6 +321,41 @@
       });
       document.getElementById('confirm-modal').addEventListener('click', function(e) {
         if (e.target === this) { _deleteUrl = null; this.style.display = 'none'; }
+      });
+
+      // ── Logs modal ──
+      var _logsUrl = null;
+      function openLogs(url, name) {
+        _logsUrl = url;
+        var modal = document.getElementById('logs-modal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.getElementById('logs-modal-title').innerHTML = '<i class="bi bi-terminal mr-2"></i>Logs \u2014 ' + name;
+        refreshLogs();
+      }
+      function closeLogs() {
+        var modal = document.getElementById('logs-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        _logsUrl = null;
+      }
+      function refreshLogs() {
+        if (!_logsUrl) return;
+        var content = document.getElementById('logs-modal-content');
+        content.innerHTML = '<span class="text-ghdim">Loading...</span>';
+        fetch(_logsUrl + '?tail=200')
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            var text = (data.logs || 'No logs available').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            // Highlight errors in red
+            text = text.replace(/(.*(?:error|Error|failed|denied|fatal|FATAL|panic).*)$/gm, '<span class="text-red-400">$1</span>');
+            content.innerHTML = text;
+            content.scrollTop = content.scrollHeight;
+          })
+          .catch(function() { content.innerHTML = '<span class="text-red-400">Failed to load logs</span>'; });
+      }
+      document.getElementById('logs-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeLogs();
       });
 
       var _backupCache = {};

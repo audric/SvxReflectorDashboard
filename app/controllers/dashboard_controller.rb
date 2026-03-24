@@ -10,6 +10,7 @@ class DashboardController < ApplicationController
   def map
     fetch_nodes
     fetch_extended
+    fetch_external_reflectors
   end
 
   def tg
@@ -187,5 +188,37 @@ class DashboardController < ApplicationController
       @reflector_config = {}
       @reflector_mode   = 'reflector'
     end
+  end
+
+  def fetch_external_reflectors
+    @external_reflectors = {}
+    ExternalReflector.enabled.ordered.each do |ref|
+      nodes = Rails.cache.fetch("external_reflector:#{ref.id}", expires_in: 90.seconds) do
+        fetch_remote_nodes(ref.status_url)
+      end
+      @external_reflectors[ref.name] = {
+        nodes: nodes || {},
+        portal_url: ref.portal_url
+      }
+    end
+  rescue => e
+    Rails.logger.warn "[ExternalReflectors] #{e.message}"
+    @external_reflectors ||= {}
+  end
+
+  def fetch_remote_nodes(url)
+    require "net/http"
+    uri = URI(url)
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = uri.scheme == "https"
+    http.open_timeout = 3
+    http.read_timeout = 5
+    response = http.get(uri.request_uri)
+    return nil unless response.is_a?(Net::HTTPSuccess)
+    data = JSON.parse(response.body)
+    data["nodes"] || {}
+  rescue => e
+    Rails.logger.warn "[ExternalReflectors] Failed to fetch #{url}: #{e.message}"
+    nil
   end
 end

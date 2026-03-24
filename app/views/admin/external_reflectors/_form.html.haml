@@ -1,0 +1,32 @@
+= form_with model: [:admin, reflector], local: true do |f|
+  - if reflector.errors.any?
+    %div.p-2.rounded.border.border-red-700.text-red-400.text-sm.mb-4{class: "bg-red-900/30"}
+      %ul.mb-0.list-disc.pl-4
+        - reflector.errors.full_messages.each do |msg|
+          %li= msg
+
+  .mb-4
+    = f.label :name, "Name", class: "block text-sm text-gray-500 mb-1"
+    = f.text_field :name, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", placeholder: "e.g. SVX Lombardia"
+
+  .mb-4
+    = f.label :status_url, "Status URL", class: "block text-sm text-gray-500 mb-1"
+    = f.text_field :status_url, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 font-mono focus:outline-none focus:border-blue-500", placeholder: "http://host:8080/status"
+    %p.text-xs.text-ghmuted.mt-1 The SVXReflector HTTP status API endpoint. Nodes from this reflector will appear on the map.
+
+  .mb-4
+    = f.label :portal_url, "Portal URL (optional)", class: "block text-sm text-gray-500 mb-1"
+    = f.text_field :portal_url, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 font-mono focus:outline-none focus:border-blue-500", placeholder: "https://dashboard.example.com"
+    %p.text-xs.text-ghmuted.mt-1 Link to the reflector's web dashboard (shown in map popups).
+
+  .mb-4
+    = f.label :description, "Description (optional)", class: "block text-sm text-gray-500 mb-1"
+    = f.text_area :description, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", rows: 2, placeholder: "Short description"
+
+  .mb-4.flex.items-center.gap-2
+    = f.check_box :enabled, class: "rounded border-gray-600 bg-[#0d1117]"
+    = f.label :enabled, "Enabled (show on map)", class: "text-sm text-gray-400"
+
+  .flex.gap-2
+    = f.submit (reflector.persisted? ? "Update" : "Add Reflector"), class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
+    = link_to "Cancel", admin_external_reflectors_path, class: "px-4 py-2 rounded-md border border-gray-600 text-gray-400 hover:text-gray-200"

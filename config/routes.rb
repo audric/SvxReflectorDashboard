@@ -32,6 +32,7 @@ Rails.application.routes.draw do
       post :block_node, on: :collection
       post :revoke_cert, on: :collection
     end
+    resources :external_reflectors
     resources :bridges, controller: "bridge" do
       collection do
         get :xlx_hosts
@@ -39,6 +40,7 @@ Rails.application.routes.draw do
       member do
         patch :toggle
         get :backups
+        get :logs
       end
     end
     resource :system_info, only: :show, controller: "system_info"
