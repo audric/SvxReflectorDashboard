@@ -91,6 +91,14 @@ The `node_events` table records 12 event types:
 
 Trunk and satellite events use the `source` column to identify the originating trunk peer.
 
+### Audio path — analog radio (core)
+
+```
+Analog Radio ↔ RF ↔ SVXLink Repeater ↔ OPUS/UDP ↔ SVX Reflector ↔ OPUS/UDP ↔ Other SVXLink Nodes
+```
+
+This is the fundamental path — all other paths branch from the reflector. No HPF/LPF/AGC is applied here; audio filtering on the repeater side is handled by SVXLink's own audio chain (PREAMP, PEAK_METER, LADSPA plugins in `svxlink.conf`), configured by the repeater operator.
+
 ### Audio path — web listener
 
 ```
@@ -122,6 +130,24 @@ Remote → SVX:  Vocoder decode → PCM → HPF 300Hz → LPF 3kHz → AGC + Lim
 - **Hard limiter** — absolute ceiling at 90% of full scale, prevents vocoder clipping
 
 All parameters are configurable per-bridge from the admin UI. See [[Bridges#audio-processing]] for details.
+
+### Audio path — cross-protocol (e.g. Analog ↔ D-STAR)
+
+When an analog FM user talks to a D-STAR user, the audio traverses two hops through the reflector:
+
+```
+Analog → D-STAR:
+  Analog Radio → RF → SVXLink Repeater → OPUS/UDP → SVX Reflector → OPUS/UDP →
+  XLX Bridge: OPUS decode → PCM 8kHz → HPF → LPF → AGC → AMBE encode →
+  XLX Reflector → DCS/DExtra → D-STAR Repeater → RF → D-STAR Radio
+
+D-STAR → Analog:
+  D-STAR Radio → RF → D-STAR Repeater → AMBE/DCS|DExtra → XLX Reflector →
+  XLX Bridge: AMBE decode → PCM 8kHz → HPF → LPF → AGC → OPUS encode →
+  SVX Reflector → OPUS/UDP → SVXLink Repeater → RF → Analog Radio
+```
+
+Note: HPF/LPF/AGC only applies inside the Go bridge. The SVXLink repeater's audio chain is separate and configured by the repeater operator.
 
 ### Redis channels
 

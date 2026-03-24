@@ -367,6 +367,26 @@
 
         .space-y-6
 
+          -# ── Analog Radio → Reflector ──
+          .rounded-lg.border.border-gray-600.bg-ghcard.p-4
+            %h6.text-sm.font-semibold.text-green-700.dark:text-green-400.mb-3
+              %i.bi.bi-broadcast.mr-1
+              Analog Radio &harr; SVXReflector (core path)
+            .flex.flex-wrap.items-center.gap-2.text-sm.text-gray-300
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-green-700.dark:text-green-400 Analog Radio
+              %span.text-gray-500.dark:text-gray-500 &harr; RF &harr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-green-700.dark:text-green-400 SVXLink Repeater
+              %span.text-gray-500.dark:text-gray-500 &harr; OPUS/UDP &harr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-yellow-700.dark:text-yellow-400 SVX Reflector
+              %span.text-gray-500.dark:text-gray-500 &harr; OPUS/UDP &harr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-green-700.dark:text-green-400 Other SVXLink Nodes
+            .flex.flex-wrap.items-center.gap-2.text-sm.text-gray-300.mt-2.ml-4
+              %span.text-gray-600 SVXLink handles: analog audio &harr; ADC/DAC &harr; PCM &harr; OPUS encode/decode
+            %p.text-xs.text-ghmuted.mt-2 This is the fundamental path. All other paths below branch from the reflector.
+            %p.text-xs.text-ghmuted.mt-1
+              %i.bi.bi-info-circle.mr-1
+              No HPF/LPF/AGC on this path — audio filtering on the repeater side is handled by SVXLink's own audio chain (PREAMP, PEAK_METER, LADSPA plugins in svxlink.conf), configured by the repeater operator.
+
           -# ── Web Tune-in (RX) ──
           .rounded-lg.border.border-gray-600.bg-ghcard.p-4
             %h6.text-sm.font-semibold.text-blue-700.dark:text-blue-400.mb-3
@@ -454,6 +474,57 @@
               %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-orange-700.dark:text-orange-400 D-STAR Repeater
               %span.text-gray-500.dark:text-gray-500 &rarr; RF &rarr;
               %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-orange-700.dark:text-orange-400 D-STAR Radio
+
+          -# ── Analog Radio ↔ D-STAR (cross-protocol) ──
+          .rounded-lg.border.border-gray-600.bg-ghcard.p-4
+            %h6.text-sm.font-semibold.text-amber-700.dark:text-amber-400.mb-3
+              %i.bi.bi-arrow-left-right.mr-1
+              Analog Radio &harr; D-STAR (cross-protocol via reflector + XLX bridge)
+            %p.text-xs.text-ghmuted.mb-3 Full end-to-end path when an analog FM user talks to a D-STAR user (or vice versa).
+            .mb-2
+              %span.text-xs.font-semibold.text-gray-500 ANALOG → D-STAR:
+            .flex.flex-wrap.items-center.gap-2.text-sm.text-gray-300
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-green-700.dark:text-green-400 Analog Radio
+              %span.text-gray-500.dark:text-gray-500 &rarr; RF &rarr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-green-700.dark:text-green-400 SVXLink Repeater
+              %span.text-gray-500.dark:text-gray-500 &rarr; OPUS/UDP &rarr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-yellow-700.dark:text-yellow-400 SVX Reflector
+              %span.text-gray-500.dark:text-gray-500 &rarr; OPUS/UDP &rarr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-pink-700.dark:text-pink-400 XLX Bridge (Go)
+            .flex.flex-wrap.items-center.gap-2.text-sm.text-gray-300.mt-2.ml-4
+              %span.text-gray-600 OPUS decode &rarr; PCM 8kHz &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 HPF 300Hz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 LPF 3kHz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-rose-900.text-rose-300.border.border-rose-700 AGC
+              %span.text-gray-600 &rarr; AMBE encode &rarr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-orange-700.dark:text-orange-400 XLX Reflector
+              %span.text-gray-500.dark:text-gray-500 &rarr; DCS|DExtra &rarr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-orange-700.dark:text-orange-400 D-STAR Radio
+            .mt-3.mb-2
+              %span.text-xs.font-semibold.text-gray-500 D-STAR → ANALOG:
+            .flex.flex-wrap.items-center.gap-2.text-sm.text-gray-300
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-orange-700.dark:text-orange-400 D-STAR Radio
+              %span.text-gray-500.dark:text-gray-500 &rarr; RF &rarr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-orange-700.dark:text-orange-400 D-STAR Repeater
+              %span.text-gray-500.dark:text-gray-500 &rarr; AMBE/DCS|DExtra &rarr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-orange-700.dark:text-orange-400 XLX Reflector
+              %span.text-gray-500.dark:text-gray-500 &rarr; AMBE &rarr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-pink-700.dark:text-pink-400 XLX Bridge (Go)
+            .flex.flex-wrap.items-center.gap-2.text-sm.text-gray-300.mt-2.ml-4
+              %span.text-gray-600 AMBE decode &rarr; PCM 8kHz &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 HPF 300Hz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 LPF 3kHz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-rose-900.text-rose-300.border.border-rose-700 AGC
+              %span.text-gray-600 &rarr; OPUS encode &rarr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-yellow-700.dark:text-yellow-400 SVX Reflector
+              %span.text-gray-500.dark:text-gray-500 &rarr; OPUS/UDP &rarr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-green-700.dark:text-green-400 SVXLink Repeater
+              %span.text-gray-500.dark:text-gray-500 &rarr; RF &rarr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-green-700.dark:text-green-400 Analog Radio
 
           -# ── DMR Bridge ──
           .rounded-lg.border.border-gray-600.bg-ghcard.p-4

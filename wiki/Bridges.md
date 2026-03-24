@@ -135,7 +135,9 @@ Zello → SVX: OPUS 16kHz/60ms → PCM 48kHz → HPF → LPF → AGC → split 3
 
 ## Audio processing
 
-All Go-based bridges (XLX, DMR, YSF, AllStar, Zello) apply a three-stage audio processing pipeline on both directions (reflector→remote and remote→reflector):
+All Go-based bridges (XLX, DMR, YSF, AllStar, Zello) apply a three-stage audio processing pipeline on both directions (reflector→remote and remote→reflector).
+
+> **Note:** This processing only applies inside the Go bridge binaries. The core analog path (radio → SVXLink repeater → reflector) has no filtering from the dashboard — audio processing on the repeater side is handled by SVXLink's own audio chain (PREAMP, PEAK_METER, LADSPA plugins), configured by the repeater operator.
 
 ```
 PCM decode → HPF (300 Hz) → LPF (3000 Hz) → AGC + Hard Limiter → Vocoder encode
