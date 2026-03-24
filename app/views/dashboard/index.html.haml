@@ -518,11 +518,11 @@
                           - pct = sig < 0 ? [[((sig + 120) / 100.0 * 100).round, 0].max, 100].min : [[sig.to_i, 0].max, 100].min
                           - bar_col = pct > 66 ? 'green' : (pct > 33 ? 'yellow' : 'red')
                           .flex.items-center.gap-2
-                            - if rx_ports.size > 1
-                              %span.text-gray-600.font-mono{style: "font-size:.6rem; min-width:24px"}= port_name
                             .h-1.5.rounded-full.bg-ghborder2{style: "width:150px"}
                               .h-full.rounded-full{class: "bg-#{bar_col}-500", style: "width:#{pct}%"}
                             %span.font-mono.text-gray-500{style: "font-size:.7rem"}= "#{sig.round}#{sig < 0 ? ' dBm' : '%'}"
+                            - if rx_ports.size > 1
+                              %span.text-gray-500{style: "font-size:.65rem"}= "#{port_name}#{rx_data['name'].present? ? ' ' + rx_data['name'] : ''}"
                     - else
                       %span.text-gray-500 —
                   %td.px-3.py-2
