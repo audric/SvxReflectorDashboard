@@ -103,6 +103,19 @@ class Bridge < ApplicationRecord
     bridge_type == "zello"
   end
 
+  def has_agc?
+    xlx? || dmr? || ysf? || allstar? || zello?
+  end
+
+  AGC_DEFAULTS = {
+    agc_target_level: 0.3,
+    agc_attack_rate: 0.01,
+    agc_decay_rate: 0.3,
+    agc_max_gain: 4.0,
+    agc_min_gain: 0.1,
+    agc_limit_level: 0.9
+  }.freeze
+
   def config_dir
     Rails.root.join("bridge", id.to_s)
   end
@@ -198,6 +211,25 @@ class Bridge < ApplicationRecord
     config_dir.join("backups")
   end
 
+  def agc_env_lines
+    return [] unless has_agc?
+    d = AGC_DEFAULTS
+    lines = []
+    lines << "AGC_SVX_TO_EXT_TARGET_LEVEL=#{agc_target_level || d[:agc_target_level]}"
+    lines << "AGC_SVX_TO_EXT_ATTACK_RATE=#{agc_attack_rate || d[:agc_attack_rate]}"
+    lines << "AGC_SVX_TO_EXT_DECAY_RATE=#{agc_decay_rate || d[:agc_decay_rate]}"
+    lines << "AGC_SVX_TO_EXT_MAX_GAIN=#{agc_max_gain || d[:agc_max_gain]}"
+    lines << "AGC_SVX_TO_EXT_MIN_GAIN=#{agc_min_gain || d[:agc_min_gain]}"
+    lines << "AGC_SVX_TO_EXT_LIMIT_LEVEL=#{agc_limit_level || d[:agc_limit_level]}"
+    lines << "AGC_EXT_TO_SVX_TARGET_LEVEL=#{agc_target_level || d[:agc_target_level]}"
+    lines << "AGC_EXT_TO_SVX_ATTACK_RATE=#{agc_attack_rate || d[:agc_attack_rate]}"
+    lines << "AGC_EXT_TO_SVX_DECAY_RATE=#{agc_decay_rate || d[:agc_decay_rate]}"
+    lines << "AGC_EXT_TO_SVX_MAX_GAIN=#{agc_max_gain || d[:agc_max_gain]}"
+    lines << "AGC_EXT_TO_SVX_MIN_GAIN=#{agc_min_gain || d[:agc_min_gain]}"
+    lines << "AGC_EXT_TO_SVX_LIMIT_LEVEL=#{agc_limit_level || d[:agc_limit_level]}"
+    lines
+  end
+
   private
 
   def reflector_logic_lines
@@ -245,6 +277,7 @@ class Bridge < ApplicationRecord
     lines << "XLX_MYCALL_SUFFIX=#{xlx_mycall_suffix.presence || 'AMBE'}"
     lines << "NODE_LOCATION=#{node_location.presence || name}"
     lines << "SYSOP=#{sysop}" if sysop.present?
+    lines.concat(agc_env_lines)
     lines << ""
     File.write(config_dir.join("xlx_bridge.env"), lines.join("\n"))
   end
@@ -267,6 +300,7 @@ class Bridge < ApplicationRecord
     lines << "DMR_CALLSIGN=#{dmr_callsign}" if dmr_callsign.present?
     lines << "NODE_LOCATION=#{node_location.presence || name}"
     lines << "SYSOP=#{sysop}" if sysop.present?
+    lines.concat(agc_env_lines)
     lines << ""
     File.write(config_dir.join("dmr_bridge.env"), lines.join("\n"))
   end
@@ -285,6 +319,7 @@ class Bridge < ApplicationRecord
     lines << "YSF_DESCRIPTION=#{ysf_description}" if ysf_description.present?
     lines << "NODE_LOCATION=#{node_location.presence || name}"
     lines << "SYSOP=#{sysop}" if sysop.present?
+    lines.concat(agc_env_lines)
     lines << ""
     File.write(config_dir.join("ysf_bridge.env"), lines.join("\n"))
   end
@@ -303,6 +338,7 @@ class Bridge < ApplicationRecord
     lines << "ALLSTAR_PORT=#{allstar_port || 4569}"
     lines << "NODE_LOCATION=#{node_location.presence || name}"
     lines << "SYSOP=#{sysop}" if sysop.present?
+    lines.concat(agc_env_lines)
     lines << ""
     File.write(config_dir.join("allstar_bridge.env"), lines.join("\n"))
   end
@@ -321,6 +357,7 @@ class Bridge < ApplicationRecord
     lines << "ZELLO_ISSUER_ID=#{zello_issuer_id}"
     lines << "NODE_LOCATION=#{node_location.presence || name}"
     lines << "SYSOP=#{sysop}" if sysop.present?
+    lines.concat(agc_env_lines)
     lines << ""
     File.write(config_dir.join("zello_bridge.env"), lines.join("\n"))
     # Write private key to a separate PEM file

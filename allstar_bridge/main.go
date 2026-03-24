@@ -112,8 +112,8 @@ func runBridge(
 		pcmBuffer []int16
 		pcmBufMu  sync.Mutex
 		// AGC
-		agcSvxToAs = NewAGC()
-		agcAsToSvx = NewAGC()
+		agcSvxToAs = NewAGCFromEnv("AGC_SVX_TO_EXT_")
+		agcAsToSvx = NewAGCFromEnv("AGC_EXT_TO_SVX_")
 		// Mutex-protected IAX client — nil when AllStar is disconnected
 		iaxMu      sync.Mutex
 		currentIAX *IAX2Client
@@ -462,6 +462,17 @@ func envInt(key string, fallback int) int {
 			log.Fatalf("Invalid integer for %s: %v", key, err)
 		}
 		return n
+	}
+	return fallback
+}
+
+func envFloat(key string, fallback float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			log.Fatalf("Invalid float for %s: %v", key, err)
+		}
+		return f
 	}
 	return fallback
 }

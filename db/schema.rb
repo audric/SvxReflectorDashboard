@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_23_154404) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_24_100000) do
   create_table "bridge_tg_mappings", force: :cascade do |t|
     t.string "activate_on_activity"
     t.integer "bridge_id", null: false
@@ -24,6 +24,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_23_154404) do
   end
 
   create_table "bridges", force: :cascade do |t|
+    t.float "agc_attack_rate"
+    t.float "agc_decay_rate"
+    t.float "agc_limit_level"
+    t.float "agc_max_gain"
+    t.float "agc_min_gain"
+    t.float "agc_target_level"
     t.string "allstar_node"
     t.string "allstar_password"
     t.integer "allstar_port"

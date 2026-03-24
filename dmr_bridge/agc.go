@@ -2,7 +2,7 @@ package main
 
 import "math"
 
-// AGC implements a simple automatic gain control for PCM audio.
+// AGC implements automatic gain control for PCM audio.
 // It tracks the peak level over a sliding window and applies gain
 // to bring the audio closer to a target level.
 type AGC struct {
@@ -11,6 +11,7 @@ type AGC struct {
 	decayRate   float64 // how fast gain decreases (0.0-1.0, higher = faster)
 	maxGain     float64 // maximum gain to apply
 	minGain     float64 // minimum gain (can attenuate loud signals)
+	limitLevel  float64 // hard limiter threshold (0.0-1.0 of int16 range, 0 = disabled)
 
 	currentGain float64
 }
@@ -18,16 +19,30 @@ type AGC struct {
 // NewAGC creates an AGC with sensible defaults for voice audio.
 func NewAGC() *AGC {
 	return &AGC{
-		targetLevel: 0.5,  // target 50% of full scale
+		targetLevel: 0.3,  // target 30% of full scale (AMBE-friendly headroom)
 		attackRate:  0.01, // increase gain slowly
-		decayRate:   0.05, // decrease gain faster (avoid clipping)
-		maxGain:     6.0,  // max 6x amplification (~15 dB)
-		minGain:     0.5,  // allow attenuating to 50%
+		decayRate:   0.3,  // decrease gain fast (prevent clipping on hot signals)
+		maxGain:     4.0,  // max 4x amplification (~12 dB)
+		minGain:     0.1,  // allow attenuating to 10% (-20 dB)
+		limitLevel:  0.9,  // hard limit at 90% of full scale
 		currentGain: 1.0,  // start at unity
 	}
 }
 
-// Process applies AGC to a buffer of PCM samples in-place.
+// NewAGCFromEnv creates an AGC with parameters overridable via environment
+// variables. Each parameter falls back to the default if the env var is unset.
+func NewAGCFromEnv(prefix string) *AGC {
+	a := NewAGC()
+	a.targetLevel = envFloat(prefix+"TARGET_LEVEL", a.targetLevel)
+	a.attackRate = envFloat(prefix+"ATTACK_RATE", a.attackRate)
+	a.decayRate = envFloat(prefix+"DECAY_RATE", a.decayRate)
+	a.maxGain = envFloat(prefix+"MAX_GAIN", a.maxGain)
+	a.minGain = envFloat(prefix+"MIN_GAIN", a.minGain)
+	a.limitLevel = envFloat(prefix+"LIMIT_LEVEL", a.limitLevel)
+	return a
+}
+
+// Process applies AGC and hard limiting to a buffer of PCM samples in-place.
 func (a *AGC) Process(samples []int16) {
 	if len(samples) == 0 {
 		return
@@ -77,6 +92,18 @@ func (a *AGC) Process(samples []int16) {
 			v = -32768
 		}
 		samples[i] = int16(v)
+	}
+
+	// Hard limiter — clamp peaks that still exceed the threshold
+	if a.limitLevel > 0 && a.limitLevel < 1.0 {
+		limit := a.limitLevel * 32767.0
+		for i, s := range samples {
+			if float64(s) > limit {
+				samples[i] = int16(limit)
+			} else if float64(s) < -limit {
+				samples[i] = int16(-limit)
+			}
+		}
 	}
 }
 

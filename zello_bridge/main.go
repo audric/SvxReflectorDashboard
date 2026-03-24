@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -134,8 +135,8 @@ func runBridge(
 		// Buffer for accumulating PCM before encoding to Zello (need 60ms = 960 samples at 16kHz)
 		zelloBuffer   []int16
 		zelloBufMu    sync.Mutex
-		agcSvxToZello = NewAGC()
-		agcZelloToSvx = NewAGC()
+		agcSvxToZello = NewAGCFromEnv("AGC_SVX_TO_EXT_")
+		agcZelloToSvx = NewAGCFromEnv("AGC_EXT_TO_SVX_")
 	)
 
 	// --- Redis (optional, for metadata) ---
@@ -425,6 +426,17 @@ func envInt(key string, fallback int) int {
 		if n > 0 {
 			return n
 		}
+	}
+	return fallback
+}
+
+func envFloat(key string, fallback float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			log.Fatalf("Invalid float for %s: %v", key, err)
+		}
+		return f
 	}
 	return fallback
 }

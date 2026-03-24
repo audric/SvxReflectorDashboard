@@ -109,6 +109,18 @@
           = f.number_field :local_default_tg, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "1"
           %p.text-xs.text-ghmuted.mt-1 TG to bridge to the XLX module
 
+  -# ── Audio AGC ──
+  = render 'form_agc', f: f
+
+  -# Help popup modal
+  #help-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
+    .bg-ghcard.border.border-gray-600.rounded-lg.p-5.max-w-md.w-full.mx-4.shadow-xl
+      .flex.items-center.justify-between.mb-3
+        %h6.text-base.font-semibold.text-gray-100#help-modal-title
+        %button.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "closeHelp()"}
+          %i.bi.bi-x-lg
+      %p.text-sm.text-gray-300.leading-relaxed#help-modal-body
+
   -# ── Save ──
   .flex.items-center.justify-between
     = link_to admin_bridges_path, class: "px-4 py-2 rounded-md border border-gray-600 text-sm text-gray-300 hover:text-gray-100" do
@@ -127,7 +139,31 @@
       });
     })();
 
+:css
+  .accordion-body { max-height: 0; overflow: hidden; padding-top: 0; padding-bottom: 0; transition: max-height 0.3s ease, padding 0.3s ease; }
+  .accordion-body.open { max-height: 5000px; padding-top: 1rem; padding-bottom: 1rem; }
+  .accordion-chevron { transition: transform 0.3s ease; }
+  .accordion-chevron.open { transform: rotate(180deg); }
+
 :javascript
+  function openModal(id) { var m = document.getElementById(id); m.classList.remove('hidden'); m.classList.add('flex'); }
+  function closeModal(id) { var m = document.getElementById(id); m.classList.add('hidden'); m.classList.remove('flex'); }
+
+  function showHelp(key) {
+    document.getElementById('help-modal-title').textContent = key;
+    document.getElementById('help-modal-body').textContent = (typeof HELP_TEXTS !== 'undefined' && HELP_TEXTS[key]) || 'No description available.';
+    openModal('help-modal');
+  }
+  function closeHelp() { closeModal('help-modal'); }
+  document.getElementById('help-modal').addEventListener('click', function(e) { if (e.target === this) closeHelp(); });
+
+  function toggleSection(id) {
+    var body = document.getElementById('body-' + id);
+    var chevron = document.getElementById('chevron-' + id);
+    body.classList.toggle('open');
+    chevron.classList.toggle('open');
+  }
+
   (function() {
     var protoSelect = document.getElementById('xlx-protocol');
     var reflSelect  = document.getElementById('xlx-reflector-select');

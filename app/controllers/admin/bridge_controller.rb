@@ -170,7 +170,8 @@ module Admin
         :dmr_host, :dmr_port, :dmr_id, :dmr_password, :dmr_talkgroup, :dmr_timeslot, :dmr_color_code, :dmr_callsign,
         :ysf_host, :ysf_port, :ysf_callsign, :ysf_description,
         :allstar_node, :allstar_password, :allstar_server, :allstar_port,
-        :zello_username, :zello_password, :zello_channel, :zello_channel_password, :zello_issuer_id, :zello_private_key
+        :zello_username, :zello_password, :zello_channel, :zello_channel_password, :zello_issuer_id, :zello_private_key,
+        :agc_target_level, :agc_attack_rate, :agc_decay_rate, :agc_max_gain, :agc_min_gain, :agc_limit_level
       )
     end
 
@@ -266,7 +267,7 @@ module Admin
           "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
           "SYSOP=#{bridge.sysop}",
           "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
-        ],
+        ] + agc_env_array(bridge),
         HostConfig: {
           RestartPolicy: { Name: "unless-stopped" }
         }
@@ -308,7 +309,7 @@ module Admin
           "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
           "SYSOP=#{bridge.sysop}",
           "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
-        ],
+        ] + agc_env_array(bridge),
         HostConfig: {
           RestartPolicy: { Name: "unless-stopped" }
         }
@@ -346,7 +347,7 @@ module Admin
           "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
           "SYSOP=#{bridge.sysop}",
           "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
-        ],
+        ] + agc_env_array(bridge),
         HostConfig: {
           RestartPolicy: { Name: "unless-stopped" }
         }
@@ -384,7 +385,7 @@ module Admin
           "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
           "SYSOP=#{bridge.sysop}",
           "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
-        ],
+        ] + agc_env_array(bridge),
         HostConfig: {
           RestartPolicy: { Name: "unless-stopped" }
         }
@@ -426,7 +427,7 @@ module Admin
           "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
           "SYSOP=#{bridge.sysop}",
           "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
-        ],
+        ] + agc_env_array(bridge),
         HostConfig: {
           Binds: ["#{bridge_dir}/zello_private_key.pem:/etc/zello/private_key.pem:ro"],
           RestartPolicy: { Name: "unless-stopped" }
@@ -561,6 +562,10 @@ module Admin
     rescue => e
       Rails.logger.warn "[Bridge] Could not resolve host bridge path: #{e.message}, falling back"
       File.join(Dir.pwd, "bridge")
+    end
+
+    def agc_env_array(bridge)
+      bridge.agc_env_lines.map { |l| l.to_s }
     end
 
     def docker_api_get(path)

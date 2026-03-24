@@ -135,13 +135,20 @@ func runBridge(
 		// Buffer PCM samples for OPUS encoding
 		pcmBuffer []int16
 		pcmBufMu  sync.Mutex
-		// AGC instances for each direction
-		agcSvxToXlx = NewAGC()
-		agcXlxToSvx = NewAGC()
+		// AGC instances for each direction (configurable via AGC_SVX_TO_EXT_* / AGC_EXT_TO_SVX_* env vars)
+		agcSvxToXlx = NewAGCFromEnv("AGC_SVX_TO_EXT_")
+		agcXlxToSvx = NewAGCFromEnv("AGC_EXT_TO_SVX_")
 		// Safety timer: auto-reset xlxTalking if no DCS frames for 2s
 		// (protects against lost last-frame over UDP)
 		xlxTalkTimer *time.Timer
 	)
+
+	log.Printf("[AGC] SVX→EXT: target=%.2f attack=%.3f decay=%.3f gain=[%.2f,%.2f] limit=%.2f",
+		agcSvxToXlx.targetLevel, agcSvxToXlx.attackRate, agcSvxToXlx.decayRate,
+		agcSvxToXlx.minGain, agcSvxToXlx.maxGain, agcSvxToXlx.limitLevel)
+	log.Printf("[AGC] EXT→SVX: target=%.2f attack=%.3f decay=%.3f gain=[%.2f,%.2f] limit=%.2f",
+		agcXlxToSvx.targetLevel, agcXlxToSvx.attackRate, agcXlxToSvx.decayRate,
+		agcXlxToSvx.minGain, agcXlxToSvx.maxGain, agcXlxToSvx.limitLevel)
 
 	// --- Redis client for D-STAR RX metadata ---
 	var redisCli *RedisClient
@@ -536,6 +543,17 @@ func envInt(key string, fallback int) int {
 			log.Fatalf("Invalid integer for %s: %v", key, err)
 		}
 		return n
+	}
+	return fallback
+}
+
+func envFloat(key string, fallback float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			log.Fatalf("Invalid float for %s: %v", key, err)
+		}
+		return f
 	}
 	return fallback
 }

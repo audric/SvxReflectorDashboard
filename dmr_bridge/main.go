@@ -127,8 +127,8 @@ func runBridge(
 		pcmBuffer []int16
 		pcmBufMu  sync.Mutex
 		// AGC instances for each direction
-		agcSvxToDmr = NewAGC()
-		agcDmrToSvx = NewAGC()
+		agcSvxToDmr = NewAGCFromEnv("AGC_SVX_TO_EXT_")
+		agcDmrToSvx = NewAGCFromEnv("AGC_EXT_TO_SVX_")
 		// Track current DMR source for Redis
 		currentSrcID uint32
 	)
@@ -446,6 +446,17 @@ func envInt(key string, fallback int) int {
 			log.Fatalf("Invalid integer for %s: %v", key, err)
 		}
 		return n
+	}
+	return fallback
+}
+
+func envFloat(key string, fallback float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			log.Fatalf("Invalid float for %s: %v", key, err)
+		}
+		return f
 	}
 	return fallback
 }
