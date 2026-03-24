@@ -44,11 +44,16 @@ svxreflector  → GeuReflector daemon (SVXReflector-compatible, with trunks/sate
 caddy         → Reverse proxy with automatic HTTPS (Let's Encrypt)
 web           → Rails app (Puma) on port 3000
 updater       → Background poller (ReflectorListener)
-audio_bridge  → Go binary, SVXReflector protocol V2
-xlx_bridge    → Go binary, D-STAR XLX bridge (DCS + DExtra protocols)
-zello_bridge  → Go binary, Zello channel bridge (WebSocket/OPUS)
+audio_bridge  → Go binary, SVXReflector protocol V2 (browser audio)
+xlx_bridge    → Go binary, D-STAR XLX bridge (DCS + DExtra, OPUS ↔ AMBE)
+dmr_bridge    → Go binary, DMR bridge (OPUS ↔ AMBE via MMDVM)
+ysf_bridge    → Go binary, YSF bridge (OPUS ↔ IMBE)
+allstar_bridge→ Go binary, AllStar bridge (OPUS ↔ µLaw via IAX2)
+zello_bridge  → Go binary, Zello bridge (OPUS 48kHz ↔ 16kHz via WebSocket)
 redis         → ActionCable + audio pub/sub
 ```
+
+All Go bridges include configurable voice bandpass filtering (HPF/LPF), AGC, and hard limiting.
 
 **Stack:** Ruby 3.2 · Rails 8.0 · Go · SQLite · Redis · HAML · Tailwind CSS · Leaflet.js
 
