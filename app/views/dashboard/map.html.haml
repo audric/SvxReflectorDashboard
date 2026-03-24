@@ -214,9 +214,10 @@
           Object.keys(refNodes).forEach(function(cs) {
             var node = refNodes[cs];
             var pos = node.qth && node.qth[0] && node.qth[0].pos;
-            var lat = pos && pos.lat;
-            var lng = pos && (pos.long || pos.lon);
-            if (!lat || !lng) return;
+            if (!pos) return;
+            var lat = parseFloat(pos.lat);
+            var lng = parseFloat(pos.long || pos.lon);
+            if (isNaN(lat) || isNaN(lng)) return;
             var tg = node.tg || 0;
             var col = node.isTalker ? '#f59e0b' : (tg ? '#d97706' : '#92400e');
             var marker = L.circleMarker([lat, lng], {
