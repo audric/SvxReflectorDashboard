@@ -168,7 +168,7 @@
     %script{src: "/vendor/leaflet/leaflet.js"}
     - nodes_json = @nodes.to_json.html_safe
     - trunks_json = (@trunks || {}).to_json.html_safe
-    - external_json = (@external_reflectors || {}).to_json.html_safe
+    - external_json = (@external_reflectors.is_a?(Hash) ? @external_reflectors : {}).to_json.html_safe
     :javascript
       (function () {
         'use strict';
@@ -204,7 +204,7 @@
         var overlays = { '<i class="bi bi-diagram-3 mr-1" style="color:#22d3ee"></i>Trunk Links': trunkLinkLayer };
 
         // External SVX reflector layers
-        var extData = #{external_json};
+        var extData = #{external_json} || {};
         var extLayers = {};
         Object.keys(extData).forEach(function(refName) {
           var layer = L.layerGroup();
