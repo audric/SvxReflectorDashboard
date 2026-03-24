@@ -206,7 +206,41 @@
         var layerControl = L.control.layers(tileLayers, overlays, { position: 'topright', collapsed: true }).addTo(map);
         trunkLinkLayer.addTo(map);
 
-        // External SVX reflector layers (wrapped in try/catch to never break local map)
+        // ── Helpers (defined early so external code can use them) ─────────────────
+        function esc(s) {
+          return String(s || '')
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function markerColor(node) {
+          if (node.isTalker)             return '#3fb950';
+          if (node.tg && node.tg !== 0) return '#1f6feb';
+          return '#6e7681';
+        }
+
+        function statusBadge(node) {
+          var tg = node.tg || 0;
+          if (node.isTalker) return '<span class="badge-talking">TALKING &middot; TG ' + tg + '</span>';
+          if (tg !== 0)      return '<span class="badge-active">TG ' + tg + '</span>';
+          return '<span class="badge-idle">IDLE</span>';
+        }
+
+        // ── Legend ─────────────────────────────────────────────────────────────────
+        var legend = L.control({ position: 'bottomleft' });
+        legend.onAdd = function () {
+          var div = L.DomUtil.create('div', 'map-legend');
+          div.innerHTML =
+            '<div class="legend-title">Node status</div>' +
+            '<div class="legend-row"><span class="legend-dot" style="background:#3fb950"></span>Talking</div>' +
+            '<div class="legend-row"><span class="legend-dot" style="background:#1f6feb"></span>Active (on TG)</div>' +
+            '<div class="legend-row"><span class="legend-dot" style="background:#6e7681"></span>Idle</div>' +
+            '<div class="legend-row" style="margin-top:.3rem"><span style="width:12px;height:3px;background:#22d3ee;border-radius:1px;flex-shrink:0"></span>Trunk Link</div>' +
+            '<div class="legend-row"><span class="legend-dot" style="background:#d97706;border:1px dashed #78350f"></span>External SVX</div>';
+          return div;
+        };
+        legend.addTo(map);
+
+        // External SVX reflector layers (after helpers, before local markers)
         try {
           var extData = #{external_json} || {};
           Object.keys(extData).forEach(function(refName) {
@@ -243,40 +277,6 @@
             layer.addTo(map);
           });
         } catch(e) { console.warn('[External SVX] Map overlay error:', e); }
-
-        // ── Legend ─────────────────────────────────────────────────────────────────
-        var legend = L.control({ position: 'bottomleft' });
-        legend.onAdd = function () {
-          var div = L.DomUtil.create('div', 'map-legend');
-          div.innerHTML =
-            '<div class="legend-title">Node status</div>' +
-            '<div class="legend-row"><span class="legend-dot" style="background:#3fb950"></span>Talking</div>' +
-            '<div class="legend-row"><span class="legend-dot" style="background:#1f6feb"></span>Active (on TG)</div>' +
-            '<div class="legend-row"><span class="legend-dot" style="background:#6e7681"></span>Idle</div>' +
-            '<div class="legend-row" style="margin-top:.3rem"><span style="width:12px;height:3px;background:#22d3ee;border-radius:1px;flex-shrink:0"></span>Trunk Link</div>' +
-            '<div class="legend-row"><span class="legend-dot" style="background:#d97706;border:1px dashed #78350f"></span>External SVX</div>';
-          return div;
-        };
-        legend.addTo(map);
-
-        // ── Colour helpers ─────────────────────────────────────────────────────────
-        function markerColor(node) {
-          if (node.isTalker)             return '#3fb950';
-          if (node.tg && node.tg !== 0) return '#1f6feb';
-          return '#6e7681';
-        }
-
-        function statusBadge(node) {
-          var tg = node.tg || 0;
-          if (node.isTalker) return '<span class="badge-talking">TALKING &middot; TG ' + tg + '</span>';
-          if (tg !== 0)      return '<span class="badge-active">TG ' + tg + '</span>';
-          return '<span class="badge-idle">IDLE</span>';
-        }
-
-        function esc(s) {
-          return String(s || '')
-            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-        }
 
         // ── Place markers ──────────────────────────────────────────────────────────
         var bounds = [];
