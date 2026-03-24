@@ -200,11 +200,9 @@
         var defaultLayer = tileLayers[Object.keys(tileLayers)[0]];
         var map = L.map('map', { zoomControl: true, layers: [defaultLayer] });
 
-        var trunkLinkLayer = L.layerGroup();
-        var overlays = { '<i class="bi bi-diagram-3 mr-1" style="color:#22d3ee"></i>Trunk Links': trunkLinkLayer };
+        var overlays = {};
 
         var layerControl = L.control.layers(tileLayers, overlays, { position: 'topright', collapsed: true }).addTo(map);
-        trunkLinkLayer.addTo(map);
 
         // ── Helpers (defined early so external code can use them) ─────────────────
         function esc(s) {
@@ -234,7 +232,6 @@
             '<div class="legend-row"><span class="legend-dot" style="background:#3fb950"></span>Talking</div>' +
             '<div class="legend-row"><span class="legend-dot" style="background:#1f6feb"></span>Active (on TG)</div>' +
             '<div class="legend-row"><span class="legend-dot" style="background:#6e7681"></span>Idle</div>' +
-            '<div class="legend-row" style="margin-top:.3rem"><span style="width:12px;height:3px;background:#22d3ee;border-radius:1px;flex-shrink:0"></span>Trunk Link</div>' +
             '<div class="legend-row"><span class="legend-dot" style="background:#d97706;border:1px dashed #78350f"></span>External SVX</div>';
           return div;
         };
