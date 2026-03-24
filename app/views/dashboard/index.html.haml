@@ -401,6 +401,15 @@
                   - if ysf&.dig('location').present?
                     %span.text-gray-400.text-xs.truncate{id: "node-#{callsign}-ysf-location"}= ysf&.dig('location')
 
+                -# Zello RX info (Zello bridges)
+                - zello = node['zello_rx']
+                .mb-2.flex.items-center.gap-2.flex-wrap{id: "node-#{callsign}-zello-rx", class: (zello ? '' : 'hidden')}
+                  %i.bi.bi-phone.text-amber-400
+                  %span.text-amber-300.font-mono.font-semibold{id: "node-#{callsign}-zello-from"}= zello&.dig('from')
+                  %span.text-gray-500.text-xs{id: "node-#{callsign}-zello-channel", class: (zello&.dig('channel').present? ? '' : 'hidden')}
+                    on
+                    %span.text-gray-400= zello&.dig('channel')
+
                 -# M17 RX info (M17 bridges)
                 - m17 = node['m17_rx']
                 .mb-2.flex.items-center.gap-2.flex-wrap{id: "node-#{callsign}-m17-rx", class: (m17 ? '' : 'hidden')}
@@ -800,6 +809,24 @@
             }
           }
 
+          // Zello RX info
+          var zelloRow = document.getElementById('node-' + callsign + '-zello-rx');
+          if (zelloRow) {
+            var zr = n.zello_rx;
+            if (zr && zr.from) {
+              zelloRow.classList.remove('hidden');
+              var zFromEl = document.getElementById('node-' + callsign + '-zello-from');
+              if (zFromEl) zFromEl.textContent = zr.from;
+              var zChEl = document.getElementById('node-' + callsign + '-zello-channel');
+              if (zChEl) {
+                if (zr.channel) { zChEl.classList.remove('hidden'); zChEl.querySelector('span').textContent = zr.channel; }
+                else { zChEl.classList.add('hidden'); }
+              }
+            } else {
+              zelloRow.classList.add('hidden');
+            }
+          }
+
           // M17 RX info
           var m17Row = document.getElementById('node-' + callsign + '-m17-rx');
           if (m17Row) {
@@ -922,6 +949,14 @@
           h += '<i class="bi bi-soundwave text-cyan-400"></i>';
           h += '<span class="text-cyan-300 font-mono font-semibold" id="node-' + cs + '-ysf-callsign">' + (ysf && ysf.callsign ? esc(ysf.callsign) : '') + '</span>';
           h += '<span class="text-gray-400 text-xs truncate" id="node-' + cs + '-ysf-location">' + (ysf && ysf.location ? esc(ysf.location) : '') + '</span>';
+          h += '</div>';
+
+          // Zello RX info
+          var zr = n.zello_rx;
+          h += '<div class="mb-2 flex items-center gap-2 flex-wrap' + (zr && zr.from ? '' : ' hidden') + '" id="node-' + cs + '-zello-rx">';
+          h += '<i class="bi bi-phone text-amber-400"></i>';
+          h += '<span class="text-amber-300 font-mono font-semibold" id="node-' + cs + '-zello-from">' + (zr && zr.from ? esc(zr.from) : '') + '</span>';
+          h += '<span class="text-gray-500 text-xs' + (zr && zr.channel ? '' : ' hidden') + '" id="node-' + cs + '-zello-channel">on <span class="text-gray-400">' + (zr && zr.channel ? esc(zr.channel) : '') + '</span></span>';
           h += '</div>';
 
           // M17 RX info
@@ -1083,7 +1118,7 @@
             // Trunk/satellite/cluster updates
             if (msg.trunks) { trunks = msg.trunks; updateTrunkPanel(msg.trunks); }
             if (msg.satellites) { satellites = msg.satellites; updateSatellitePanel(msg.satellites); }
-            if (msg.cluster_tgs) { clusterTgs = msg.cluster_tgs; updateClusterBadges(); }
+            if (msg.cluster_tgs) { clusterTgs = msg.cluster_tgs; updateClusterBadges(); if (window.audioPlayerUpdateClusterTgs) window.audioPlayerUpdateClusterTgs(clusterTgs); }
 
             if (msg.nodes) return;
 

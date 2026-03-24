@@ -107,6 +107,12 @@
                   - elsif rx['src_radio'].present?
                     %i.bi.bi-soundwave.text-pink-400{style: "font-size:.65rem"}
                     %span.text-pink-300.font-mono.text-xs= rx['src_radio']
+                  - elsif rx['from'].present?
+                    %i.bi.bi-phone.text-amber-400{style: "font-size:.65rem"}
+                    %span.text-amber-300.font-mono.text-xs= rx['from']
+                    - if rx['channel'].present?
+                      %span.text-gray-500.text-xs on
+                      %span.text-gray-400.text-xs= rx['channel']
                 - if ev.source.present?
                   %span.text-xs.font-mono{class: "text-cyan-400"}
                     %i.bi.bi-diagram-3.mr-1{style: "font-size:.6rem"}

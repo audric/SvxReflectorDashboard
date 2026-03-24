@@ -158,9 +158,9 @@
 
   -# ── Audio player (visible only to users with monitor permission + auth key) ──
   - if logged_in? && current_user.can_monitor? && current_user.reflector_auth_key.present?
-    - audio_tgs = ((@nodes || {}).values.flat_map { |n| [n['tg'].to_i] + Array(n['monitoredTGs']).map(&:to_i) }.select { |t| t > 0 } + [999]).uniq.sort
+    - audio_tgs = ((@nodes || {}).values.flat_map { |n| [n['tg'].to_i] + Array(n['monitoredTGs']).map(&:to_i) }.select { |t| t > 0 } + Array(@cluster_tgs).map(&:to_i) + [999]).uniq.sort
     - tg_names = Tg.pluck(:tg, :name).to_h
-    .border-t.border-ghborder.px-3.py-3#audio-player-sidebar{"data-turbo-permanent" => "", "data-initial-tgs" => audio_tgs.join(','), "data-tg-names" => tg_names.to_json, "data-callsign" => "#{current_user.callsign.upcase}-WEB", "data-sysop" => current_user.name.to_s, "data-cw-roger-beep" => current_user.cw_roger_beep? ? "1" : "0"}
+    .border-t.border-ghborder.px-3.py-3#audio-player-sidebar{"data-turbo-permanent" => "", "data-initial-tgs" => audio_tgs.join(','), "data-tg-names" => tg_names.to_json, "data-cluster-tgs" => Array(@cluster_tgs).map(&:to_i).join(','), "data-callsign" => "#{current_user.callsign.upcase}-WEB", "data-sysop" => current_user.name.to_s, "data-cw-roger-beep" => current_user.cw_roger_beep? ? "1" : "0"}
       .flex.items-center.gap-1.mb-2
         %i.bi.bi-headphones.text-ghdim.text-xs
         %span.text-xs.uppercase.tracking-wider.text-ghdim Tune In
@@ -631,6 +631,11 @@
           if (mt > 0) tgs[mt] = true;
         }
       }
+      // Always include cluster TGs (network-wide channels)
+      var ctgs = _clusterTgs;
+      for (var j = 0; j < ctgs.length; j++) {
+        if (ctgs[j] > 0) tgs[ctgs[j]] = true;
+      }
       tgs[999] = true;
       var sorted = Object.keys(tgs).map(Number).sort(function(a,b){ return a-b; });
       setTgOptions(sorted);
@@ -638,11 +643,15 @@
 
     // TG name lookup
     var tgNameMap = {};
+    var _clusterTgs = [];
     (function() {
       var el = document.getElementById('audio-player-sidebar');
       if (!el) return;
       try { tgNameMap = JSON.parse(el.getAttribute('data-tg-names') || '{}'); } catch(e) {}
+      var ct = el.getAttribute('data-cluster-tgs');
+      if (ct) _clusterTgs = ct.split(',').map(Number).filter(function(t) { return t > 0; });
     })();
+    window.audioPlayerUpdateClusterTgs = function(tgs) { _clusterTgs = tgs || []; };
 
     function tgLabel(tg) {
       var name = tgNameMap[String(tg)];

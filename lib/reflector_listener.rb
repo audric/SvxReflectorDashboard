@@ -38,6 +38,7 @@ class ReflectorListener
           enrich_dmr_rx(curr)
           enrich_ysf_rx(curr)
           enrich_m17_rx(curr)
+          enrich_zello_rx(curr)
 
           # ── Node diffs ────────────────────────────────────────────────────
           changed = curr.select do |cs, node|
@@ -50,6 +51,7 @@ class ReflectorListener
             next true if node['dmr_rx'] != p['dmr_rx']
             next true if node['ysf_rx'] != p['ysf_rx']
             next true if node['m17_rx'] != p['m17_rx']
+            next true if node['zello_rx'] != p['zello_rx']
             # Also trigger when any RX squelch opens/closes (gives fresh siglev data)
             node_rx = node.dig('qth', 0, 'rx') || {}
             prev_rx = p.dig('qth', 0, 'rx') || {}
@@ -157,7 +159,7 @@ class ReflectorListener
         # isTalker transition
         if node['isTalker'] != prev_node['isTalker']
           type = node['isTalker'] ? NodeEvent::TALKING_START : NodeEvent::TALKING_STOP
-          rx_meta = node['dstar_rx'] || node['dmr_rx'] || node['ysf_rx']
+          rx_meta = node['dstar_rx'] || node['dmr_rx'] || node['ysf_rx'] || node['zello_rx']
           meta = rx_meta ? rx_meta.to_json : nil
           NodeEvent.create!(attrs.merge(event_type: type, metadata: meta))
         end
@@ -336,6 +338,23 @@ class ReflectorListener
     end
   rescue => e
     STDERR.puts "[Poller] M17 RX enrich error: #{e.message}"
+  end
+
+  def self.enrich_zello_rx(nodes)
+    redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
+    keys = redis.keys('zello_rx:*')
+    return if keys.empty?
+
+    keys.each do |key|
+      callsign = key.sub('zello_rx:', '').strip
+      next unless nodes.key?(callsign)
+      val = redis.get(key)
+      next unless val
+      data = JSON.parse(val) rescue next
+      nodes[callsign]['zello_rx'] = data
+    end
+  rescue => e
+    STDERR.puts "[Poller] Zello RX enrich error: #{e.message}"
   end
 
   def self.enrich_web_nodes(nodes)

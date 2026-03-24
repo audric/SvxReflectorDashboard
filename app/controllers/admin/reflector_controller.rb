@@ -325,11 +325,13 @@ module Admin
           }.reject { |_, v| v.blank? }
         end
 
-        # Satellite server section (reflector mode only)
+        # Satellite server section (reflector mode only, requires both port and secret)
         sat_port = cfg.dig(:satellite, :LISTEN_PORT).to_s.strip
         sat_secret = cfg.dig(:satellite, :SECRET).to_s.strip
-        config.satellite["LISTEN_PORT"] = sat_port if sat_port.present?
-        config.satellite["SECRET"] = sat_secret if sat_secret.present?
+        if sat_port.present? && sat_secret.present?
+          config.satellite["LISTEN_PORT"] = sat_port
+          config.satellite["SECRET"] = sat_secret
+        end
       end
 
       config.save
