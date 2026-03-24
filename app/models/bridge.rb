@@ -116,6 +116,11 @@ class Bridge < ApplicationRecord
     agc_limit_level: 0.9
   }.freeze
 
+  FILTER_DEFAULTS = {
+    filter_hpf_cutoff: 300.0,
+    filter_lpf_cutoff: 3000.0
+  }.freeze
+
   def config_dir
     Rails.root.join("bridge", id.to_s)
   end
@@ -214,7 +219,14 @@ class Bridge < ApplicationRecord
   def agc_env_lines
     return [] unless has_agc?
     d = AGC_DEFAULTS
+    fd = FILTER_DEFAULTS
     lines = []
+    # Voice bandpass filter
+    lines << "FILTER_SVX_TO_EXT_HPF_CUTOFF=#{filter_hpf_cutoff || fd[:filter_hpf_cutoff]}"
+    lines << "FILTER_SVX_TO_EXT_LPF_CUTOFF=#{filter_lpf_cutoff || fd[:filter_lpf_cutoff]}"
+    lines << "FILTER_EXT_TO_SVX_HPF_CUTOFF=#{filter_hpf_cutoff || fd[:filter_hpf_cutoff]}"
+    lines << "FILTER_EXT_TO_SVX_LPF_CUTOFF=#{filter_lpf_cutoff || fd[:filter_lpf_cutoff]}"
+    # AGC
     lines << "AGC_SVX_TO_EXT_TARGET_LEVEL=#{agc_target_level || d[:agc_target_level]}"
     lines << "AGC_SVX_TO_EXT_ATTACK_RATE=#{agc_attack_rate || d[:agc_attack_rate]}"
     lines << "AGC_SVX_TO_EXT_DECAY_RATE=#{agc_decay_rate || d[:agc_decay_rate]}"

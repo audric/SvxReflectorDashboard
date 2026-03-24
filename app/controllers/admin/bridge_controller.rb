@@ -171,7 +171,8 @@ module Admin
         :ysf_host, :ysf_port, :ysf_callsign, :ysf_description,
         :allstar_node, :allstar_password, :allstar_server, :allstar_port,
         :zello_username, :zello_password, :zello_channel, :zello_channel_password, :zello_issuer_id, :zello_private_key,
-        :agc_target_level, :agc_attack_rate, :agc_decay_rate, :agc_max_gain, :agc_min_gain, :agc_limit_level
+        :agc_target_level, :agc_attack_rate, :agc_decay_rate, :agc_max_gain, :agc_min_gain, :agc_limit_level,
+        :filter_hpf_cutoff, :filter_lpf_cutoff
       )
     end
 

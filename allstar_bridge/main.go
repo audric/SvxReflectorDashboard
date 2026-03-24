@@ -114,6 +114,9 @@ func runBridge(
 		// AGC
 		agcSvxToAs = NewAGCFromEnv("AGC_SVX_TO_EXT_")
 		agcAsToSvx = NewAGCFromEnv("AGC_EXT_TO_SVX_")
+		// Voice bandpass filters
+		filterSvxToAs = NewVoiceFilterFromEnv("FILTER_SVX_TO_EXT_", PCMSampleRate)
+		filterAsToSvx = NewVoiceFilterFromEnv("FILTER_EXT_TO_SVX_", PCMSampleRate)
 		// Mutex-protected IAX client — nil when AllStar is disconnected
 		iaxMu      sync.Mutex
 		currentIAX *IAX2Client
@@ -154,6 +157,7 @@ func runBridge(
 			return
 		}
 		pcm = pcm[:n]
+		filterSvxToAs.Process(pcm)
 		agcSvxToAs.Process(pcm)
 
 		ulawBufMu.Lock()
@@ -185,6 +189,7 @@ func runBridge(
 		svxTalkMu.Unlock()
 
 		log.Printf("[SVX→AS] Talker start: %s on TG %d", cs, tg)
+		filterSvxToAs.Reset()
 		agcSvxToAs.Reset()
 
 		ulawBufMu.Lock()
@@ -272,6 +277,7 @@ func runBridge(
 
 				log.Printf("[AS→SVX] Voice from AllStar node %s", asNode)
 				svx.SendTalkerStart(svxTG, callsign)
+				filterAsToSvx.Reset()
 				agcAsToSvx.Reset()
 
 				pcmBufMu.Lock()
@@ -281,6 +287,7 @@ func runBridge(
 				asTalkMu.Unlock()
 			}
 
+			filterAsToSvx.Process(pcm)
 			agcAsToSvx.Process(pcm)
 
 			pcmBufMu.Lock()
@@ -407,7 +414,9 @@ func runBridge(
 				pcmBufMu.Lock()
 				pcmBuffer = pcmBuffer[:0]
 				pcmBufMu.Unlock()
+				filterSvxToAs.Reset()
 				agcSvxToAs.Reset()
+				filterAsToSvx.Reset()
 				agcAsToSvx.Reset()
 
 			case <-sigCh:

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_24_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_24_120000) do
   create_table "bridge_tg_mappings", force: :cascade do |t|
     t.string "activate_on_activity"
     t.integer "bridge_id", null: false
@@ -78,6 +78,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_24_100000) do
     t.string "echolink_sysopname"
     t.boolean "echolink_use_gsm_only"
     t.boolean "enabled", default: false
+    t.float "filter_hpf_cutoff"
+    t.float "filter_lpf_cutoff"
     t.integer "jitter_buffer_delay"
     t.string "local_auth_key"
     t.string "local_callsign"

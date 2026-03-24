@@ -137,6 +137,9 @@ func runBridge(
 		zelloBufMu    sync.Mutex
 		agcSvxToZello = NewAGCFromEnv("AGC_SVX_TO_EXT_")
 		agcZelloToSvx = NewAGCFromEnv("AGC_EXT_TO_SVX_")
+		// Voice bandpass filters
+		filterSvxToZello = NewVoiceFilterFromEnv("FILTER_SVX_TO_EXT_", float64(SVXSampleRate))
+		filterZelloToSvx = NewVoiceFilterFromEnv("FILTER_EXT_TO_SVX_", float64(SVXSampleRate))
 	)
 
 	// --- Redis (optional, for metadata) ---
@@ -189,6 +192,7 @@ func runBridge(
 			return
 		}
 		pcm = pcm[:n]
+		filterSvxToZello.Process(pcm)
 		agcSvxToZello.Process(pcm)
 
 		zelloBufMu.Lock()
@@ -228,6 +232,7 @@ func runBridge(
 		svxTalkMu.Unlock()
 
 		log.Printf("[SVX→Zello] Talker start: %s on TG %d", cs, tg)
+		filterSvxToZello.Reset()
 		agcSvxToZello.Reset()
 		zelloBufMu.Lock()
 		zelloBuffer = zelloBuffer[:0]
@@ -294,6 +299,7 @@ func runBridge(
 		zelloTalkMu.Unlock()
 
 		log.Printf("[Zello→SVX] Stream start from %s (id=%d)", senderName, streamID)
+		filterZelloToSvx.Reset()
 		agcZelloToSvx.Reset()
 		svx.SendTalkerStart(svxTG, callsign)
 
@@ -324,6 +330,7 @@ func runBridge(
 			return
 		}
 		pcm = pcm[:n]
+		filterZelloToSvx.Process(pcm)
 		agcZelloToSvx.Process(pcm)
 
 		// Split into 20ms SVX frames (960 samples each at 48kHz)

@@ -1,16 +1,49 @@
--# AGC (Automatic Gain Control) section — shared across all bridge types with vocoder audio
+-# Audio processing section — shared across all bridge types with vocoder audio
 -# Expects `f` (form builder) to be passed as a local
 
-- agc_help = {}
-- agc_help["AGC_TARGET_LEVEL"] = "Target peak level as a fraction of full scale (0.0–1.0). The AGC adjusts gain to keep audio peaks near this level. Lower values give more headroom and are safer for vocoders like AMBE. Default: 0.3 (30%)."
-- agc_help["AGC_ATTACK_RATE"] = "How fast the AGC increases gain when audio is quieter than the target (0.0–1.0). Lower values = slower, smoother gain increase. Too high can amplify noise bursts. Default: 0.01."
-- agc_help["AGC_DECAY_RATE"] = "How fast the AGC decreases gain when audio is louder than the target (0.0–1.0). Higher values react faster to prevent clipping. Critical for hot analog signals hitting digital vocoders. Default: 0.3."
-- agc_help["AGC_MAX_GAIN"] = "Maximum amplification factor. A value of 4.0 means the AGC can boost quiet signals up to 4x (~12 dB). Too high can amplify background noise. Default: 4.0."
-- agc_help["AGC_MIN_GAIN"] = "Minimum gain (attenuation floor). A value of 0.1 means the AGC can cut a loud signal down to 10% (-20 dB). Lower values allow more aggressive attenuation of hot signals. Default: 0.1."
-- agc_help["AGC_LIMIT_LEVEL"] = "Hard limiter threshold as a fraction of full scale (0.0–1.0). After AGC processing, any sample exceeding this level is clamped. Acts as a safety net to prevent clipping even if the AGC can't react fast enough. Set to 0 to disable. Default: 0.9 (90%)."
+- audio_help = {}
+- audio_help["FILTER_HPF_CUTOFF"] = "High-pass filter cutoff frequency in Hz. Removes low-frequency hum, rumble, and DC offset. The standard voice band floor is 300 Hz — this eliminates 50/60 Hz mains hum and low-frequency noise that degrades vocoder performance. Set to 0 to disable. Default: 300 Hz."
+- audio_help["FILTER_LPF_CUTOFF"] = "Low-pass filter cutoff frequency in Hz. Removes high-frequency noise above the voice band. Useful voice content ends around 3000–3400 Hz. Filtering above this reduces vocoder artifacts and improves encoding efficiency. Set to 0 to disable. Default: 3000 Hz."
+- audio_help["AGC_TARGET_LEVEL"] = "Target peak level as a fraction of full scale (0.0–1.0). The AGC adjusts gain to keep audio peaks near this level. Lower values give more headroom and are safer for vocoders like AMBE. Default: 0.3 (30%)."
+- audio_help["AGC_ATTACK_RATE"] = "How fast the AGC increases gain when audio is quieter than the target (0.0–1.0). Lower values = slower, smoother gain increase. Too high can amplify noise bursts. Default: 0.01."
+- audio_help["AGC_DECAY_RATE"] = "How fast the AGC decreases gain when audio is louder than the target (0.0–1.0). Higher values react faster to prevent clipping. Critical for hot analog signals hitting digital vocoders. Default: 0.3."
+- audio_help["AGC_MAX_GAIN"] = "Maximum amplification factor. A value of 4.0 means the AGC can boost quiet signals up to 4x (~12 dB). Too high can amplify background noise. Default: 4.0."
+- audio_help["AGC_MIN_GAIN"] = "Minimum gain (attenuation floor). A value of 0.1 means the AGC can cut a loud signal down to 10% (-20 dB). Lower values allow more aggressive attenuation of hot signals. Default: 0.1."
+- audio_help["AGC_LIMIT_LEVEL"] = "Hard limiter threshold as a fraction of full scale (0.0–1.0). After AGC processing, any sample exceeding this level is clamped. Acts as a safety net to prevent clipping even if the AGC can't react fast enough. Set to 0 to disable. Default: 0.9 (90%)."
 
-- defaults = Bridge::AGC_DEFAULTS
+- agc_defaults = Bridge::AGC_DEFAULTS
+- filter_defaults = Bridge::FILTER_DEFAULTS
 
+-# ── Voice Bandpass Filter ──
+.rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+  .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('filter')"}
+    %h5.text-lg.font-semibold.text-gray-100
+      %i.bi.bi-funnel.mr-2
+      Voice Filter
+    %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-filter"}
+  .accordion-body.px-4{id: "body-filter"}
+    %p.text-sm.text-ghmuted.mb-4
+      Bandpass filter restricts audio to the voice band (300–3000 Hz), removing hum, DC offset, and high-frequency noise before the AGC and vocoder.
+    .grid.grid-cols-1.md:grid-cols-2.gap-4
+      .mb-1
+        %label.block.text-sm.text-gray-500.mb-1
+          HIGH-PASS (Hz)
+          %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('FILTER_HPF_CUTOFF')", title: "Help"}
+            %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+        = f.text_field :filter_hpf_cutoff, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "300", inputmode: "decimal"
+        %p.text-xs.text-ghmuted.mt-1= "Default: #{filter_defaults[:filter_hpf_cutoff].to_i} Hz (0 = disabled)"
+      .mb-1
+        %label.block.text-sm.text-gray-500.mb-1
+          LOW-PASS (Hz)
+          %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('FILTER_LPF_CUTOFF')", title: "Help"}
+            %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+        = f.text_field :filter_lpf_cutoff, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "3000", inputmode: "decimal"
+        %p.text-xs.text-ghmuted.mt-1= "Default: #{filter_defaults[:filter_lpf_cutoff].to_i} Hz (0 = disabled)"
+    .mt-3.p-3.rounded-md.border.border-gray-700.text-xs.text-ghmuted{class: "bg-[#0d1117]"}
+      %i.bi.bi-info-circle.mr-1
+      2nd-order Butterworth filters. Applied before AGC in both directions. Leave empty for defaults.
+
+-# ── Audio AGC ──
 .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
   .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('agc')"}
     %h5.text-lg.font-semibold.text-gray-100
@@ -28,48 +61,48 @@
           %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('AGC_TARGET_LEVEL')", title: "Help"}
             %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
         = f.text_field :agc_target_level, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "0.3", inputmode: "decimal"
-        %p.text-xs.text-ghmuted.mt-1= "Default: #{defaults[:agc_target_level]}"
+        %p.text-xs.text-ghmuted.mt-1= "Default: #{agc_defaults[:agc_target_level]}"
       .mb-1
         %label.block.text-sm.text-gray-500.mb-1
           ATTACK RATE
           %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('AGC_ATTACK_RATE')", title: "Help"}
             %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
         = f.text_field :agc_attack_rate, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "0.01", inputmode: "decimal"
-        %p.text-xs.text-ghmuted.mt-1= "Default: #{defaults[:agc_attack_rate]}"
+        %p.text-xs.text-ghmuted.mt-1= "Default: #{agc_defaults[:agc_attack_rate]}"
       .mb-1
         %label.block.text-sm.text-gray-500.mb-1
           DECAY RATE
           %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('AGC_DECAY_RATE')", title: "Help"}
             %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
         = f.text_field :agc_decay_rate, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "0.3", inputmode: "decimal"
-        %p.text-xs.text-ghmuted.mt-1= "Default: #{defaults[:agc_decay_rate]}"
+        %p.text-xs.text-ghmuted.mt-1= "Default: #{agc_defaults[:agc_decay_rate]}"
       .mb-1
         %label.block.text-sm.text-gray-500.mb-1
           MAX GAIN
           %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('AGC_MAX_GAIN')", title: "Help"}
             %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
         = f.text_field :agc_max_gain, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "4.0", inputmode: "decimal"
-        %p.text-xs.text-ghmuted.mt-1= "Default: #{defaults[:agc_max_gain]}"
+        %p.text-xs.text-ghmuted.mt-1= "Default: #{agc_defaults[:agc_max_gain]}"
       .mb-1
         %label.block.text-sm.text-gray-500.mb-1
           MIN GAIN
           %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('AGC_MIN_GAIN')", title: "Help"}
             %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
         = f.text_field :agc_min_gain, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "0.1", inputmode: "decimal"
-        %p.text-xs.text-ghmuted.mt-1= "Default: #{defaults[:agc_min_gain]}"
+        %p.text-xs.text-ghmuted.mt-1= "Default: #{agc_defaults[:agc_min_gain]}"
       .mb-1
         %label.block.text-sm.text-gray-500.mb-1
           HARD LIMITER
           %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('AGC_LIMIT_LEVEL')", title: "Help"}
             %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
         = f.text_field :agc_limit_level, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "0.9", inputmode: "decimal"
-        %p.text-xs.text-ghmuted.mt-1= "Default: #{defaults[:agc_limit_level]} (0 = disabled)"
+        %p.text-xs.text-ghmuted.mt-1= "Default: #{agc_defaults[:agc_limit_level]} (0 = disabled)"
     .mt-3.p-3.rounded-md.border.border-gray-700.text-xs.text-ghmuted{class: "bg-[#0d1117]"}
       %i.bi.bi-info-circle.mr-1
-      Leave fields empty to use defaults. The AGC processes audio in both directions with the same parameters.
+      Leave fields empty to use defaults. Applied after the voice filter, in both directions.
 
--# Inject AGC help texts into the page's HELP_TEXTS object (merged in JS below)
+-# Inject help texts into the page's HELP_TEXTS object
 :javascript
-  var AGC_HELP = #{agc_help.to_json};
-  if (typeof HELP_TEXTS !== 'undefined') { Object.assign(HELP_TEXTS, AGC_HELP); }
-  else { var HELP_TEXTS = AGC_HELP; }
+  var AUDIO_HELP = #{audio_help.to_json};
+  if (typeof HELP_TEXTS !== 'undefined') { Object.assign(HELP_TEXTS, AUDIO_HELP); }
+  else { var HELP_TEXTS = AUDIO_HELP; }

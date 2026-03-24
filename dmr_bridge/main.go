@@ -129,6 +129,9 @@ func runBridge(
 		// AGC instances for each direction
 		agcSvxToDmr = NewAGCFromEnv("AGC_SVX_TO_EXT_")
 		agcDmrToSvx = NewAGCFromEnv("AGC_EXT_TO_SVX_")
+		// Voice bandpass filters for each direction
+		filterSvxToDmr = NewVoiceFilterFromEnv("FILTER_SVX_TO_EXT_", PCMSampleRate)
+		filterDmrToSvx = NewVoiceFilterFromEnv("FILTER_EXT_TO_SVX_", PCMSampleRate)
 		// Track current DMR source for Redis
 		currentSrcID uint32
 	)
@@ -179,6 +182,7 @@ func runBridge(
 		pcm = pcm[:n]
 
 		// Normalize audio level before AMBE encoding
+		filterSvxToDmr.Process(pcm)
 		agcSvxToDmr.Process(pcm)
 
 		ambeBufMu.Lock()
@@ -212,6 +216,7 @@ func runBridge(
 
 		log.Printf("[SVX→DMR] Talker start: %s on TG %d", cs, tg)
 
+		filterSvxToDmr.Reset()
 		agcSvxToDmr.Reset()
 		ambeBufMu.Lock()
 		ambeBuffer = ambeBuffer[:0]
@@ -271,6 +276,7 @@ func runBridge(
 
 		svx.SendTalkerStart(svxTG, callsign)
 
+		filterDmrToSvx.Reset()
 		agcDmrToSvx.Reset()
 		pcmBufMu.Lock()
 		pcmBuffer = pcmBuffer[:0]
@@ -297,6 +303,7 @@ func runBridge(
 		for _, ambe := range frames {
 			pcm := voc.Decode(ambe)
 			pcmSlice := pcm[:]
+			filterDmrToSvx.Process(pcmSlice)
 			agcDmrToSvx.Process(pcmSlice)
 
 			pcmBufMu.Lock()

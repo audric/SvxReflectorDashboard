@@ -126,6 +126,9 @@ func runBridge(
 		// AGC
 		agcSvxToYsf = NewAGCFromEnv("AGC_SVX_TO_EXT_")
 		agcYsfToSvx = NewAGCFromEnv("AGC_EXT_TO_SVX_")
+		// Voice bandpass filters
+		filterSvxToYsf = NewVoiceFilterFromEnv("FILTER_SVX_TO_EXT_", PCMSampleRate)
+		filterYsfToSvx = NewVoiceFilterFromEnv("FILTER_EXT_TO_SVX_", PCMSampleRate)
 	)
 
 	svx := NewSVXLinkClient(svxHost, svxPort, svxAuthKey, callsign, nodeLocation, sysop)
@@ -151,6 +154,7 @@ func runBridge(
 			return
 		}
 		pcm = pcm[:n]
+		filterSvxToYsf.Process(pcm)
 		agcSvxToYsf.Process(pcm)
 
 		ambeBufMu.Lock()
@@ -186,6 +190,7 @@ func runBridge(
 		svxTalkMu.Unlock()
 
 		log.Printf("[SVX→YSF] Talker start: %s on TG %d", cs, tg)
+		filterSvxToYsf.Reset()
 		agcSvxToYsf.Reset()
 
 		ambeBufMu.Lock()
@@ -250,6 +255,7 @@ func runBridge(
 			srcCS := strings.TrimSpace(frame.SrcRadio)
 			log.Printf("[YSF→SVX] Voice from %s", srcCS)
 			svx.SendTalkerStart(svxTG, callsign)
+			filterYsfToSvx.Reset()
 			agcYsfToSvx.Reset()
 
 			pcmBufMu.Lock()
@@ -264,6 +270,7 @@ func runBridge(
 		for _, ambe := range ambeFrames {
 			pcm := vocDec.Decode(ambe)
 			pcmSlice := pcm[:]
+			filterYsfToSvx.Process(pcmSlice)
 			agcYsfToSvx.Process(pcmSlice)
 
 			pcmBufMu.Lock()

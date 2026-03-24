@@ -135,6 +135,9 @@ func runBridge(
 		// Buffer PCM samples for OPUS encoding
 		pcmBuffer []int16
 		pcmBufMu  sync.Mutex
+		// Voice filters for each direction (configurable via FILTER_SVX_TO_EXT_* / FILTER_EXT_TO_SVX_* env vars)
+		filterSvxToXlx = NewVoiceFilterFromEnv("FILTER_SVX_TO_EXT_", PCMSampleRate)
+		filterXlxToSvx = NewVoiceFilterFromEnv("FILTER_EXT_TO_SVX_", PCMSampleRate)
 		// AGC instances for each direction (configurable via AGC_SVX_TO_EXT_* / AGC_EXT_TO_SVX_* env vars)
 		agcSvxToXlx = NewAGCFromEnv("AGC_SVX_TO_EXT_")
 		agcXlxToSvx = NewAGCFromEnv("AGC_EXT_TO_SVX_")
@@ -143,6 +146,8 @@ func runBridge(
 		xlxTalkTimer *time.Timer
 	)
 
+	log.Printf("[Filter] SVX→EXT: HPF=%.0fHz LPF=%.0fHz", filterSvxToXlx.HPFCutoff(), filterSvxToXlx.LPFCutoff())
+	log.Printf("[Filter] EXT→SVX: HPF=%.0fHz LPF=%.0fHz", filterXlxToSvx.HPFCutoff(), filterXlxToSvx.LPFCutoff())
 	log.Printf("[AGC] SVX→EXT: target=%.2f attack=%.3f decay=%.3f gain=[%.2f,%.2f] limit=%.2f",
 		agcSvxToXlx.targetLevel, agcSvxToXlx.attackRate, agcSvxToXlx.decayRate,
 		agcSvxToXlx.minGain, agcSvxToXlx.maxGain, agcSvxToXlx.limitLevel)
@@ -212,7 +217,8 @@ func runBridge(
 			log.Printf("[SVX→XLX] OPUS decoded: %d samples from %d bytes", n, len(opusFrame))
 		}
 
-		// Normalize audio level before AMBE encoding
+		// Filter and normalize audio before AMBE encoding
+		filterSvxToXlx.Process(pcm)
 		agcSvxToXlx.Process(pcm)
 
 		ambeBufMu.Lock()
@@ -247,6 +253,7 @@ func runBridge(
 		log.Printf("[SVX→XLX] Talker start: %s on TG %d", cs, tg)
 		svxAudioProcessed = 0
 
+		filterSvxToXlx.Reset()
 		agcSvxToXlx.Reset()
 		ambeBufMu.Lock()
 		ambeBuffer = ambeBuffer[:0]
@@ -337,6 +344,7 @@ func runBridge(
 			log.Printf("[XLX→SVX] Voice from %s via %s (stream %04X)", srcCS, srcRpt, frame.StreamID)
 			svx.SendTalkerStart(svxTG, callsign)
 
+			filterXlxToSvx.Reset()
 			agcXlxToSvx.Reset()
 			pcmBufMu.Lock()
 			pcmBuffer = pcmBuffer[:0]
@@ -435,9 +443,10 @@ func runBridge(
 			return
 		}
 
-		// Decode AMBE to PCM and normalize level
+		// Decode AMBE to PCM, filter and normalize level
 		pcm := vocDec.Decode(frame.AMBE)
 		pcmSlice := pcm[:]
+		filterXlxToSvx.Process(pcmSlice)
 		agcXlxToSvx.Process(pcmSlice)
 
 		pcmBufMu.Lock()
