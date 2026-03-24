@@ -1122,8 +1122,9 @@
               var rxPorts = [];
               n.qth.forEach(function(q) {
                 if (q.rx) Object.keys(q.rx).forEach(function(p) {
-                  var s = q.rx[p].siglev;
-                  if (s !== undefined && s !== null) rxPorts.push({name: p, sig: s});
+                  var r = q.rx[p];
+                  var s = r.siglev;
+                  if (s !== undefined && s !== null) rxPorts.push({port: p, label: r.name || '', sig: s});
                 });
               });
               if (rxPorts.length > 0) {
@@ -1133,9 +1134,10 @@
                   var pct = rp.sig < 0 ? Math.max(0, Math.min(100, Math.round((rp.sig + 120) / 100 * 100))) : Math.max(0, Math.min(100, rp.sig));
                   var bc = pct > 66 ? 'green' : (pct > 33 ? 'yellow' : 'red');
                   sig += '<div class="flex items-center gap-2">';
-                  if (multi) sig += '<span class="text-gray-600 font-mono" style="font-size:.6rem;min-width:24px">' + esc(rp.name) + '</span>';
                   sig += '<div class="h-1.5 rounded-full bg-ghborder2" style="width:150px"><div class="h-full rounded-full bg-' + bc + '-500" style="width:' + pct + '%"></div></div>';
-                  sig += '<span class="font-mono text-gray-500" style="font-size:.7rem">' + Math.round(rp.sig) + (rp.sig < 0 ? ' dBm' : '%') + '</span></div>';
+                  sig += '<span class="font-mono text-gray-500" style="font-size:.7rem">' + Math.round(rp.sig) + (rp.sig < 0 ? ' dBm' : '%') + '</span>';
+                  if (multi) sig += '<span class="text-gray-500" style="font-size:.65rem">' + esc(rp.port) + (rp.label ? ' ' + esc(rp.label) : '') + '</span>';
+                  sig += '</div>';
                 });
                 sig += '</div>';
               }

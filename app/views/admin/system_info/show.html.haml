@@ -413,7 +413,13 @@
               %span.text-gray-500.dark:text-gray-500 &rarr; AMBE/DCS|DExtra &rarr;
               %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-pink-700.dark:text-pink-400 XLX Bridge (Go)
             .flex.flex-wrap.items-center.gap-2.text-sm.text-gray-300.mt-2.ml-4
-              %span.text-gray-600 AMBE decode &rarr; PCM 8kHz &rarr; OPUS encode &rarr;
+              %span.text-gray-600 AMBE decode &rarr; PCM 8kHz &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 HPF 300Hz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 LPF 3kHz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-rose-900.text-rose-300.border.border-rose-700 AGC
+              %span.text-gray-600 &rarr; OPUS encode &rarr;
               %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-yellow-700.dark:text-yellow-400 SVX Reflector
               %span.text-gray-500.dark:text-gray-500 &rarr; OPUS/UDP &rarr;
               %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-purple-700.dark:text-purple-400 audio_bridge
@@ -436,7 +442,13 @@
               %span.text-gray-500.dark:text-gray-500 &rarr; OPUS/UDP &rarr;
               %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-pink-700.dark:text-pink-400 XLX Bridge (Go)
             .flex.flex-wrap.items-center.gap-2.text-sm.text-gray-300.mt-2.ml-4
-              %span.text-gray-600 OPUS decode &rarr; PCM 8kHz &rarr; AMBE encode &rarr;
+              %span.text-gray-600 OPUS decode &rarr; PCM 8kHz &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 HPF 300Hz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 LPF 3kHz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-rose-900.text-rose-300.border.border-rose-700 AGC
+              %span.text-gray-600 &rarr; AMBE encode &rarr;
               %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-orange-700.dark:text-orange-400 XLX Reflector
               %span.text-gray-500.dark:text-gray-500 &rarr; DCS|DExtra &rarr;
               %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-orange-700.dark:text-orange-400 D-STAR Repeater
@@ -458,6 +470,14 @@
               %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-pink-700.dark:text-pink-400 DMR Bridge (Go)
               %span.text-gray-500.dark:text-gray-500 &harr; OPUS/UDP &harr;
               %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-yellow-700.dark:text-yellow-400 SVX Reflector
+            .flex.flex-wrap.items-center.gap-2.text-sm.text-gray-300.mt-2.ml-4
+              %span.text-gray-600 Transcoding: AMBE &harr; PCM 8kHz &harr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 HPF 300Hz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 LPF 3kHz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-rose-900.text-rose-300.border.border-rose-700 AGC
+              %span.text-gray-600 &harr; OPUS
 
           -# ── YSF Bridge ──
           .rounded-lg.border.border-gray-600.bg-ghcard.p-4
@@ -471,9 +491,17 @@
               %span.text-gray-500.dark:text-gray-500 &harr; DN/VW &harr;
               %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-violet-700.dark:text-violet-400 YSF Network
               %span.text-gray-500.dark:text-gray-500 &harr;
-              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-pink-700.dark:text-pink-400 YSF Bridge
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-pink-700.dark:text-pink-400 YSF Bridge (Go)
               %span.text-gray-500.dark:text-gray-500 &harr; OPUS/UDP &harr;
               %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-yellow-700.dark:text-yellow-400 SVX Reflector
+            .flex.flex-wrap.items-center.gap-2.text-sm.text-gray-300.mt-2.ml-4
+              %span.text-gray-600 Transcoding: IMBE &harr; PCM 8kHz &harr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 HPF 300Hz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 LPF 3kHz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-rose-900.text-rose-300.border.border-rose-700 AGC
+              %span.text-gray-600 &harr; OPUS
 
           -# ── AllStar Bridge ──
           .rounded-lg.border.border-gray-600.bg-ghcard.p-4
@@ -488,6 +516,14 @@
               %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-pink-700.dark:text-pink-400 AllStar Bridge (Go)
               %span.text-gray-500.dark:text-gray-500 &harr; OPUS/UDP &harr;
               %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-yellow-700.dark:text-yellow-400 SVX Reflector
+            .flex.flex-wrap.items-center.gap-2.text-sm.text-gray-300.mt-2.ml-4
+              %span.text-gray-600 Transcoding: uLaw &harr; PCM 8kHz &harr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 HPF 300Hz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 LPF 3kHz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-rose-900.text-rose-300.border.border-rose-700 AGC
+              %span.text-gray-600 &harr; OPUS
 
           -# ── SVXLink Bridge (remote reflector) ──
           .rounded-lg.border.border-gray-600.bg-ghcard.p-4
@@ -530,7 +566,13 @@
               %span.text-gray-500.dark:text-gray-500 &harr; OPUS 16kHz/WebSocket &harr;
               %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-pink-700.dark:text-pink-400 Zello Bridge (Go)
             .flex.flex-wrap.items-center.gap-2.text-sm.text-gray-300.mt-2.ml-4
-              %span.text-gray-600 OPUS 16kHz decode &rarr; PCM &rarr; OPUS 48kHz encode &rarr;
+              %span.text-gray-600 OPUS 16kHz decode &rarr; PCM 48kHz &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 HPF 300Hz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 LPF 3kHz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-rose-900.text-rose-300.border.border-rose-700 AGC
+              %span.text-gray-600 &rarr; OPUS 48kHz encode &rarr;
               %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-yellow-700.dark:text-yellow-400 SVX Reflector
 
           -# ── Legend ──
@@ -558,6 +600,12 @@
               .flex.items-center.gap-1
                 %span.w-3.h-3.rounded-full.bg-amber-400.inline-block
                 %span.text-gray-400 Zello (WebSocket/OPUS)
+              .flex.items-center.gap-1
+                %span.w-3.h-3.rounded-full.bg-indigo-400.inline-block
+                %span.text-gray-400 Voice filter (HPF/LPF)
+              .flex.items-center.gap-1
+                %span.w-3.h-3.rounded-full.bg-rose-400.inline-block
+                %span.text-gray-400 AGC + hard limiter
 
       #panel-changelog.tab-panel{class: @active_tab == 'changelog' ? 'active' : ''}
 
