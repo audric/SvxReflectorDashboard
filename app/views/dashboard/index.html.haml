@@ -646,12 +646,12 @@
 
         // ── Node card update ───────────────────────────────────────────────────────
         function updateCard(callsign, patch) {
-          var card = document.getElementById('node-' + callsign);
-          if (!card) return;
-
           if (!nodes[callsign]) nodes[callsign] = {};
           Object.assign(nodes[callsign], patch);
           var n = nodes[callsign];
+
+          var card = document.getElementById('node-' + callsign);
+          if (!card) return;
 
           var tg       = (n.tg !== undefined) ? n.tg : 0;
           var isTalker = !!n.isTalker;
