@@ -531,7 +531,7 @@ module Admin
       statuses = {}
       containers.each do |c|
         c["Names"].each do |n|
-          if n =~ /\A\/(?:svxlink|xlx|dmr|ysf|allstar)-bridge-(\d+)\z/
+          if n =~ /\A\/(?:svxlink|xlx|dmr|ysf|allstar|zello)-bridge-(\d+)\z/
             statuses[Regexp.last_match(1).to_i] = c["State"]
           end
         end

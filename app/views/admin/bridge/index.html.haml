@@ -129,10 +129,18 @@
                         %span.inline-flex.items-center.gap-1.px-2.py-0.5.rounded-full.text-xs.font-medium.bg-green-900.text-green-400.border.border-green-700
                           %i.bi.bi-circle-fill{style: "font-size: 0.4rem"}
                           Running
-                      - else
+                      - elsif status == "exited" || status == "dead"
+                        %span.inline-flex.items-center.gap-1.px-2.py-0.5.rounded-full.text-xs.font-medium.bg-red-900.text-red-400.border.border-red-700
+                          %i.bi.bi-circle-fill{style: "font-size: 0.4rem"}
+                          Exited
+                      - elsif status == "created" || status == "restarting"
                         %span.inline-flex.items-center.gap-1.px-2.py-0.5.rounded-full.text-xs.font-medium.bg-yellow-900.text-yellow-400.border.border-yellow-700
                           %i.bi.bi-circle-fill{style: "font-size: 0.4rem"}
                           Starting
+                      - else
+                        %span.inline-flex.items-center.gap-1.px-2.py-0.5.rounded-full.text-xs.font-medium.bg-red-900.text-red-400.border.border-red-700
+                          %i.bi.bi-circle-fill{style: "font-size: 0.4rem"}
+                          Not found
                     - else
                       %span.inline-flex.items-center.gap-1.px-2.py-0.5.rounded-full.text-xs.font-medium.bg-gray-800.text-gray-500.border.border-gray-700
                         %i.bi.bi-circle-fill{style: "font-size: 0.4rem"}
@@ -213,8 +221,9 @@
                     %i.bi.bi-pencil
                   %button.p-2.rounded-md.text-gray-400.hover:text-gray-200.hover:bg-ghborder2.cursor-pointer{type: "button", title: "Backups", onclick: "openBackups('#{backups_admin_bridge_path(bridge)}', '#{j bridge.name}')"}
                     %i.bi.bi-clock-history
-                  = button_to toggle_admin_bridge_path(bridge), method: :patch, class: "p-2 rounded-md hover:bg-ghborder2 cursor-pointer #{bridge.enabled? ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}", title: bridge.enabled? ? "Stop" : "Start" do
-                    %i.bi{class: bridge.enabled? ? "bi-stop-fill" : "bi-play-fill"}
+                  - show_stop = bridge.enabled? && running
+                  = button_to toggle_admin_bridge_path(bridge), method: :patch, class: "p-2 rounded-md hover:bg-ghborder2 cursor-pointer #{show_stop ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}", title: show_stop ? "Stop" : "Start" do
+                    %i.bi{class: show_stop ? "bi-stop-fill" : "bi-play-fill"}
                   - if running
                     %button.p-2.rounded-md.text-gray-600.cursor-not-allowed{type: "button", title: "Stop the bridge before deleting", disabled: true}
                       %i.bi.bi-trash3
