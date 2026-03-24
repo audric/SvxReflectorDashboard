@@ -252,11 +252,14 @@ module Admin
       # Trunk mode: reflector or satellite — strip the opposite mode's keys
       trunk_mode = params.dig(:config, :trunk_mode).to_s
       satellite_keys = %w[SATELLITE_OF SATELLITE_PORT SATELLITE_SECRET SATELLITE_ID]
+      reflector_only_keys = %w[LOCAL_PREFIX CLUSTER_TGS]
 
       # Global settings
       (params.dig(:config, :global) || {}).each do |key, value|
         # In reflector mode, skip satellite global keys
         next if trunk_mode == 'reflector' && satellite_keys.include?(key)
+        # In satellite mode, skip trunk/cluster global keys
+        next if trunk_mode == 'satellite' && reflector_only_keys.include?(key)
         config.global[key] = value if value.present?
       end
 
