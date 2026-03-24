@@ -33,7 +33,8 @@ Key features:
 - **Protocol selection** — DCS (port 30051) or DExtra (port 30001), configurable in the admin UI
 - **Reflector directory** — the admin form loads reflector lists from pistar.uk (DCS_Hosts.txt / DExtra_Hosts.txt), cached 24 hours with manual refresh
 - **Audio transcoding** — OPUS ↔ AMBE via the D-STAR vocoder (MBEVocoder from DroidStar)
-- **AGC** — automatic gain control on both audio paths
+- **Voice bandpass filter** — 2nd-order Butterworth HPF (300 Hz) + LPF (3000 Hz) removes hum, DC offset, and high-frequency noise before the vocoder
+- **AGC** — automatic gain control with hard limiter on both audio paths
 - **D-STAR metadata** — the originating SVXReflector callsign is set as MYCALL and slow data text (visible on D-STAR radios). The `-WEB` suffix is stripped for D-STAR compatibility.
 - **D-STAR RX display** — when a D-STAR station transmits through the XLX reflector, the bridge publishes MYCALL and slow data text to Redis (`dstar_rx:<callsign>`), which the dashboard displays on the node card in real time
 - **Echo suppression** — 1.5-second grace window after TX to ignore XLX echo frames with different stream IDs
@@ -56,6 +57,17 @@ Environment variables passed to the container:
 | `XLX_MYCALL` | MYCALL field in D-STAR voice headers |
 | `XLX_MYCALL_SUFFIX` | MYCALL suffix (default "AMBE") |
 | `REDIS_URL` | Redis connection for D-STAR RX metadata publishing |
+| `FILTER_SVX_TO_EXT_HPF_CUTOFF` | High-pass filter cutoff in Hz, SVX→XLX direction (default: 300, 0 = disabled) |
+| `FILTER_SVX_TO_EXT_LPF_CUTOFF` | Low-pass filter cutoff in Hz, SVX→XLX direction (default: 3000, 0 = disabled) |
+| `FILTER_EXT_TO_SVX_HPF_CUTOFF` | High-pass filter cutoff in Hz, XLX→SVX direction (default: 300) |
+| `FILTER_EXT_TO_SVX_LPF_CUTOFF` | Low-pass filter cutoff in Hz, XLX→SVX direction (default: 3000) |
+| `AGC_SVX_TO_EXT_TARGET_LEVEL` | AGC target peak level 0.0–1.0 (default: 0.3) |
+| `AGC_SVX_TO_EXT_DECAY_RATE` | AGC decay rate 0.0–1.0 (default: 0.3) |
+| `AGC_SVX_TO_EXT_MIN_GAIN` | AGC minimum gain / attenuation floor (default: 0.1) |
+| `AGC_SVX_TO_EXT_MAX_GAIN` | AGC maximum amplification (default: 4.0) |
+| `AGC_SVX_TO_EXT_LIMIT_LEVEL` | Hard limiter threshold 0.0–1.0 (default: 0.9, 0 = disabled) |
+
+All `AGC_*` and `FILTER_*` variables exist for both directions (`SVX_TO_EXT_*` and `EXT_TO_SVX_*`). See [Audio Processing](#audio-processing) for details.
 
 #### DCS vs DExtra
 
@@ -68,15 +80,15 @@ Environment variables passed to the container:
 
 ### DMR bridge
 
-Connects a local SVXReflector to a DMR network (e.g. BrandMeister). Runs as a standalone Go binary (`dmr-bridge-<id>`).
+Connects a local SVXReflector to a DMR network (e.g. BrandMeister). Runs as a standalone Go binary (`dmr-bridge-<id>`) that transcodes audio between OPUS (SVXReflector) and AMBE (DMR). Includes voice bandpass filter and AGC on both directions.
 
 ### YSF bridge
 
-Connects a local SVXReflector to a YSF (Yaesu System Fusion) network. Runs as a standalone Go binary (`ysf-bridge-<id>`).
+Connects a local SVXReflector to a YSF (Yaesu System Fusion) network. Runs as a standalone Go binary (`ysf-bridge-<id>`) that transcodes audio between OPUS (SVXReflector) and IMBE (YSF). Includes voice bandpass filter and AGC on both directions.
 
 ### AllStar bridge
 
-Connects a local SVXReflector to the AllStar network via IAX2. Runs as a standalone Go binary (`allstar-bridge-<id>`).
+Connects a local SVXReflector to the AllStar network via IAX2. Runs as a standalone Go binary (`allstar-bridge-<id>`) that transcodes audio between OPUS (SVXReflector) and µLaw PCM (AllStar). Includes voice bandpass filter and AGC on both directions.
 
 ### Zello bridge
 
@@ -117,9 +129,49 @@ Environment variables passed to the container:
 
 Audio path:
 ```
-SVX → Zello: OPUS 48kHz → decode to PCM 16kHz → buffer 60ms → encode OPUS 16kHz → WebSocket
-Zello → SVX: OPUS 16kHz/60ms → decode to PCM 48kHz → split 3×20ms → encode OPUS 48kHz → UDP
+SVX → Zello: OPUS 48kHz → PCM 48kHz → HPF → LPF → AGC → PCM 16kHz → buffer 60ms → OPUS 16kHz → WebSocket
+Zello → SVX: OPUS 16kHz/60ms → PCM 48kHz → HPF → LPF → AGC → split 3×20ms → OPUS 48kHz → UDP
 ```
+
+## Audio processing
+
+All Go-based bridges (XLX, DMR, YSF, AllStar, Zello) apply a three-stage audio processing pipeline on both directions (reflector→remote and remote→reflector):
+
+```
+PCM decode → HPF (300 Hz) → LPF (3000 Hz) → AGC + Hard Limiter → Vocoder encode
+```
+
+### Voice bandpass filter
+
+A 2nd-order Butterworth biquad filter pair restricts audio to the standard voice band:
+
+| Parameter | Default | Purpose |
+|---|---|---|
+| HPF cutoff | 300 Hz | Removes 50/60 Hz mains hum, DC offset, and low-frequency rumble |
+| LPF cutoff | 3000 Hz | Removes high-frequency noise above the voice band |
+
+Set either cutoff to `0` to disable that filter stage. The filter runs before the AGC so that gain adjustments operate on voice-only content (not on hum or noise).
+
+### AGC (Automatic Gain Control)
+
+Normalizes audio levels to a target peak, with configurable attack/decay rates:
+
+| Parameter | Default | Purpose |
+|---|---|---|
+| Target level | 0.3 (30%) | Target peak level as a fraction of full scale |
+| Attack rate | 0.01 | How fast gain increases for quiet signals (slow = smooth) |
+| Decay rate | 0.3 | How fast gain decreases for loud signals (fast = prevents clipping) |
+| Max gain | 4.0 (12 dB) | Maximum amplification for quiet signals |
+| Min gain | 0.1 (−20 dB) | Minimum gain — how much a loud signal can be attenuated |
+| Hard limiter | 0.9 (90%) | Absolute ceiling — samples above this level are clamped |
+
+The hard limiter runs after AGC as a safety net: even if the AGC can't react fast enough to a sudden loud signal, the limiter prevents clipping at the vocoder input.
+
+### Configuration
+
+All parameters are configurable per-bridge from the admin UI (collapsible "Voice Filter" and "Audio AGC" sections in the bridge edit form). The same values apply to both directions. Changes take effect on bridge restart.
+
+Environment variable prefixes: `FILTER_SVX_TO_EXT_*`, `FILTER_EXT_TO_SVX_*`, `AGC_SVX_TO_EXT_*`, `AGC_EXT_TO_SVX_*`.
 
 ## Config auto-generation
 

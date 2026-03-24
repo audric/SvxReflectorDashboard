@@ -8,6 +8,11 @@ caddy         → Reverse proxy with automatic HTTPS (Let's Encrypt)
 web           → Rails app (Puma), serves the dashboard on port 3000
 updater       → Background process running ReflectorListener
 audio_bridge  → Go binary, bridges browser audio ↔ reflector (SVXReflector protocol V2)
+xlx_bridge    → Go binary, D-STAR XLX bridge (DCS + DExtra protocols, OPUS ↔ AMBE transcoding)
+dmr_bridge    → Go binary, DMR bridge (OPUS ↔ AMBE transcoding via MMDVM Homebrew)
+ysf_bridge    → Go binary, YSF bridge (OPUS ↔ IMBE transcoding)
+allstar_bridge→ Go binary, AllStar bridge (OPUS ↔ µLaw via IAX2)
+zello_bridge  → Go binary, Zello channel bridge (OPUS 48kHz ↔ 16kHz via WebSocket)
 redis         → ActionCable adapter + audio pub/sub + web node metadata cache
 db_data       → Named Docker volume persisting the SQLite database (storage/)
 caddy_data    → Named Docker volume persisting TLS certificates
@@ -86,7 +91,7 @@ The `node_events` table records 12 event types:
 
 Trunk and satellite events use the `source` column to identify the originating trunk peer.
 
-### Audio path
+### Audio path — web listener
 
 ```
 RX (receiving audio from the reflector):
@@ -102,6 +107,21 @@ Browser mic → MediaStreamTrackProcessor → Opus encoder
   → SVXReflector UDP (protocol V2)
   └→ AnalyserNode → S-meter + spectrum
 ```
+
+### Audio path — protocol bridges
+
+All Go-based bridges (XLX, DMR, YSF, AllStar, Zello) apply a three-stage audio processing pipeline:
+
+```
+SVX → Remote:  OPUS decode → PCM → HPF 300Hz → LPF 3kHz → AGC + Limiter → Vocoder encode
+Remote → SVX:  Vocoder decode → PCM → HPF 300Hz → LPF 3kHz → AGC + Limiter → OPUS encode
+```
+
+- **HPF/LPF** — 2nd-order Butterworth bandpass (300–3000 Hz), removes hum and HF noise
+- **AGC** — automatic gain control with configurable attack/decay rates
+- **Hard limiter** — absolute ceiling at 90% of full scale, prevents vocoder clipping
+
+All parameters are configurable per-bridge from the admin UI. See [[Bridges#audio-processing]] for details.
 
 ### Redis channels
 

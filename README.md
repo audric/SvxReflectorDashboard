@@ -55,7 +55,7 @@ redis         → ActionCable + audio pub/sub
 
 All Go bridges include configurable voice bandpass filtering (HPF/LPF), AGC, and hard limiting.
 
-**Stack:** Ruby 3.2 · Rails 8.0 · Go · SQLite · Redis · HAML · Tailwind CSS · Leaflet.js
+**Stack:** Ruby 3.2 · Rails 8.0 · ActionCable/WebSocket · Go · SQLite · Redis · Hotwire (Turbo + Stimulus) · HAML · Tailwind CSS · Leaflet.js
 
 See the wiki for [architecture details](https://github.com/audric/SvxReflectorDashboard/wiki/Architecture) and [reflector protocol docs](https://github.com/audric/SvxReflectorDashboard/wiki/Reflector-Protocol).
 
