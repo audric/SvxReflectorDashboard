@@ -193,10 +193,29 @@
                     - if nodes_on_tg.any?
                       .flex.flex-wrap.gap-1
                         - nodes_on_tg.sort_by { |n| n[:callsign] }.each do |entry|
+                          - node = entry[:node]
+                          - qth = node.dig('qth', 0) || {}
+                          - rx_info = qth['rx']&.values&.first || {}
+                          - tx_info = qth['tx']&.values&.first || {}
+                          - rx_freq = rx_info['freq']
+                          - tx_freq = tx_info['freq']
+                          - rx_name = rx_info['name'].presence || tx_info['name'].presence
+                          - tip_parts = []
+                          - tip_parts << rx_name if rx_name
+                          - tip_parts << node['nodeLocation'] if node['nodeLocation'].present? && node['nodeLocation'] != rx_name
+                          - if tx_freq.to_f > 0
+                            - tip_parts << "TX #{"%.4f" % tx_freq} MHz"
+                            - if rx_freq.to_f > 0
+                              - offset_khz = ((rx_freq - tx_freq) * 1000).round
+                              - tip_parts << "Shift #{offset_khz > 0 ? '+' : ''}#{offset_khz} kHz" if offset_khz != 0
+                          - ttg = node['toneToTalkgroup'] || {}
+                          - tone_for_tg = ttg.find { |_, tg| tg == tg_num }&.first
+                          - tip_parts << "CTCSS #{tone_for_tg.to_f.round(1)} Hz" if tone_for_tg
+                          - tip = tip_parts.any? ? tip_parts.join(' · ') : (entry[:selected] ? "Selected on TG #{tg_num}" : "Monitoring TG #{tg_num}")
                           - if entry[:selected]
-                            %span.inline-block.px-2.py-0.5.text-xs.font-mono.rounded.border.border-green-700.text-green-400{class: "bg-green-900/30", title: "Selected on TG #{tg_num}"}= entry[:callsign]
+                            %span.inline-block.px-2.py-0.5.text-xs.font-mono.rounded.border.border-green-700.text-green-400{class: "bg-green-900/30", title: tip}= entry[:callsign]
                           - else
-                            %span.inline-block.px-2.py-0.5.text-xs.font-mono.rounded.border.border-ghborder2.text-gray-400{title: "Monitoring TG #{tg_num}"}= entry[:callsign]
+                            %span.inline-block.px-2.py-0.5.text-xs.font-mono.rounded.border.border-ghborder2.text-gray-400{title: tip}= entry[:callsign]
                     - else
                       %span.text-ghdim —
 
