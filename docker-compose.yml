@@ -11,7 +11,7 @@ services:
   init-reflector-conf:
     image: alpine
     entrypoint: /bin/sh
-    command: ["-c", "test -d /h/svxreflector.conf && rm -rf /h/svxreflector.conf; test -f /h/svxreflector.conf || printf '[GLOBAL]\\nLISTEN_PORT=5300\\nHTTP_SRV_PORT=8080\\nSQL_TIMEOUT=5000\\n\\n[SERVER_CERT]\\nCOMMON_NAME=svxreflector\\n' > /h/svxreflector.conf"]
+    command: ["-c", "test -d /h/svxreflector.conf && rm -rf /h/svxreflector.conf; test -f /h/svxreflector.conf || printf '[GLOBAL]\\nLISTEN_PORT=5300\\nHTTP_SRV_PORT=8080\\nSQL_TIMEOUT=5000\\nCOMMAND_PTY=/dev/shm/reflector_ctrl\\n\\n[SERVER_CERT]\\nCOMMON_NAME=svxreflector\\n' > /h/svxreflector.conf"]
     volumes:
       - ./reflector:/h
 

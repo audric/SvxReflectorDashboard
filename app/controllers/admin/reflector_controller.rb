@@ -263,6 +263,9 @@ module Admin
         config.global[key] = value if value.present?
       end
 
+      # Ensure COMMAND_PTY is always set — required for node block, PKI signing, etc.
+      config.global["COMMAND_PTY"] ||= "/dev/shm/reflector_ctrl"
+
       # Certificate sections (ROOT_CA, ISSUING_CA, SERVER_CERT)
       # When certs exist, these fields are disabled in the form and not submitted.
       # Preserve existing values so they aren't silently dropped from the config file.
