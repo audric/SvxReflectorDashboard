@@ -119,6 +119,12 @@ class DashboardController < ApplicationController
       .transform_values(&:size)
       .sort_by { |_, count| -count }
 
+    # ── Web users ─────────────────────────────────────────────────────────────
+    @total_users  = User.where(approved: true).count
+    redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
+    @online_users = redis.keys("session:*").size
+    redis.close
+
     # ── Trunk traffic stats ────────────────────────────────────────────────────
     @trunk_traffic = scope.where.not(source: [nil, ''])
                           .group(:source)

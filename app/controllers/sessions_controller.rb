@@ -1,5 +1,6 @@
 class SessionsController < ApplicationController
   layout false
+  skip_forgery_protection only: :destroy
 
   MAX_ATTEMPTS = 5
   LOCKOUT_PERIOD = 5.minutes

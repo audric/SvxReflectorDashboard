@@ -122,7 +122,9 @@
       - stats << {icon: 'bi-wifi',        color: 'text-blue-500',  label: 'Active',  val: @active}
       - stats << {icon: 'bi-mic-fill',    color: 'text-green-500', label: 'Talking', val: @talking}
       - stats << {icon: 'bi-collection',  color: 'text-yellow-500', label: 'TGs',    val: @active_tgs.size}
-      .grid.grid-cols-2.md:grid-cols-4.gap-3.mb-4
+      - stats << {icon: 'bi-people',      color: 'text-purple-400', label: 'Users',   val: @total_users}
+      - stats << {icon: 'bi-person-check', color: 'text-cyan-400',  label: 'Online',  val: @online_users}
+      .grid.grid-cols-2.md:grid-cols-3.lg:grid-cols-6.gap-3.mb-4
         - stats.each do |s|
           .rounded-lg.border.border-ghborder.h-full
             .text-center.py-3
