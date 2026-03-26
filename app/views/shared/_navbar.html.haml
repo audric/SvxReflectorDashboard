@@ -1246,6 +1246,9 @@
       showAudioDot(false);
       clearState();
 
+      if (audioWs && subscribedIdentifier) {
+        try { audioWs.send(JSON.stringify({ command: 'unsubscribe', identifier: subscribedIdentifier })); } catch(e) {}
+      }
       subscribedIdentifier = null;
       if (audioWs) { audioWs.onclose = null; audioWs.close(); audioWs = null; }
       if (decoder) { try { decoder.close(); } catch(e) {} decoder = null; }
@@ -1271,6 +1274,9 @@
     // without clearing saved state — so auto-resume works on next page load.
     // The server-side unsubscribed callback handles bridge cleanup.
     window.addEventListener('beforeunload', function() {
+      if (audioWs && subscribedIdentifier) {
+        try { audioWs.send(JSON.stringify({ command: 'unsubscribe', identifier: subscribedIdentifier })); } catch(e) {}
+      }
       if (audioWs) { audioWs.onclose = null; audioWs.close(); }
     });
 

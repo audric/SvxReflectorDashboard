@@ -748,8 +748,16 @@
                   if (m) { lastTimestamp = m[0]; break; }
                 }
               }
-              if (incremental && lastTimestamp && logs.length > 0) {
-                logPre.textContent += logs;
+              if (incremental) {
+                if (logs.length > 0) {
+                  logPre.textContent += logs;
+                  // Cap at tail limit to prevent unbounded growth
+                  var maxLines = parseInt(logTail.value) || 200;
+                  var allLines = logPre.textContent.split('\n');
+                  if (allLines.length > maxLines) {
+                    logPre.textContent = allLines.slice(-maxLines).join('\n');
+                  }
+                }
               } else {
                 logPre.textContent = logs || '(empty)';
               }

@@ -363,16 +363,24 @@ func (c *Client) isClosed() bool {
 	return c.closed
 }
 
-// Close tears down all connections.
+// Close tears down all connections (safe to call multiple times).
 func (c *Client) Close() {
 	c.mu.Lock()
+	if c.closed {
+		c.mu.Unlock()
+		return
+	}
 	c.closed = true
+	udp := c.udpConn
+	tcp := c.tcpConn
+	c.udpConn = nil
+	c.tcpConn = nil
 	c.mu.Unlock()
 
-	if c.udpConn != nil {
-		c.udpConn.Close()
+	if udp != nil {
+		udp.Close()
 	}
-	if c.tcpConn != nil {
-		c.tcpConn.Close()
+	if tcp != nil {
+		tcp.Close()
 	}
 }

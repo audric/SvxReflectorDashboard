@@ -67,9 +67,11 @@ module Admin
 
       query = "stdout=true&stderr=true&timestamps=true"
       if since.present?
-        # Parse ISO 8601 timestamp and add 1ns to avoid re-fetching the last line
+        # Parse ISO 8601 timestamp and add 1ns to avoid re-fetching the last line.
+        # Build the float string manually to preserve nanosecond precision (to_f
+        # rounds to ~15.9 significant digits, which can cause Docker to re-return lines).
         t = Time.iso8601(since) + Rational(1, 1_000_000_000)
-        query += "&since=#{t.to_f}"
+        query += "&since=#{t.to_i}.#{t.nsec.to_s.rjust(9, '0')}"
       else
         query += "&tail=#{tail}"
       end

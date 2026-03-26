@@ -266,23 +266,44 @@ func (r *registry) connect(callsign string, authKey string, tg uint32, nodeInfo 
 
 func (r *registry) disconnect(callsign string) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 
 	e, ok := r.sessions[callsign]
 	if !ok {
+		r.mu.Unlock()
 		return
 	}
 
 	e.refCount--
 	log.Printf("Ref-- for %s (refCount=%d)", callsign, e.refCount)
 	if e.refCount > 0 {
+		r.mu.Unlock()
 		return
 	}
 
-	log.Printf("Session stopped: callsign=%s", callsign)
-	e.client.Close()
-	r.removePublisher(callsign, e.tg)
-	delete(r.sessions, callsign)
+	r.mu.Unlock()
+
+	// Grace period: wait briefly before closing so page navigations
+	// (which cause unsubscribe→subscribe in quick succession) don't
+	// tear down the reflector connection unnecessarily.
+	go func() {
+		time.Sleep(3 * time.Second)
+		r.mu.Lock()
+		defer r.mu.Unlock()
+
+		// Re-check: a new connect may have arrived during the grace period
+		e2, ok := r.sessions[callsign]
+		if !ok || e2 != e {
+			return // session was replaced or removed
+		}
+		if e.refCount > 0 {
+			return // reconnected during grace period
+		}
+
+		log.Printf("Session stopped: callsign=%s", callsign)
+		e.client.Close()
+		r.removePublisher(callsign, e.tg)
+		delete(r.sessions, callsign)
+	}()
 }
 
 // forceDisconnect closes a session regardless of refCount (used by stale cleanup).

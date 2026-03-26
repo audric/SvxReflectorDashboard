@@ -45,9 +45,11 @@ class AudioChannel < ApplicationCable::Channel
 
     redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
     ref = redis.decr("web_node_refs:#{@web_callsign}")
+    # Always publish disconnect so the bridge refCount stays in sync
+    # (subscribed always publishes connect, so we must always publish disconnect)
+    redis.publish("audio:commands", { action: "disconnect", callsign: @web_callsign }.to_json)
     if ref <= 0
       redis.del("web_node_refs:#{@web_callsign}")
-      redis.publish("audio:commands", { action: "disconnect", callsign: @web_callsign }.to_json)
       redis.hdel("web_node_info", @web_callsign)
     end
   ensure
