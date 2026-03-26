@@ -24,6 +24,7 @@
         }
       }
     %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
+    = csrf_meta_tags
     :css
       body { background: #0d1117; }
       .admin-table th { font-size: .73rem; text-transform: uppercase; letter-spacing: .05em; color: #6e7681; border-color: #21262d; }
@@ -31,6 +32,19 @@
 
   %body.text-ghtext
     = render 'shared/navbar', active: 'admin'
+
+    #confirm-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
+      .bg-ghcard.border.border-gray-600.rounded-lg.p-5.max-w-sm.w-full.mx-4.shadow-xl
+        .flex.items-center.gap-3.mb-3
+          .w-10.h-10.rounded-full.flex.items-center.justify-center.shrink-0{class: "bg-red-500/15"}
+            %i.bi.bi-exclamation-triangle.text-red-400
+          %h6.text-base.font-semibold.text-gray-100#confirm-title Delete this TG?
+        %p.text-sm.text-gray-400.mb-4 This action cannot be undone.
+        .flex.justify-end.gap-2
+          %button#confirm-cancel.px-3.py-1.5.rounded-md.border.border-gray-600.text-sm.text-gray-300.hover:text-gray-100.cursor-pointer{type: "button"} Cancel
+          %button#confirm-delete.px-3.py-1.5.rounded-md.bg-red-600.hover:bg-red-700.text-sm.text-white.font-semibold.cursor-pointer{type: "button"}
+            %i.bi.bi-trash3.mr-1
+            Delete
 
     .max-w-7xl.mx-auto.px-4.pb-12
       .flex.items-center.justify-between.mb-6
@@ -75,7 +89,7 @@
                     .inline-flex.gap-1.justify-end
                       = link_to edit_admin_tg_path(tg), class: "inline-block text-sm px-2 py-1 rounded border border-gray-600 text-gray-400 hover:text-gray-200" do
                         %i.bi.bi-pencil
-                      = button_to admin_tg_path(tg), method: :delete, class: "inline-block text-sm px-2 py-1 rounded border border-red-700 text-red-400 hover:text-red-300", form_class: "inline", form: { "data-turbo-confirm" => "Delete TG #{tg.tg}?" } do
+                      %button.inline-block.text-sm.px-2.py-1.rounded.border.border-red-700.text-red-400.hover:text-red-300.cursor-pointer{type: "button", onclick: "confirmDelete('#{tg.tg}', '#{admin_tg_path(tg)}')"}
                         %i.bi.bi-trash
 
     :javascript
@@ -85,3 +99,34 @@
           if (el) setTimeout(function() { el.style.transition = 'opacity 0.5s'; el.style.opacity = '0'; setTimeout(function() { el.remove(); }, 500); }, 5000);
         });
       })();
+
+      var _deleteUrl = null;
+      function confirmDelete(tg, url) {
+        _deleteUrl = url;
+        document.getElementById('confirm-title').textContent = 'Delete TG ' + tg + '?';
+        document.getElementById('confirm-modal').style.display = 'flex';
+      }
+      document.getElementById('confirm-delete').addEventListener('click', function() {
+        if (!_deleteUrl) return;
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = _deleteUrl;
+        var method = document.createElement('input');
+        method.type = 'hidden'; method.name = '_method'; method.value = 'delete';
+        form.appendChild(method);
+        var token = document.querySelector('meta[name="csrf-token"]');
+        if (token) {
+          var csrf = document.createElement('input');
+          csrf.type = 'hidden'; csrf.name = 'authenticity_token'; csrf.value = token.content;
+          form.appendChild(csrf);
+        }
+        document.body.appendChild(form);
+        form.submit();
+      });
+      document.getElementById('confirm-cancel').addEventListener('click', function() {
+        _deleteUrl = null;
+        document.getElementById('confirm-modal').style.display = 'none';
+      });
+      document.getElementById('confirm-modal').addEventListener('click', function(e) {
+        if (e.target === this) { _deleteUrl = null; this.style.display = 'none'; }
+      });
