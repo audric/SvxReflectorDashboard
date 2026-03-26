@@ -27,7 +27,7 @@
     %link{rel: "stylesheet", href: "/vendor/leaflet/leaflet.css"}
     :css
       body { background: #0d1117; margin: 0; }
-      #map { height: calc(100vh - 72px); width: 100%; }
+      #map { height: calc(100vh - 72px); width: 100%; position: relative; z-index: 0; }
       @media (min-width: 1024px) {
         body { padding-top: 0 !important; }
         #map { height: 100vh; }
