@@ -112,7 +112,7 @@
                     = link_to edit_admin_user_path(user), class: "inline-block text-sm px-2 py-1 rounded border border-gray-600 text-gray-400 hover:text-gray-200" do
                       %i.bi.bi-pencil
                     - unless user == current_user
-                      = button_to admin_user_path(user), method: :delete, class: "inline-block text-sm px-2 py-1 rounded border border-red-700 text-red-400 hover:text-red-300", form_class: "inline", form: { data: { turbo_confirm: "Delete #{user.callsign}?" } } do
+                      = button_to admin_user_path(user), method: :delete, class: "inline-block text-sm px-2 py-1 rounded border border-red-700 text-red-400 hover:text-red-300", form_class: "inline", form: { "data-turbo-confirm" => "Delete #{user.callsign}?" } do
                         %i.bi.bi-trash
 
     :javascript

@@ -85,7 +85,7 @@
                     .inline-flex.gap-1.justify-end
                       = link_to edit_admin_external_reflector_path(ref), class: "inline-block text-sm px-2 py-1 rounded border border-gray-600 text-gray-400 hover:text-gray-200" do
                         %i.bi.bi-pencil
-                      = button_to admin_external_reflector_path(ref), method: :delete, class: "inline-block text-sm px-2 py-1 rounded border border-red-700 text-red-400 hover:text-red-300", form_class: "inline", form: { data: { turbo_confirm: "Remove \"#{ref.name}\"?" } } do
+                      = button_to admin_external_reflector_path(ref), method: :delete, class: "inline-block text-sm px-2 py-1 rounded border border-red-700 text-red-400 hover:text-red-300", form_class: "inline", form: { "data-turbo-confirm" => "Remove \"#{ref.name}\"?" } do
                         %i.bi.bi-trash
 
     :javascript
