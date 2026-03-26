@@ -30,7 +30,7 @@ module Admin
                 when "string"
                   val = redis.get(key)
                   size = val.bytesize
-                  val
+                  val.force_encoding("UTF-8").scrub("?")
                 when "hash"
                   h = redis.hgetall(key)
                   size = h.size
