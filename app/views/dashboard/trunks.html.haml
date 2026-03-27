@@ -134,7 +134,7 @@
                         .flex.items-center.gap-2
                           %i.bi.bi-tag.text-ghdim{style: "font-size:.7rem"}
                           %span.text-xs.text-ghmuted Their Local Prefix
-                          %span.text-xs.font-mono.text-cyan-400.ml-auto= r_local_prefix
+                          %span.text-xs.font-mono.text-cyan-400.ml-auto= Array(r_local_prefix).flat_map { |x| x.to_s.split(',') }.map(&:strip).join(', ')
                       - if r_cluster_tgs.any?
                         .flex.items-center.gap-2
                           %i.bi.bi-broadcast.text-ghdim{style: "font-size:.7rem"}
@@ -159,9 +159,10 @@
                                 %span.text-ghmuted.ml-auto= r_trunk['host']
 
                     -# ── Prefix discrepancy checks ──────────────────────────────
-                    - our_remote_pfx = cfg['REMOTE_PREFIX'].to_s.split(',').map(&:strip).reject(&:blank?).sort
-                    - their_local_pfx = r_local_prefix.to_s.split(',').map(&:strip).reject(&:blank?).sort
-                    - our_local_pfx = @local_prefix.to_s.split(',').map(&:strip).reject(&:blank?).sort
+                    - normalize_pfx = ->(v) { Array(v).flat_map { |x| x.to_s.split(',') }.map(&:strip).reject(&:blank?).sort }
+                    - our_remote_pfx = normalize_pfx.(cfg['REMOTE_PREFIX'])
+                    - their_local_pfx = normalize_pfx.(r_local_prefix)
+                    - our_local_pfx = normalize_pfx.(@local_prefix)
                     -# Find the trunk on their side that points back to us (match by remote_prefix or host)
                     - their_trunk_to_us = r_trunks.values.select { |t| t.is_a?(Hash) }.find { |t| our_local_pfx.any? && Array(t['remote_prefix']).map(&:to_s).map(&:strip).sort == our_local_pfx }
                     - their_remote_pfx = their_trunk_to_us ? Array(their_trunk_to_us['remote_prefix']).map(&:to_s).map(&:strip).reject(&:blank?).sort : []
