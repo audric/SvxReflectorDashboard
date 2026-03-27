@@ -51,6 +51,7 @@ services:
       - caddy_data:/data
     depends_on:
       - web
+      - svxreflector
     restart: unless-stopped
 
   web:
