@@ -134,38 +134,20 @@
                         .flex.items-center.gap-2
                           %i.bi.bi-tag.text-ghdim{style: "font-size:.7rem"}
                           %span.text-xs.text-ghmuted Their Local Prefix
-                          %span.text-xs.font-mono.text-cyan-400.ml-auto= Array(r_local_prefix).flat_map { |x| x.to_s.split(',') }.map(&:strip).join(', ')
+                          %span.text-xs.font-mono.text-cyan-400.ml-auto= Array(r_local_prefix).flatten.flat_map { |x| x.to_s.split(',') }.map(&:strip).join(', ')
                       - if r_cluster_tgs.any?
                         .flex.items-center.gap-2
                           %i.bi.bi-broadcast.text-ghdim{style: "font-size:.7rem"}
                           %span.text-xs.text-ghmuted Their Cluster TGs
                           %span.text-xs.font-mono.text-cyan-400.ml-auto= r_cluster_tgs.join(', ')
-                      - if r_trunks.any?
-                        .mt-2
-                          .text-xs.text-ghmuted.mb-1
-                            %i.bi.bi-diagram-3.mr-1{style: "font-size:.6rem"}
-                            Their Trunk Peers
-                          - r_trunks.each do |r_name, r_trunk|
-                            .flex.items-center.gap-2.py-1.text-xs
-                              - r_connected = r_trunk.is_a?(Hash) ? r_trunk['connected'] : nil
-                              - if r_connected == true
-                                %span.inline-block.w-2.h-2.rounded-full.bg-green-500
-                              - elsif r_connected == false
-                                %span.inline-block.w-2.h-2.rounded-full.bg-red-500
-                              - else
-                                %span.inline-block.w-2.h-2.rounded-full.bg-gray-600
-                              %span.font-mono.text-gray-300= r_name
-                              - if r_trunk.is_a?(Hash) && r_trunk['host'].present?
-                                %span.text-ghmuted.ml-auto= r_trunk['host']
 
                     -# ── Prefix discrepancy checks ──────────────────────────────
-                    - normalize_pfx = ->(v) { Array(v).flat_map { |x| x.to_s.split(',') }.map(&:strip).reject(&:blank?).sort }
+                    - normalize_pfx = ->(v) { Array(v).flatten.flat_map { |x| x.to_s.split(',') }.map(&:strip).reject(&:blank?).sort }
                     - our_remote_pfx = normalize_pfx.(cfg['REMOTE_PREFIX'])
                     - their_local_pfx = normalize_pfx.(r_local_prefix)
                     - our_local_pfx = normalize_pfx.(@local_prefix)
-                    -# Find the trunk on their side that points back to us (match by remote_prefix or host)
-                    - their_trunk_to_us = r_trunks.values.select { |t| t.is_a?(Hash) }.find { |t| our_local_pfx.any? && Array(t['remote_prefix']).map(&:to_s).map(&:strip).sort == our_local_pfx }
-                    - their_remote_pfx = their_trunk_to_us ? Array(their_trunk_to_us['remote_prefix']).map(&:to_s).map(&:strip).reject(&:blank?).sort : []
+                    - their_trunk_to_us = r_trunks.values.select { |t| t.is_a?(Hash) }.find { |t| our_local_pfx.any? && normalize_pfx.(t['remote_prefix']) == our_local_pfx }
+                    - their_remote_pfx = their_trunk_to_us ? normalize_pfx.(their_trunk_to_us['remote_prefix']) : []
                     - warnings = []
                     - if their_local_pfx.any? && our_remote_pfx.any? && our_remote_pfx != their_local_pfx
                       - warnings << { label: "Our REMOTE_PREFIX for them", ours: our_remote_pfx.join(', '), theirs: their_local_pfx.join(', '), theirs_label: "their LOCAL_PREFIX" }
@@ -189,6 +171,24 @@
                               %span.text-yellow-500 ≠
                               %span.font-mono= w[:theirs]
                               %span.text-yellow-500= "(#{w[:theirs_label]})"
+
+                    - if r_trunks.any?
+                      .mt-2
+                        .text-xs.text-ghmuted.mb-1
+                          %i.bi.bi-diagram-3.mr-1{style: "font-size:.6rem"}
+                          Their Trunk Peers
+                        - r_trunks.each do |r_name, r_trunk|
+                          .flex.items-center.gap-2.py-1.text-xs
+                            - r_connected = r_trunk.is_a?(Hash) ? r_trunk['connected'] : nil
+                            - if r_connected == true
+                              %span.inline-block.w-2.h-2.rounded-full.bg-green-500
+                            - elsif r_connected == false
+                              %span.inline-block.w-2.h-2.rounded-full.bg-red-500
+                            - else
+                              %span.inline-block.w-2.h-2.rounded-full.bg-gray-600
+                            %span.font-mono.text-gray-300= r_name
+                            - if r_trunk.is_a?(Hash) && r_trunk['host'].present?
+                              %span.text-ghmuted.ml-auto= r_trunk['host']
                 - elsif cfg['CONFIG_URL'].present?
                   .mt-3.pt-3.border-t.border-ghborder2
                     .text-xs.text-ghmuted
