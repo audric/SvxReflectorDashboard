@@ -159,24 +159,6 @@
           %i.bi.bi-exclamation-triangle-fill.mr-2.shrink-0
           = @fetch_error
 
-      -# ── Satellite mode banner ─────────────────────────────────────────
-      - if @reflector_mode == 'satellite'
-        - parent_host = @reflector_config.dig('satellite', 'parent_host') || @reflector_config.dig('satellite', 'host') || 'parent reflector'
-        - parent_port = @reflector_config.dig('satellite', 'parent_port') || '5303'
-        - sat_id = @reflector_config.dig('satellite', 'id') || ''
-        .flex.items-center.gap-3.px-4.py-2.5.rounded-lg.border.mb-4{class: "bg-purple-900/20 border-purple-700/50"}
-          .flex.items-center.justify-center.w-8.h-8.rounded-full.shrink-0{class: "bg-purple-800/50"}
-            %i.bi.bi-broadcast.text-purple-400
-          .flex-1.min-w-0
-            .flex.items-center.gap-2.flex-wrap
-              %span.text-purple-300.font-semibold.text-sm Satellite Mode
-              - if sat_id.present?
-                %span.text-xs.px-1.5.py-0.5.rounded.border.font-mono{class: "bg-purple-900/50 text-purple-400 border-purple-700"}= sat_id
-            .text-xs.text-ghmuted.mt-0.5
-              Connected to
-              %span.font-mono.text-purple-300= parent_host
-              %span.text-ghdim= ":#{parent_port}"
-
       -# ── Stats row ────────────────────────────────────────────────────────
       - stats = []
       - stats << {id: 'stat-total',   icon: 'bi-diagram-3',   color: 'text-gray-100',  label: 'Nodes',        val: @nodes.size}

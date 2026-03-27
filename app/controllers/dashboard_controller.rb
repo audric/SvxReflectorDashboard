@@ -158,10 +158,11 @@ class DashboardController < ApplicationController
       @remote_configs[name] = fetch_remote_config(cfg['CONFIG_URL'])
     end
 
-    # Recent trunk events
+    # Recent trunk and satellite events
     @recent_events = NodeEvent.where(event_type: [
       NodeEvent::TRUNK_CONNECTED, NodeEvent::TRUNK_DISCONNECTED,
-      NodeEvent::REMOTE_TALK_START, NodeEvent::REMOTE_TALK_STOP
+      NodeEvent::REMOTE_TALK_START, NodeEvent::REMOTE_TALK_STOP,
+      NodeEvent::SAT_CONNECTED, NodeEvent::SAT_DISCONNECTED
     ]).order(created_at: :desc).limit(50)
   end
 

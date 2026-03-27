@@ -76,7 +76,7 @@
           Radio Memory
         %a.text-base.py-2.md:py-0.md:text-sm{class: (active == 'trunks' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: trunks_path}
           %i.bi.bi-diagram-3.mr-1
-          Trunks
+          Trunks & Sat
         %a.text-base.py-2.md:py-0.md:text-sm{class: (active == 'events' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'), href: events_path}
           %i.bi.bi-activity.mr-1
           Events
@@ -141,7 +141,7 @@
 
   %nav.flex-1.px-3.py-4.overflow-y-auto
     .space-y-1
-      - [['dashboard', 'bi-grid', 'Dashboard', root_path], ['map', 'bi-map', 'Map', map_path], ['tg', 'bi-collection', 'TG List', tg_path], ['radio', 'bi-broadcast', 'Radio Memory', radio_path], ['trunks', 'bi-diagram-3', 'Trunks', trunks_path], ['events', 'bi-activity', 'Events', events_path], ['stats', 'bi-bar-chart-line', 'Stats', stats_path]].each do |key, icon, label, path|
+      - [['dashboard', 'bi-grid', 'Dashboard', root_path], ['map', 'bi-map', 'Map', map_path], ['tg', 'bi-collection', 'TG List', tg_path], ['radio', 'bi-broadcast', 'Radio Memory', radio_path], ['trunks', 'bi-diagram-3', 'Trunks & Sat', trunks_path], ['events', 'bi-activity', 'Events', events_path], ['stats', 'bi-bar-chart-line', 'Stats', stats_path]].each do |key, icon, label, path|
         %a.flex.items-center.gap-3.px-3.py-2.rounded-md.text-sm.transition-colors{class: (active == key ? 'bg-ghborder2 text-gray-100' : 'text-ghmuted hover:bg-ghborder2 hover:text-gray-300'), href: path}
           %i.bi{class: icon}
           = label
