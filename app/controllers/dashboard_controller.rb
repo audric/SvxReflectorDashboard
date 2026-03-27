@@ -143,6 +143,28 @@ class DashboardController < ApplicationController
     end
   end
 
+  def trunks
+    fetch_extended
+
+    # Local trunk configuration from svxreflector.conf
+    @local_config = ReflectorConfig.load
+    @local_trunks = @local_config.trunks
+    @local_prefix = @local_config.global['LOCAL_PREFIX']
+
+    # Fetch remote reflector configs for trunks that have a CONFIG_URL
+    @remote_configs = {}
+    @local_trunks.each do |name, cfg|
+      next unless cfg['CONFIG_URL'].present?
+      @remote_configs[name] = fetch_remote_config(cfg['CONFIG_URL'])
+    end
+
+    # Recent trunk events
+    @recent_events = NodeEvent.where(event_type: [
+      NodeEvent::TRUNK_CONNECTED, NodeEvent::TRUNK_DISCONNECTED,
+      NodeEvent::REMOTE_TALK_START, NodeEvent::REMOTE_TALK_STOP
+    ]).order(created_at: :desc).limit(50)
+  end
+
   def events
     @recent_events = NodeEvent.order(created_at: :desc).limit(100)
 
@@ -194,6 +216,23 @@ class DashboardController < ApplicationController
       @reflector_config = {}
       @reflector_mode   = 'reflector'
     end
+  end
+
+  def fetch_remote_config(url)
+    Rails.cache.fetch("trunk_remote_config:#{Digest::MD5.hexdigest(url)}", expires_in: 60.seconds) do
+      require "net/http"
+      uri = URI(url)
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = uri.scheme == "https"
+      http.open_timeout = 3
+      http.read_timeout = 5
+      response = http.get(uri.request_uri)
+      return nil unless response.is_a?(Net::HTTPSuccess)
+      JSON.parse(response.body)
+    end
+  rescue => e
+    Rails.logger.warn "[Trunks] Failed to fetch remote config #{url}: #{e.message}"
+    nil
   end
 
   def fetch_external_reflectors

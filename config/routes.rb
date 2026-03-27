@@ -5,6 +5,7 @@ Rails.application.routes.draw do
   get 'tg',    to: 'dashboard#tg',    as: :tg
   get 'radio_programming', to: 'dashboard#radio', as: :radio
   get 'events', to: 'dashboard#events', as: :events
+  get 'trunks', to: 'dashboard#trunks', as: :trunks
 
   get    "login",    to: "sessions#new"
   post   "login",    to: "sessions#create"

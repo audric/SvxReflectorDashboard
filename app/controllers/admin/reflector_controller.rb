@@ -321,13 +321,15 @@ module Admin
         trunk_ports = Array(cfg[:trunk_ports])
         trunk_secrets = Array(cfg[:trunk_secrets])
         trunk_prefixes = Array(cfg[:trunk_remote_prefixes])
+        trunk_config_urls = Array(cfg[:trunk_config_urls])
         trunk_names.each_with_index do |name, i|
           next if name.blank?
           config.trunks[name.strip] = {
             "HOST" => trunk_hosts[i].to_s.strip,
             "PORT" => trunk_ports[i].to_s.strip,
             "SECRET" => trunk_secrets[i].to_s.strip,
-            "REMOTE_PREFIX" => trunk_prefixes[i].to_s.strip
+            "REMOTE_PREFIX" => trunk_prefixes[i].to_s.strip,
+            "CONFIG_URL" => trunk_config_urls[i].to_s.strip
           }.reject { |_, v| v.blank? }
         end
 

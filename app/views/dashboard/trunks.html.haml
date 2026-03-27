@@ -1,0 +1,396 @@
+!!!
+%html{lang: "en"}
+  :javascript
+    (function(){var t=localStorage.getItem('theme')||'auto';var r=(t==='auto'?(window.matchMedia('(prefers-color-scheme:light)').matches?'light':'auto'):t);document.documentElement.setAttribute('data-theme',r);})();
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title SVXReflector · Trunks
+    %script{src: "/vendor/tailwind/tailwind.js"}
+    :javascript
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ghbg: '#0d1117',
+              ghcard: '#161b22',
+              ghborder: '#30363d',
+              ghborder2: '#21262d',
+              ghtext: '#c9d1d9',
+              ghmuted: '#8b949e',
+              ghdim: '#6e7681',
+            }
+          }
+        }
+      }
+    %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
+    :css
+      body { background: #0d1117; }
+      .page-header {
+        display: flex; align-items: center; gap: .75rem;
+        padding: 1rem 0 .75rem;
+        font-size: .7rem; text-transform: uppercase; letter-spacing: .08em;
+        color: #6e7681; font-weight: 600;
+      }
+      .page-header::after { content: ''; flex: 1; height: 1px; background: #21262d; }
+      .event-type-badge {
+        display: inline-flex; align-items: center; gap: .25rem;
+        font-size: .68rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: .04em; padding: .15em .55em; border-radius: .25em;
+        white-space: nowrap;
+      }
+
+  %body.text-ghtext
+
+    = render 'shared/navbar', active: 'trunks'
+
+    .px-3.md:px-4
+
+      .page-header.mb-4
+        %i.bi.bi-diagram-3.mr-1
+        Trunks
+
+      - if @reflector_mode == 'satellite'
+        .rounded-lg.border.p-4.mb-4{class: "border-purple-700/50 bg-purple-900/20"}
+          .flex.items-center.gap-2
+            %i.bi.bi-broadcast.text-purple-400
+            %span.text-purple-300.text-sm.font-semibold Satellite Mode
+          %p.text-purple-300.text-xs.mt-1 This reflector is operating as a satellite. Trunk management is handled by the parent reflector.
+
+      - else
+        -# ── Local Trunk Configuration ────────────────────────────────────────
+        .page-header.mb-3
+          %i.bi.bi-gear.mr-1
+          Local Configuration
+
+        - if @local_prefix.present?
+          .mb-3
+            %span.text-xs.text-ghmuted LOCAL_PREFIX:
+            %span.text-xs.font-mono.text-cyan-400.ml-1= @local_prefix
+            - if @cluster_tgs.any?
+              %span.text-xs.text-ghmuted.ml-3 CLUSTER_TGS:
+              %span.text-xs.font-mono.text-cyan-400.ml-1= @cluster_tgs.join(', ')
+
+        - if @local_trunks.any?
+          .grid.grid-cols-1.md:grid-cols-2.xl:grid-cols-3.gap-3.mb-4
+            - @local_trunks.each do |name, cfg|
+              - live = @trunks[name]
+              - connected = live && live['connected']
+              .rounded-lg.border.border-ghborder.p-4
+                .flex.items-center.gap-2.mb-3
+                  - if connected
+                    %span.inline-block.w-2.5.h-2.5.rounded-full.bg-green-500{title: "Connected"}
+                  - elsif live
+                    %span.inline-block.w-2.5.h-2.5.rounded-full.bg-red-500{title: "Disconnected"}
+                  - else
+                    %span.inline-block.w-2.5.h-2.5.rounded-full.bg-gray-600{title: "Unknown"}
+                  %span.font-mono.text-sm.font-semibold.text-gray-100= name
+                  %span.ml-auto.text-xs.px-2.py-0.5.rounded-full.font-semibold{class: connected ? "bg-green-900/50 text-green-400 border border-green-700" : "bg-red-900/50 text-red-400 border border-red-700"}
+                    = connected ? 'Connected' : 'Disconnected'
+                .space-y-1.5
+                  .flex.items-center.gap-2
+                    %i.bi.bi-globe.text-ghdim{style: "font-size:.7rem"}
+                    %span.text-xs.text-ghmuted Host
+                    %span.text-xs.font-mono.text-gray-300.ml-auto= cfg['HOST']
+                  .flex.items-center.gap-2
+                    %i.bi.bi-hdd-network.text-ghdim{style: "font-size:.7rem"}
+                    %span.text-xs.text-ghmuted Port
+                    %span.text-xs.font-mono.text-gray-300.ml-auto= cfg['PORT'] || '5302'
+                  - if cfg['REMOTE_PREFIX'].present?
+                    .flex.items-center.gap-2
+                      %i.bi.bi-tag.text-ghdim{style: "font-size:.7rem"}
+                      %span.text-xs.text-ghmuted Remote Prefix
+                      %span.text-xs.font-mono.text-cyan-400.ml-auto= cfg['REMOTE_PREFIX']
+
+                -# Active talkers from live data
+                - if connected && live['active_talkers'].present? && live['active_talkers'].any?
+                  .mt-3.pt-3.border-t.border-ghborder2
+                    .text-xs.text-ghmuted.mb-1.5
+                      %i.bi.bi-mic-fill.mr-1{style: "font-size:.6rem"}
+                      Active Talkers
+                    .flex.flex-wrap.gap-1
+                      - live['active_talkers'].each do |tg, cs|
+                        %span.text-xs.px-1.5.py-0.5.rounded.font-mono{class: "bg-green-900/50 text-green-400 border border-green-700"}
+                          %i.bi.bi-mic-fill.mr-1{style: "font-size:.55rem"}
+                          = "#{cs} TG#{tg}"
+
+                -# Remote reflector's view of this trunk
+                - remote = @remote_configs[name]
+                - if remote
+                  .mt-3.pt-3.border-t.border-ghborder2
+                    .flex.items-center.gap-2.mb-2
+                      %i.bi.bi-arrow-left-right.text-cyan-400{style: "font-size:.7rem"}
+                      %span.text-xs.text-cyan-400.font-semibold.uppercase Remote Peer View
+                    - r_mode = remote['mode'] || 'reflector'
+                    - r_trunks = remote['trunks'] || {}
+                    - r_local_prefix = remote.dig('global', 'LOCAL_PREFIX') || remote['local_prefix']
+                    - r_cluster_tgs = remote['cluster_tgs'] || []
+                    .space-y-1.5
+                      .flex.items-center.gap-2
+                        %i.bi.bi-broadcast-pin.text-ghdim{style: "font-size:.7rem"}
+                        %span.text-xs.text-ghmuted Mode
+                        %span.text-xs.font-mono.text-gray-300.ml-auto= r_mode
+                      - if r_local_prefix.present?
+                        .flex.items-center.gap-2
+                          %i.bi.bi-tag.text-ghdim{style: "font-size:.7rem"}
+                          %span.text-xs.text-ghmuted Their Local Prefix
+                          %span.text-xs.font-mono.text-cyan-400.ml-auto= r_local_prefix
+                      - if r_cluster_tgs.any?
+                        .flex.items-center.gap-2
+                          %i.bi.bi-broadcast.text-ghdim{style: "font-size:.7rem"}
+                          %span.text-xs.text-ghmuted Their Cluster TGs
+                          %span.text-xs.font-mono.text-cyan-400.ml-auto= r_cluster_tgs.join(', ')
+                      - if r_trunks.any?
+                        .mt-2
+                          .text-xs.text-ghmuted.mb-1
+                            %i.bi.bi-diagram-3.mr-1{style: "font-size:.6rem"}
+                            Their Trunk Peers
+                          - r_trunks.each do |r_name, r_trunk|
+                            .flex.items-center.gap-2.py-1.text-xs
+                              - r_connected = r_trunk.is_a?(Hash) ? r_trunk['connected'] : nil
+                              - if r_connected == true
+                                %span.inline-block.w-2.h-2.rounded-full.bg-green-500
+                              - elsif r_connected == false
+                                %span.inline-block.w-2.h-2.rounded-full.bg-red-500
+                              - else
+                                %span.inline-block.w-2.h-2.rounded-full.bg-gray-600
+                              %span.font-mono.text-gray-300= r_name
+                              - if r_trunk.is_a?(Hash) && r_trunk['host'].present?
+                                %span.text-ghmuted.ml-auto= r_trunk['host']
+                - elsif cfg['CONFIG_URL'].present?
+                  .mt-3.pt-3.border-t.border-ghborder2
+                    .text-xs.text-ghmuted
+                      %i.bi.bi-exclamation-triangle.text-yellow-500.mr-1{style: "font-size:.65rem"}
+                      Could not reach remote config
+
+        - else
+          .rounded-lg.border.border-ghborder.p-6.text-center.text-ghmuted.text-sm.mb-4
+            %i.bi.bi-diagram-3.block.text-2xl.mb-2
+            No trunk peers configured.
+
+        -# ── Remote Trunks (connected but not locally configured) ──────────
+        - remote_trunks = @trunks.reject { |name, _| @local_trunks.key?(name) }
+        - if remote_trunks.any?
+          .page-header.mb-3
+            %i.bi.bi-cloud-arrow-down.mr-1
+            Remote Trunks
+
+          .grid.grid-cols-1.md:grid-cols-2.xl:grid-cols-3.gap-3.mb-4
+            - remote_trunks.each do |name, trunk|
+              .rounded-lg.border.border-ghborder.p-4
+                .flex.items-center.gap-2.mb-3
+                  - if trunk['connected']
+                    %span.inline-block.w-2.5.h-2.5.rounded-full.bg-green-500{title: "Connected"}
+                  - else
+                    %span.inline-block.w-2.5.h-2.5.rounded-full.bg-red-500{title: "Disconnected"}
+                  %span.font-mono.text-sm.font-semibold.text-gray-100= name
+                  %span.ml-auto.text-xs.px-2.py-0.5.rounded-full.font-semibold{class: trunk['connected'] ? "bg-green-900/50 text-green-400 border border-green-700" : "bg-red-900/50 text-red-400 border border-red-700"}
+                    = trunk['connected'] ? 'Connected' : 'Disconnected'
+                .space-y-1.5
+                  - if trunk['host'].present?
+                    .flex.items-center.gap-2
+                      %i.bi.bi-globe.text-ghdim{style: "font-size:.7rem"}
+                      %span.text-xs.text-ghmuted Host
+                      %span.text-xs.font-mono.text-gray-300.ml-auto= trunk['host']
+                  - if trunk['remote_prefix'].present?
+                    .flex.items-center.gap-2
+                      %i.bi.bi-tag.text-ghdim{style: "font-size:.7rem"}
+                      %span.text-xs.text-ghmuted Prefix
+                      %span.text-xs.font-mono.text-cyan-400.ml-auto= Array(trunk['remote_prefix']).join(', ')
+
+                - if trunk['connected'] && trunk['active_talkers'].present? && trunk['active_talkers'].any?
+                  .mt-3.pt-3.border-t.border-ghborder2
+                    .text-xs.text-ghmuted.mb-1.5
+                      %i.bi.bi-mic-fill.mr-1{style: "font-size:.6rem"}
+                      Active Talkers
+                    .flex.flex-wrap.gap-1
+                      - trunk['active_talkers'].each do |tg, cs|
+                        %span.text-xs.px-1.5.py-0.5.rounded.font-mono{class: "bg-green-900/50 text-green-400 border border-green-700"}
+                          %i.bi.bi-mic-fill.mr-1{style: "font-size:.55rem"}
+                          = "#{cs} TG#{tg}"
+
+        -# ── Recent Trunk Events ──────────────────────────────────────────────
+        .page-header.mb-3
+          %i.bi.bi-activity.mr-1
+          Recent Events
+
+        .rounded-lg.border.border-ghborder.mb-4#events-container
+          - if @recent_events.any?
+            .overflow-y-auto#events-list{style: "max-height:400px; scrollbar-width: thin"}
+              - @recent_events.each do |ev|
+                - type_style = {'trunk_connected' => ['bg-cyan-700 text-white', 'bi-diagram-3'], 'trunk_disconnected' => ['bg-red-700 text-white', 'bi-diagram-3'], 'remote_talk_start' => ['bg-emerald-600 text-white', 'bi-mic-fill'], 'remote_talk_stop' => ['bg-gray-600 text-white', 'bi-mic-mute']}.fetch(ev.event_type, ['bg-gray-600 text-white', 'bi-dot'])
+                - rx = ev.metadata.present? ? (JSON.parse(ev.metadata) rescue nil) : nil
+                .px-3.py-1.5.border-b.border-ghborder2.hover:bg-ghcard.flex.items-center.gap-2.flex-wrap
+                  %span.text-gray-500.font-mono.shrink-0{style: "font-size:.72rem"}= ev.created_at.strftime('%Y-%m-%d %H:%M')
+                  %span.event-type-badge.shrink-0{class: type_style[0]}
+                    %i.bi{class: "#{type_style[1]} mr-1"}
+                    = ev.event_type.tr('_', ' ')
+                  %strong.font-mono.text-gray-100.shrink-0{style: "font-size:.82rem"}= ev.callsign
+                  - if ev.tg.to_i != 0
+                    %span.text-gray-500.text-xs TG
+                    %span.text-yellow-500.text-xs.font-semibold= ev.tg
+                  - if rx && rx['host'].present?
+                    %span.text-xs.text-ghmuted= rx['host']
+                  - if ev.source.present?
+                    %span.text-xs.font-mono.text-cyan-400.ml-auto
+                      %i.bi.bi-diagram-3.mr-1{style: "font-size:.6rem"}
+                      = ev.source
+          - else
+            .text-center.text-gray-500.py-8.text-sm
+              %i.bi.bi-hourglass-split.block.text-xl.mb-2
+              No trunk events recorded yet.
+
+    - trunks_json = @trunks.to_json.html_safe
+    :javascript
+      (function() {
+        'use strict';
+        var trunks = #{trunks_json};
+
+        function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+        function now() { var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+
+        // Update trunk cards live
+        function updateTrunkCards(trunksData) {
+          Object.keys(trunksData).forEach(function(name) {
+            var t = trunksData[name];
+            // Find all status badges and dots in cards — they use the trunk name in heading
+            var cards = document.querySelectorAll('.rounded-lg.border.border-ghborder.p-4');
+            cards.forEach(function(card) {
+              var nameEl = card.querySelector('.font-mono.text-sm.font-semibold');
+              if (!nameEl || nameEl.textContent.trim() !== name) return;
+
+              // Update status dot
+              var dot = card.querySelector('.rounded-full');
+              if (dot) {
+                dot.className = 'inline-block w-2.5 h-2.5 rounded-full ' + (t.connected ? 'bg-green-500' : 'bg-red-500');
+                dot.title = t.connected ? 'Connected' : 'Disconnected';
+              }
+
+              // Update status badge
+              var badge = card.querySelector('.rounded-full.font-semibold');
+              if (badge) {
+                badge.className = 'ml-auto text-xs px-2 py-0.5 rounded-full font-semibold ' +
+                  (t.connected ? 'bg-green-900/50 text-green-400 border border-green-700' : 'bg-red-900/50 text-red-400 border border-red-700');
+                badge.textContent = t.connected ? 'Connected' : 'Disconnected';
+              }
+
+              // Update active talkers section
+              var talkerSection = card.querySelector('.border-t.border-ghborder2');
+              var talkers = t.active_talkers || {};
+              var talkerKeys = Object.keys(talkers);
+              if (talkerKeys.length > 0) {
+                var html = '<div class="text-xs text-ghmuted mb-1.5"><i class="bi bi-mic-fill mr-1" style="font-size:.6rem"></i>Active Talkers</div><div class="flex flex-wrap gap-1">';
+                talkerKeys.forEach(function(tg) {
+                  html += '<span class="text-xs px-1.5 py-0.5 rounded font-mono bg-green-900/50 text-green-400 border border-green-700"><i class="bi bi-mic-fill mr-1" style="font-size:.55rem"></i>' + esc(talkers[tg]) + ' TG' + esc(tg) + '</span>';
+                });
+                html += '</div>';
+                if (talkerSection) {
+                  talkerSection.innerHTML = html;
+                } else {
+                  var wrapper = document.createElement('div');
+                  wrapper.className = 'mt-3 pt-3 border-t border-ghborder2';
+                  wrapper.innerHTML = html;
+                  card.appendChild(wrapper);
+                }
+              } else if (talkerSection) {
+                talkerSection.remove();
+              }
+            });
+          });
+        }
+
+        // Add live event to the events list
+        var typeStyles = {
+          trunk_connected:    ['bg-cyan-700 text-white',   'bi-diagram-3'],
+          trunk_disconnected: ['bg-red-700 text-white',    'bi-diagram-3'],
+          remote_talk_start:  ['bg-emerald-600 text-white','bi-mic-fill'],
+          remote_talk_stop:   ['bg-gray-600 text-white',   'bi-mic-mute']
+        };
+
+        function addEvent(type, name, tg, source) {
+          var listEl = document.getElementById('events-list');
+          var emptyEl = document.querySelector('#events-container .text-center');
+          var st = typeStyles[type] || ['bg-gray-600 text-white', 'bi-dot'];
+          var h = '<div class="px-3 py-1.5 border-b border-ghborder2 hover:bg-ghcard flex items-center gap-2 flex-wrap">';
+          h += '<span class="text-gray-500 font-mono shrink-0" style="font-size:.72rem">' + now() + '</span>';
+          h += '<span class="event-type-badge shrink-0 ' + st[0] + '"><i class="bi ' + st[1] + ' mr-1"></i>' + type.replace(/_/g, ' ') + '</span>';
+          h += '<strong class="font-mono text-gray-100 shrink-0" style="font-size:.82rem">' + esc(name) + '</strong>';
+          if (tg) h += '<span class="text-gray-500 text-xs">TG </span><span class="text-yellow-500 text-xs font-semibold">' + esc(tg) + '</span>';
+          if (source) h += '<span class="text-xs font-mono text-cyan-400 ml-auto"><i class="bi bi-diagram-3 mr-1" style="font-size:.6rem"></i>' + esc(source) + '</span>';
+          h += '</div>';
+
+          if (!listEl) {
+            if (emptyEl) emptyEl.parentNode.removeChild(emptyEl);
+            var container = document.getElementById('events-container');
+            listEl = document.createElement('div');
+            listEl.id = 'events-list';
+            listEl.className = 'overflow-y-auto';
+            listEl.style.maxHeight = '400px';
+            listEl.style.scrollbarWidth = 'thin';
+            container.appendChild(listEl);
+          }
+          listEl.insertAdjacentHTML('afterbegin', h);
+          while (listEl.children.length > 100) listEl.removeChild(listEl.lastChild);
+        }
+
+        // Detect trunk events from state diffs
+        var prevTrunks = trunks;
+
+        function diffTrunks(curr) {
+          var allNames = {};
+          Object.keys(curr).forEach(function(n) { allNames[n] = true; });
+          Object.keys(prevTrunks).forEach(function(n) { allNames[n] = true; });
+
+          Object.keys(allNames).forEach(function(name) {
+            var c = curr[name];
+            var p = prevTrunks[name];
+
+            // Connection state changes
+            if (c && (!p || c.connected !== p.connected)) {
+              addEvent(c.connected ? 'trunk_connected' : 'trunk_disconnected', name, null, name);
+            }
+            if (p && !c) {
+              addEvent('trunk_disconnected', name, null, name);
+            }
+
+            // Remote talker changes
+            if (c && p) {
+              var cTalkers = c.active_talkers || {};
+              var pTalkers = p.active_talkers || {};
+              Object.keys(cTalkers).forEach(function(tg) {
+                if (!pTalkers[tg] || pTalkers[tg] !== cTalkers[tg]) {
+                  addEvent('remote_talk_start', cTalkers[tg], tg, name);
+                }
+              });
+              Object.keys(pTalkers).forEach(function(tg) {
+                if (!cTalkers[tg]) {
+                  addEvent('remote_talk_stop', pTalkers[tg], tg, name);
+                }
+              });
+            }
+          });
+          prevTrunks = curr;
+        }
+
+        // WebSocket
+        function connect() {
+          var proto = location.protocol === 'https:' ? 'wss' : 'ws';
+          var ws = new WebSocket(proto + '://' + location.host + '/cable');
+          ws.onopen = function() {
+            ws.send(JSON.stringify({ command: 'subscribe', identifier: JSON.stringify({ channel: 'UpdatesChannel' }) }));
+          };
+          ws.onmessage = function(ev) {
+            var envelope;
+            try { envelope = JSON.parse(ev.data); } catch(e) { return; }
+            if (!envelope.message) return;
+            var msg = envelope.message;
+            if (msg.trunks) {
+              trunks = msg.trunks;
+              updateTrunkCards(msg.trunks);
+              diffTrunks(msg.trunks);
+            }
+          };
+          ws.onclose = function() { setTimeout(connect, 3000); };
+        }
+        connect();
+      })();

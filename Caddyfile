@@ -1,3 +1,11 @@
 {$DOMAIN:localhost} {
-	reverse_proxy web:3000
+	handle /config {
+		reverse_proxy svxreflector:8080
+	}
+	handle /status {
+		reverse_proxy svxreflector:8080
+	}
+	handle {
+		reverse_proxy web:3000
+	}
 }
