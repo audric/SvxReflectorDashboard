@@ -5,7 +5,7 @@
   %head
     %meta{charset: "UTF-8"}
     %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
-    %title SVXReflector · Trunks
+    %title= "SVXReflector #{@reflector_host} · Trunks"
     %script{src: "/vendor/tailwind/tailwind.js"}
     :javascript
       tailwind.config = {
@@ -157,6 +157,37 @@
                               %span.font-mono.text-gray-300= r_name
                               - if r_trunk.is_a?(Hash) && r_trunk['host'].present?
                                 %span.text-ghmuted.ml-auto= r_trunk['host']
+
+                    -# ── Prefix discrepancy checks ──────────────────────────────
+                    - our_remote_pfx = cfg['REMOTE_PREFIX'].to_s.split(',').map(&:strip).reject(&:blank?).sort
+                    - their_local_pfx = r_local_prefix.to_s.split(',').map(&:strip).reject(&:blank?).sort
+                    - our_local_pfx = @local_prefix.to_s.split(',').map(&:strip).reject(&:blank?).sort
+                    -# Find the trunk on their side that points back to us (match by remote_prefix or host)
+                    - their_trunk_to_us = r_trunks.values.select { |t| t.is_a?(Hash) }.find { |t| our_local_pfx.any? && Array(t['remote_prefix']).map(&:to_s).map(&:strip).sort == our_local_pfx }
+                    - their_remote_pfx = their_trunk_to_us ? Array(their_trunk_to_us['remote_prefix']).map(&:to_s).map(&:strip).reject(&:blank?).sort : []
+                    - warnings = []
+                    - if their_local_pfx.any? && our_remote_pfx.any? && our_remote_pfx != their_local_pfx
+                      - warnings << { label: "Our REMOTE_PREFIX for them", ours: our_remote_pfx.join(', '), theirs: their_local_pfx.join(', '), theirs_label: "their LOCAL_PREFIX" }
+                    - if their_trunk_to_us && their_remote_pfx.any? && our_local_pfx.any? && their_remote_pfx != our_local_pfx
+                      - warnings << { label: "Their REMOTE_PREFIX for us", ours: our_local_pfx.join(', '), theirs: their_remote_pfx.join(', '), theirs_label: "our LOCAL_PREFIX" }
+                    - if their_local_pfx.any? && our_remote_pfx.blank?
+                      - warnings << { label: "Our REMOTE_PREFIX is not set", ours: "(empty)", theirs: their_local_pfx.join(', '), theirs_label: "their LOCAL_PREFIX" }
+                    - if !their_trunk_to_us && r_trunks.any?
+                      - warnings << { label: "No trunk peer on their side points back to us", ours: our_local_pfx.any? ? our_local_pfx.join(', ') : '(not set)', theirs: '', theirs_label: '' }
+                    - if warnings.any?
+                      .mt-3.rounded.border.p-2.space-y-1.5{class: "border-yellow-700/50 bg-yellow-900/20"}
+                        .flex.items-center.gap-1.5.mb-1
+                          %i.bi.bi-exclamation-triangle-fill.text-yellow-500{style: "font-size:.7rem"}
+                          %span.text-xs.font-semibold.text-yellow-400 Prefix Mismatch
+                        - warnings.each do |w|
+                          .text-xs.text-yellow-300
+                            %span.font-semibold= w[:label]
+                            - if w[:theirs].present?
+                              = ": "
+                              %span.font-mono= w[:ours]
+                              %span.text-yellow-500 ≠
+                              %span.font-mono= w[:theirs]
+                              %span.text-yellow-500= "(#{w[:theirs_label]})"
                 - elsif cfg['CONFIG_URL'].present?
                   .mt-3.pt-3.border-t.border-ghborder2
                     .text-xs.text-ghmuted
