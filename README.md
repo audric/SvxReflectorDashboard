@@ -22,11 +22,9 @@ A Rails web application for monitoring amateur radio [SVXReflector](https://www.
 
 ```bash
 git clone https://github.com/audric/SvxReflectorDashboard
-cd rails
+cd SvxReflectorDashboard
 cp .env.example .env   # edit with your reflector details
-docker compose pull     # pre-built images for amd64 and arm64
-docker compose up -d
-docker compose run --rm web ./bin/rails db:prepare
+./update.sh            # pulls images, starts services, sets up DB
 ```
 
 Pre-built multi-arch images (amd64, arm64/Raspberry Pi) are published to `ghcr.io/audric/svxreflectordashboard-web`. To build locally instead, run `docker compose build`.
@@ -34,6 +32,8 @@ Pre-built multi-arch images (amd64, arm64/Raspberry Pi) are published to `ghcr.i
 Set `DOMAIN=yourdomain.com` in `.env` for automatic HTTPS, or leave as `localhost` for local dev.
 
 Open <https://yourdomain.com> (or <http://localhost> locally). Default admin: `ADM1N` / `changeme`.
+
+Run `./update.sh` again anytime to pull the latest code, images, and run migrations.
 
 See the wiki for [configuration details](https://github.com/audric/SvxReflectorDashboard/wiki/Configuration) and [production deployment](https://github.com/audric/SvxReflectorDashboard/wiki/Getting-Started#deploying-to-production).
 
