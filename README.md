@@ -50,7 +50,7 @@ dmr_bridge    → Go binary, DMR bridge (OPUS ↔ AMBE via MMDVM)
 ysf_bridge    → Go binary, YSF bridge (OPUS ↔ IMBE)
 allstar_bridge→ Go binary, AllStar bridge (OPUS ↔ µLaw via IAX2)
 zello_bridge  → Go binary, Zello bridge (OPUS 48kHz ↔ 16kHz via WebSocket)
-redis         → ActionCable + audio pub/sub
+redis         → ActionCable + audio pub/sub + sessions
 ```
 
 All Go bridges include configurable voice bandpass filtering (HPF/LPF), AGC, and hard limiting.
