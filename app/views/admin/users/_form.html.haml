@@ -38,12 +38,15 @@
     = f.password_field :password_confirmation, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", autocomplete: "new-password"
 
   .mb-4
-    = f.label :role, "Role", class: "block text-sm text-gray-500 mb-1"
+    .flex.items-center.gap-1.mb-1
+      = f.label :role, "Role", class: "text-sm text-gray-500"
+      %button.text-gray-500.hover:text-gray-300.cursor-pointer{type: "button", onclick: "showHelp('Role', '<b>User</b> — public pages only (dashboard, stats, TG list, events, map).<br><br><b>Admin</b> — full web admin panel access: manage users, talkgroups, external reflectors, settings, system info, logs.')", title: "Help"}
+        %i.bi.bi-question-circle.text-xs
     - if user.persisted? && user == current_user
       = f.select :role, [["Admin", "admin"]], {}, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100", disabled: true
       %small.text-gray-500 You cannot change your own role.
     - else
-      = f.select :role, [["User", "user"], ["Admin", "admin"]], {}, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100"
+      = f.select :role, [["User", "user"], ["Admin", "admin"]], {}, id: "role-select", class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100", onchange: "toggleReflectorAdmin()"
 
   .mb-4
     = f.label :reflector_auth_key, "Reflector Auth Key for #{user.callsign.to_s.upcase}-WEB", class: "block text-sm text-gray-500 mb-1"
@@ -55,8 +58,10 @@
       - if user.persisted? && user == current_user
         = f.check_box :reflector_admin, class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500", disabled: true
       - else
-        = f.check_box :reflector_admin, class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500 cursor-pointer"
+        = f.check_box :reflector_admin, id: "reflector-admin-cb", class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500 cursor-pointer"
       %span.text-sm.text-gray-300 Reflector admin
+      %button.text-gray-500.hover:text-gray-300.cursor-pointer{type: "button", onclick: "event.preventDefault(); showHelp('Reflector Admin', 'Requires Admin role. Grants access to reflector-specific operations:<br><br>- Edit reflector configuration (PKI, config, restart)<br>- Manage bridges (create/edit/start/stop)<br>- Block/unblock nodes from the dashboard')", title: "Help"}
+        %i.bi.bi-question-circle.text-xs
     - if user.persisted? && user == current_user
       %small.text-gray-500.block.mt-1 You cannot change your own reflector admin status.
     - else
@@ -83,3 +88,17 @@
   .flex.gap-2
     = f.submit (user.persisted? ? "Update User" : "Create User"), class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
     = link_to "Cancel", admin_users_path, class: "px-4 py-2 rounded-md border border-gray-600 text-gray-400 hover:text-gray-200"
+
+  :javascript
+    function toggleReflectorAdmin() {
+      var sel = document.getElementById('role-select');
+      var cb = document.getElementById('reflector-admin-cb');
+      if (!sel || !cb) return;
+      if (sel.value !== 'admin') {
+        cb.checked = false;
+        cb.disabled = true;
+      } else {
+        cb.disabled = false;
+      }
+    }
+    toggleReflectorAdmin();

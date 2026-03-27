@@ -30,6 +30,26 @@
   %body.text-ghtext
     = render 'shared/navbar', active: 'admin'
 
+    #help-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
+      .bg-ghcard.border.border-gray-600.rounded-lg.p-5.max-w-sm.w-full.mx-4.shadow-xl
+        .flex.items-center.gap-3.mb-3
+          .w-10.h-10.rounded-full.flex.items-center.justify-center.shrink-0{class: "bg-blue-500/15"}
+            %i.bi.bi-info-circle.text-blue-400
+          %h6.text-base.font-semibold.text-gray-100#help-title Help
+        %p.text-sm.text-gray-400.mb-4#help-body
+        .flex.justify-end
+          %button.px-3.py-1.5.rounded-md.border.border-gray-600.text-sm.text-gray-300.hover:text-gray-100.cursor-pointer{type: "button", onclick: "document.getElementById('help-modal').style.display='none'"} Close
+
+    :javascript
+      function showHelp(title, body) {
+        document.getElementById('help-title').textContent = title;
+        document.getElementById('help-body').innerHTML = body;
+        document.getElementById('help-modal').style.display = 'flex';
+      }
+      document.getElementById('help-modal').addEventListener('click', function(e) {
+        if (e.target === this) this.style.display = 'none';
+      });
+
     .max-w-lg.mx-auto.px-4
       .rounded-lg.border.border-gray-600.bg-ghcard
         .px-4.py-3.border-b.border-gray-600
