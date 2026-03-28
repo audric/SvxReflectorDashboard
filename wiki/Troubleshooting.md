@@ -70,7 +70,7 @@ PTT requires all of these:
 ### Web listener not appearing on the map
 
 - The browser must grant geolocation permission
-- The marker appears after the next poll cycle (up to 4 seconds)
+- The marker appears after the next poll cycle (up to 1 second)
 - If geolocation is denied, the node card still works but no map marker is placed
 
 ### Caddy cannot bind to port 80/443 (rootless Docker)

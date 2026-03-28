@@ -22,7 +22,7 @@ module Admin
       {
         "reflector_status_url" => ENV.fetch("REFLECTOR_STATUS_URL", ""),
         "brand_name" => ENV.fetch("BRAND_NAME", ""),
-        "poll_interval" => "4"
+        "poll_interval" => "1"
       }
     end
   end

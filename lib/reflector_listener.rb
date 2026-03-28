@@ -6,7 +6,7 @@ require 'json'
 # via ActionCable whenever tg or isTalker changes for any node.
 # Also tracks trunk links, satellites, and cluster TGs (GeuReflector extensions).
 class ReflectorListener
-  POLL_INTERVAL = 4 # seconds
+  POLL_INTERVAL = 1 # seconds
   CONFIG_POLL_INTERVAL = 60 # seconds — how often to re-fetch /config
 
   def self.start(_host = nil, _port = nil)

@@ -57,7 +57,7 @@ Used for four purposes:
 
 ```
 GeuReflector HTTP /status API
-        ↓ (poll every 4s)
+        ↓ (poll every 1s)
 ReflectorListener (updater service)
         ├─→ Parse nodes, trunks, satellites, cluster_tgs from response
         ├─→ Diff nodes + trunk/satellite/cluster state against previous snapshot
