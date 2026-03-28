@@ -11,6 +11,14 @@ class DashboardController < ApplicationController
     fetch_nodes
     fetch_extended
     fetch_external_reflectors
+
+    # Only show repeaters with valid coordinates
+    @nodes = @nodes.select do |_, n|
+      next false if n['hidden']
+      next false unless n['nodeClass'] == 'repeater'
+      pos = n.dig('qth', 0, 'pos')
+      pos && pos['lat'].present? && pos['long'].present?
+    end
   end
 
   def tg

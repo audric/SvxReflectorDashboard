@@ -123,31 +123,6 @@
         border: 2px solid rgba(255,255,255,.25);
       }
 
-      /* ── Unmappable panel ───────────────────────────────────────────────────── */
-      #unmappable-panel {
-        position: absolute;
-        bottom: 1.5rem;
-        right: 1rem;
-        z-index: 1000;
-        max-width: 280px;
-        background: #161b22;
-        border: 1px solid #30363d;
-        border-radius: .4rem;
-        font-size: .8rem;
-        color: #8b949e;
-      }
-      #unmappable-panel .panel-header {
-        padding: .35rem .75rem;
-        border-bottom: 1px solid #21262d;
-        font-size: .68rem;
-        text-transform: uppercase;
-        letter-spacing: .05em;
-        font-weight: 600;
-      }
-      #unmappable-panel .panel-body { padding: .35rem .75rem; max-height: 120px; overflow-y: auto; }
-      #unmappable-panel .node-item { padding: .12rem 0; border-bottom: 1px solid #21262d; color: #c9d1d9; font-family: monospace; }
-      #unmappable-panel .node-item:last-child { border-bottom: none; }
-      #unmappable-panel .node-loc { color: #6e7681; font-family: sans-serif; font-size: .72rem; }
   %body.text-ghtext
 
     = render 'shared/navbar', active: 'map', ws_indicator: true
@@ -159,22 +134,15 @@
 
     %div{style: "position:relative"}
       #map
-      #unmappable-panel{style: "display:none"}
-        .panel-header.text-gray-500
-          %i.bi.bi-geo.mr-1
-          No coordinates
-        .panel-body#unmappable-list
 
     %script{src: "/vendor/leaflet/leaflet.js"}
     - nodes_json = @nodes.to_json.html_safe
-    - trunks_json = (@trunks || {}).to_json.html_safe
     - external_json = (@external_reflectors.is_a?(Hash) ? @external_reflectors : {}).to_json.html_safe
     :javascript
       (function () {
         'use strict';
 
         var nodes = #{nodes_json};
-        var trunksData = #{trunks_json};
 
         // ── Tile layers ────────────────────────────────────────────────────────────
         var tileLayers = {
@@ -276,21 +244,14 @@
 
         // ── Place markers ──────────────────────────────────────────────────────────
         var bounds = [];
-        var unmappable = [];
         var markersByCs = {};
 
         Object.keys(nodes).forEach(function (cs) {
           var node = nodes[cs];
-          if (node.hidden) return;
-
           var pos = node.qth && node.qth[0] && node.qth[0].pos;
           var lat = pos && pos.lat;
           var lng = pos && pos.long;
-
-          if (!lat || !lng) {
-            unmappable.push({ cs: cs, node: node });
-            return;
-          }
+          if (!lat || !lng) return;
 
           var color  = markerColor(node);
           var marker = L.circleMarker([lat, lng], {
@@ -363,49 +324,10 @@
           map.setView([48, 10], 5);
         }
 
-        // ── Trunk link info control (top-left) ─────────────────────────────────
-        if (Object.keys(trunksData).length > 0) {
-          var trunkCtrl = L.control({ position: 'topleft' });
-          trunkCtrl.onAdd = function () {
-            var div = L.DomUtil.create('div', 'map-legend');
-            var html = '<div class="legend-title"><i class="bi bi-diagram-3 mr-1"></i>Trunk Links</div>';
-            Object.keys(trunksData).forEach(function (name) {
-              var t = trunksData[name];
-              var dotCol = t.connected ? '#3fb950' : '#f85149';
-              var status = t.connected ? 'Connected' : 'Disconnected';
-              var talkers = t.active_talkers || {};
-              var talkerCount = Object.keys(talkers).length;
-              html += '<div class="legend-row">' +
-                '<span class="legend-dot" style="background:' + dotCol + '"></span>' +
-                '<span style="font-family:monospace;font-size:.75rem">' + esc(name) + '</span>' +
-                (talkerCount > 0 ? '<span style="color:#3fb950;font-size:.7rem;margin-left:.3rem">' + talkerCount + ' TX</span>' : '') +
-                '</div>';
-            });
-            div.innerHTML = html;
-            L.DomEvent.disableClickPropagation(div);
-            return div;
-          };
-          trunkCtrl.addTo(map);
-        }
-
         // Open popup for any node already talking at page load
         Object.keys(markersByCs).forEach(function (cs) {
           if (nodes[cs] && nodes[cs].isTalker) markersByCs[cs].openPopup();
         });
-
-        // ── Unmappable panel ───────────────────────────────────────────────────────
-        if (unmappable.length > 0) {
-          var panel = document.getElementById('unmappable-panel');
-          var list  = document.getElementById('unmappable-list');
-          unmappable.forEach(function (item) {
-            var div = document.createElement('div');
-            div.className = 'node-item';
-            div.innerHTML = esc(item.cs) +
-              (item.node.nodeLocation ? ' <span class="node-loc">' + esc(item.node.nodeLocation) + '</span>' : '');
-            list.appendChild(div);
-          });
-          panel.style.display = '';
-        }
 
         // ── Popup HTML builder ─────────────────────────────────────────────────────
         function buildPopupHtml(cs, node) {
@@ -452,7 +374,7 @@
           var pos = node.qth && node.qth[0] && node.qth[0].pos;
           var lat = pos && pos.lat;
           var lng = pos && pos.long;
-          if (node.hidden || !lat || !lng) {
+          if (node.hidden || node.nodeClass !== 'repeater' || !lat || !lng) {
             if (markersByCs[cs]) { markersByCs[cs].remove(); delete markersByCs[cs]; }
             return;
           }
