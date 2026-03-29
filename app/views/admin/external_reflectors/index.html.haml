@@ -77,7 +77,6 @@
                 %th.py-2 Portal
                 %th.py-2 Description
                 %th.py-2.text-center Enabled
-                %th.py-2.text-center Poll
                 %th.py-2.text-right.pr-3 Actions
             %tbody
               - @reflectors.each do |ref|
@@ -95,11 +94,6 @@
                       %span.inline-block.w-2.h-2.rounded-full.bg-green-500{title: "Enabled"}
                     - else
                       %span.inline-block.w-2.h-2.rounded-full.bg-gray-600{title: "Disabled"}
-                  %td.py-2.text-center
-                    - if ref.poll?
-                      %span.inline-block.w-2.h-2.rounded-full.bg-blue-500{title: "Polling"}
-                    - else
-                      %span.inline-block.w-2.h-2.rounded-full.bg-gray-600{title: "No polling"}
                   %td.py-2.text-right.pr-3
                     .inline-flex.gap-1.justify-end
                       = link_to edit_admin_external_reflector_path(ref), class: "inline-block text-sm px-2 py-1 rounded border border-gray-600 text-gray-400 hover:text-gray-200" do

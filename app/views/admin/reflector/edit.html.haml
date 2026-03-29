@@ -305,10 +305,6 @@
                         %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_remote_prefixes][]", value: trunk['REMOTE_PREFIX'], placeholder: "2,3"}
                       .col-span-2
                         %label.block.text-sm.text-gray-500.mb-1
-                          Remote trunk config URL
-                        %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "url", name: "config[trunk_config_urls][]", value: trunk['CONFIG_URL'], placeholder: "http://reflector-b.example.com:8080/config"}
-                      .col-span-2
-                        %label.block.text-sm.text-gray-500.mb-1
                           Remote status URL
                         %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "url", name: "config[trunk_status_urls][]", value: trunk['STATUS_URL'], placeholder: "http://reflector-b.example.com:8080/status"}
 
@@ -762,7 +758,6 @@
             '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">PORT</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_ports][]" placeholder="5302"></div>' +
             '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">SECRET</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_secrets][]"></div>' +
             '<div class="col-span-2"><label class="block text-sm text-gray-500 mb-1">REMOTE_PREFIX (comma-separated)</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_remote_prefixes][]" placeholder="2,3"></div>' +
-            '<div class="col-span-2"><label class="block text-sm text-gray-500 mb-1">Remote trunk config URL</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="url" name="config[trunk_config_urls][]" placeholder="http://reflector-b.example.com:8080/config"></div>' +
             '<div class="col-span-2"><label class="block text-sm text-gray-500 mb-1">Remote status URL</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="url" name="config[trunk_status_urls][]" placeholder="http://reflector-b.example.com:8080/status"></div>' +
           '</div>';
         container.appendChild(div);

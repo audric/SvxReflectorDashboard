@@ -7,7 +7,7 @@ require 'json'
 # Also tracks trunk links, satellites, and cluster TGs (GeuReflector extensions).
 class ReflectorListener
   POLL_INTERVAL = 1 # seconds
-  CONFIG_POLL_INTERVAL = 60 # seconds — how often to re-fetch /config
+  TRUNK_THREAD_CHECK_INTERVAL = 60 # seconds — how often to check/start trunk status threads
 
   # Net::HTTP needs bare IPv6 addresses without the brackets that URI keeps.
   def self.http_get(url)
@@ -28,6 +28,7 @@ class ReflectorListener
       prev_satellites = {}
       prev_cluster_tgs = []
       last_config_fetch = 0
+      start_trunk_status_threads
 
       loop do
         begin
@@ -39,6 +40,9 @@ class ReflectorListener
           curr_trunks      = status_data.fetch('trunks', {})
           curr_satellites  = status_data.fetch('satellites', {})
           curr_cluster_tgs = status_data.fetch('cluster_tgs', [])
+
+          # Extract config fields from /status (GeuReflector includes them inline)
+          curr_config = status_data.slice('mode', 'version', 'local_prefix', 'satellite', 'cluster_tgs', 'http_port', 'listen_port').compact
 
           # Merge remote trunk nodes (tagged with _external)
           merge_trunk_status_nodes(curr)
@@ -105,12 +109,12 @@ class ReflectorListener
           sync_cluster_tgs(curr_cluster_tgs) if cluster_changed
 
           # ── Cache in Redis ──────────────────────────────────────────────────
-          cache_all(curr, curr_trunks, curr_satellites, curr_cluster_tgs)
+          cache_all(curr, curr_trunks, curr_satellites, curr_cluster_tgs, curr_config)
 
-          # ── Fetch /config periodically ──────────────────────────────────────
+          # ── Manage trunk status threads periodically ────────────────────────
           now = Time.now.to_i
-          if now - last_config_fetch >= CONFIG_POLL_INTERVAL
-            fetch_config(status_url)
+          if now - last_config_fetch >= TRUNK_THREAD_CHECK_INTERVAL
+            start_trunk_status_threads
             last_config_fetch = now
           end
 
@@ -127,53 +131,72 @@ class ReflectorListener
     end
   end
 
-  def self.cache_all(nodes, trunks, satellites, cluster_tgs)
+  def self.cache_all(nodes, trunks, satellites, cluster_tgs, config = {})
     redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
     redis.pipelined do |pipe|
       pipe.set('reflector:snapshot', nodes.to_json)
       pipe.set('reflector:trunks', trunks.to_json)
       pipe.set('reflector:satellites', satellites.to_json)
       pipe.set('reflector:cluster_tgs', cluster_tgs.to_json)
+      pipe.set('reflector:config', config.to_json) if config.any?
+      # Cache trunk status data for remote peer view on /trunks
+      trunk_data = @trunk_status_mutex.synchronize { @trunk_status_cache.dup }
+      trunk_data.each do |name, data|
+        pipe.set("reflector:trunk_status:#{name}", data.to_json)
+      end
     end
   rescue => e
     STDERR.puts "[Poller] Redis cache error: #{e.message}"
   end
 
-  # Fetch the /config endpoint (GeuReflector extension) and cache the result.
-  # Derives the URL from the status URL by replacing the path.
-  def self.fetch_config(status_url)
-    uri = URI.parse(status_url)
-    uri.path = '/config'
-    res = http_get(uri.to_s)
-    return unless res.is_a?(Net::HTTPSuccess)
 
-    config_data = JSON.parse(res.body)
-    redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
-    redis.set('reflector:config', config_data.to_json)
-    STDERR.puts "[Poller] Fetched /config: mode=#{config_data['mode']}"
-  rescue => e
-    # /config may not exist on vanilla svxreflector — that's fine
-    STDERR.puts "[Poller] /config fetch skipped: #{e.message}"
-  end
+  # ── Non-blocking trunk status polling ────────────────────────────────────
+  # Each trunk with a STATUS_URL gets its own background thread that fetches
+  # on a 5s interval and caches the result. The main poll loop reads from
+  # the cache — never blocks on HTTP.
+  @trunk_status_cache = {}   # { trunk_name => { nodes } }
+  @trunk_status_threads = {} # { trunk_name => Thread }
+  @trunk_status_mutex = Mutex.new
 
-  # Fetch nodes from trunk STATUS_URLs and merge into the local node hash.
-  # Each remote node is tagged with _external (trunk name).
-  # Local nodes take precedence on callsign collision.
-  def self.merge_trunk_status_nodes(curr)
+  def self.start_trunk_status_threads
     config = ReflectorConfig.load
     config.trunks.each do |name, cfg|
       next unless cfg['STATUS_URL'].present?
-      begin
-        res = http_get(cfg['STATUS_URL'])
-        next unless res.is_a?(Net::HTTPSuccess)
-        remote_nodes = JSON.parse(res.body).fetch('nodes', {})
-        remote_nodes.each do |cs, node|
-          next if node['hidden']
-          next if curr.key?(cs)
-          curr[cs] = node.merge('_external' => name, '_external_type' => 'trunk')
+      next if @trunk_status_threads[name]&.alive?
+
+      @trunk_status_threads[name] = Thread.new(name, cfg['STATUS_URL']) do |tname, url|
+        STDERR.puts "[Poller] Trunk #{tname} status thread started (#{url})"
+        loop do
+          begin
+            res = http_get(url)
+            if res.is_a?(Net::HTTPSuccess)
+              data = JSON.parse(res.body)
+              @trunk_status_mutex.synchronize { @trunk_status_cache[tname] = data }
+            end
+          rescue => e
+            STDERR.puts "[Poller] Trunk #{tname} status fetch failed: #{e.message}"
+          end
+          sleep 5
         end
-      rescue => e
-        STDERR.puts "[Poller] Trunk #{name} status fetch failed: #{e.message}"
+      end
+    end
+
+    # Clean up threads for trunks that no longer have a STATUS_URL
+    trunk_names = config.trunks.select { |_, c| c['STATUS_URL'].present? }.keys
+    (@trunk_status_threads.keys - trunk_names).each do |old|
+      @trunk_status_threads.delete(old)&.kill
+      @trunk_status_mutex.synchronize { @trunk_status_cache.delete(old) }
+    end
+  end
+
+  # Merge cached trunk nodes into the current snapshot (non-blocking).
+  def self.merge_trunk_status_nodes(curr)
+    cached = @trunk_status_mutex.synchronize { @trunk_status_cache.dup }
+    cached.each do |name, data|
+      (data['nodes'] || {}).each do |cs, node|
+        next if node['hidden']
+        next if curr.key?(cs)
+        curr[cs] = node.merge('_external' => name, '_external_type' => 'trunk')
       end
     end
   end

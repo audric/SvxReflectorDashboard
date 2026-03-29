@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_29_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_29_120000) do
   create_table "bridge_tg_mappings", force: :cascade do |t|
     t.string "activate_on_activity"
     t.integer "bridge_id", null: false
@@ -151,7 +151,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_29_100000) do
     t.text "description"
     t.boolean "enabled", default: true
     t.string "name", null: false
-    t.boolean "poll", default: false
     t.string "portal_url"
     t.string "status_url", null: false
     t.datetime "updated_at", null: false

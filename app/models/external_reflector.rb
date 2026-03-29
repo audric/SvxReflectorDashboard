@@ -3,6 +3,5 @@ class ExternalReflector < ApplicationRecord
   validates :status_url, presence: true, format: { with: /\Ahttps?:\/\//i, message: "must start with http:// or https://" }
 
   scope :enabled, -> { where(enabled: true) }
-  scope :polled,  -> { where(poll: true) }
   scope :ordered, -> { order(:name) }
 end

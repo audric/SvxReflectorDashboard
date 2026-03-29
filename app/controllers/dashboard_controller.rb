@@ -172,11 +172,12 @@ class DashboardController < ApplicationController
     @local_trunks = @local_config.trunks
     @local_prefix = @local_config.global['LOCAL_PREFIX']
 
-    # Fetch remote reflector configs for trunks that have a CONFIG_URL
+    # Read remote peer status from Redis (cached by trunk status threads)
     @remote_configs = {}
-    @local_trunks.each do |name, cfg|
-      next unless cfg['CONFIG_URL'].present?
-      @remote_configs[name] = fetch_remote_config(cfg['CONFIG_URL'])
+    redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://redis:6379/1'))
+    @local_trunks.each do |name, _|
+      data = redis.get("reflector:trunk_status:#{name}")
+      @remote_configs[name] = JSON.parse(data) if data
     end
 
     # Recent trunk and satellite events
@@ -261,25 +262,6 @@ class DashboardController < ApplicationController
     http
   end
 
-  def fetch_remote_config(url)
-    cache_key = "trunk_remote_config:#{Digest::MD5.hexdigest(url)}"
-    fresh = begin
-      require "net/http"
-      uri = URI(url)
-      response = http_for_uri(uri).get(uri.request_uri)
-      response.is_a?(Net::HTTPSuccess) ? JSON.parse(response.body) : nil
-    rescue => e
-      Rails.logger.warn "[Trunks] Failed to fetch remote config #{url}: #{e.message}"
-      nil
-    end
-
-    if fresh
-      Rails.cache.write(cache_key, fresh, expires_in: 5.minutes)
-      fresh
-    else
-      Rails.cache.read(cache_key) # return last known good value
-    end
-  end
 
   def fetch_external_reflectors
     @external_reflectors = {}

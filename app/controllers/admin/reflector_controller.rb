@@ -321,7 +321,6 @@ module Admin
         trunk_ports = Array(cfg[:trunk_ports])
         trunk_secrets = Array(cfg[:trunk_secrets])
         trunk_prefixes = Array(cfg[:trunk_remote_prefixes])
-        trunk_config_urls = Array(cfg[:trunk_config_urls])
         trunk_status_urls = Array(cfg[:trunk_status_urls])
         trunk_names.each_with_index do |name, i|
           next if name.blank?
@@ -330,7 +329,6 @@ module Admin
             "PORT" => trunk_ports[i].to_s.strip,
             "SECRET" => trunk_secrets[i].to_s.strip,
             "REMOTE_PREFIX" => trunk_prefixes[i].to_s.strip,
-            "CONFIG_URL" => trunk_config_urls[i].to_s.strip,
             "STATUS_URL" => trunk_status_urls[i].to_s.strip
           }.reject { |_, v| v.blank? }
         end
@@ -364,20 +362,25 @@ module Admin
     # the updater's 60-second poll cycle.
     def refresh_reflector_config_cache
       status_url = Setting.get('reflector_status_url', ENV.fetch('REFLECTOR_STATUS_URL', 'http://svxreflector:8080/status'))
-      uri = URI.parse(status_url)
-      uri.path = '/config'
       # Give the reflector a moment to restart before fetching
       Thread.new do
         sleep 6
         begin
-          res = Net::HTTP.get_response(uri)
+          uri = URI.parse(status_url)
+          http = Net::HTTP.new(uri.host.delete('[]'), uri.port)
+          http.use_ssl = uri.scheme == 'https'
+          http.open_timeout = 5
+          http.read_timeout = 5
+          res = http.get(uri.request_uri)
           if res.is_a?(Net::HTTPSuccess)
+            data = JSON.parse(res.body)
+            config = data.slice('mode', 'version', 'local_prefix', 'satellite', 'cluster_tgs', 'http_port', 'listen_port').compact
             redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
-            redis.set('reflector:config', res.body)
-            Rails.logger.info "[ReflectorConfig] Refreshed /config cache after save"
+            redis.set('reflector:config', config.to_json)
+            Rails.logger.info "[ReflectorConfig] Refreshed config cache from /status after save"
           end
         rescue => e
-          Rails.logger.warn "[ReflectorConfig] /config cache refresh failed: #{e.message}"
+          Rails.logger.warn "[ReflectorConfig] Config cache refresh failed: #{e.message}"
         end
       end
     end

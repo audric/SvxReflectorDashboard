@@ -209,11 +209,11 @@
                             %span.font-mono.text-gray-300= r_name
                             - if r_trunk.is_a?(Hash) && r_trunk['host'].present?
                               %span.text-ghmuted.ml-auto= r_trunk['host']
-                - elsif cfg['CONFIG_URL'].present?
+                - elsif cfg['STATUS_URL'].present?
                   .mt-3.pt-3.border-t.border-ghborder2
                     .text-xs.text-ghmuted
                       %i.bi.bi-exclamation-triangle.text-yellow-500.mr-1{style: "font-size:.65rem"}
-                      Could not reach remote config
+                      Waiting for remote status data...
 
         - else
           .rounded-lg.border.border-ghborder.p-6.text-center.text-ghmuted.text-sm.mb-4
