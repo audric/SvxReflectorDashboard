@@ -213,7 +213,7 @@ class DashboardController < ApplicationController
       (ref_data[:nodes] || {}).each do |cs, node|
         next if node['hidden']
         next if @nodes.key?(cs) # local node takes precedence
-        @nodes[cs] = node.merge('_external' => ref_name, '_external_portal' => ref_data[:portal_url])
+        @nodes[cs] = node.merge('_external' => ref_name, '_external_portal' => ref_data[:portal_url], '_external_type' => 'svx')
       end
     end
   end

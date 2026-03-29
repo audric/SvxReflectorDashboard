@@ -40,6 +40,9 @@ class ReflectorListener
           curr_satellites  = status_data.fetch('satellites', {})
           curr_cluster_tgs = status_data.fetch('cluster_tgs', [])
 
+          # Merge remote trunk nodes (tagged with _external)
+          merge_trunk_status_nodes(curr)
+
           # Enrich web listener nodes with browser/location metadata stored by AudioChannel
           enrich_web_nodes(curr)
 
@@ -151,6 +154,28 @@ class ReflectorListener
   rescue => e
     # /config may not exist on vanilla svxreflector — that's fine
     STDERR.puts "[Poller] /config fetch skipped: #{e.message}"
+  end
+
+  # Fetch nodes from trunk STATUS_URLs and merge into the local node hash.
+  # Each remote node is tagged with _external (trunk name).
+  # Local nodes take precedence on callsign collision.
+  def self.merge_trunk_status_nodes(curr)
+    config = ReflectorConfig.load
+    config.trunks.each do |name, cfg|
+      next unless cfg['STATUS_URL'].present?
+      begin
+        res = http_get(cfg['STATUS_URL'])
+        next unless res.is_a?(Net::HTTPSuccess)
+        remote_nodes = JSON.parse(res.body).fetch('nodes', {})
+        remote_nodes.each do |cs, node|
+          next if node['hidden']
+          next if curr.key?(cs)
+          curr[cs] = node.merge('_external' => name, '_external_type' => 'trunk')
+        end
+      rescue => e
+        STDERR.puts "[Poller] Trunk #{name} status fetch failed: #{e.message}"
+      end
+    end
   end
 
   def self.log_events(changed, removed, prev)

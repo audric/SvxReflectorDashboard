@@ -123,7 +123,7 @@
 
       .tone-table { font-size: .73rem; font-family: monospace; }
       .compact-nodes .node-detail { display: none !important; }
-      .filter-btn.active { background: #1f3a5f; color: #79c0ff; }
+      .filter-btn.active, .source-btn.active { background: #1f3a5f; color: #79c0ff; }
       .view-toggle-active { background: #1f3a5f; color: #c9d1d9; }
       .tone-row {
         display: flex;
@@ -159,75 +159,78 @@
           %i.bi.bi-exclamation-triangle-fill.mr-2.shrink-0
           = @fetch_error
 
-      -# ── Stats row ────────────────────────────────────────────────────────
-      - stats = []
-      - stats << {id: 'stat-total',   icon: 'bi-diagram-3',   color: 'text-gray-100',  label: 'Nodes',        val: @nodes.size}
-      - stats << {id: 'stat-active',  icon: 'bi-wifi',         color: 'text-blue-500',  label: 'Active',       val: @nodes.count { |_, n| n['tg'].to_i != 0 }}
-      - stats << {id: 'stat-talking', icon: 'bi-mic-fill',     color: 'text-green-500', label: 'Talking',      val: @nodes.count { |_, n| n['isTalker'] }}
-      - stats << {id: 'stat-updates', icon: 'bi-arrow-repeat', color: 'text-yellow-500', label: 'Live Updates', val: 0}
-      .flex.flex-wrap.gap-2.mb-4
-        - stats.each do |s|
-          .rounded-lg.border.border-ghborder.flex.items-center.gap-2.px-3.py-1.5
-            %i.bi.text-xs{class: "#{s[:icon]} #{s[:color]}"}
-            %span.text-gray-500.text-xs= s[:label]
-            %span.font-bold.text-sm{class: s[:color], id: s[:id]}= s[:val]
+      -# ── KPI bar + controls ─────────────────────────────────────────────
+      - visible_count = @nodes.reject { |_, n| n['hidden'] }.size
+      - active_count  = @nodes.count { |_, n| n['tg'].to_i != 0 }
+      - talking_count = @nodes.count { |_, n| n['isTalker'] }
+      .flex.items-center.justify-between.flex-wrap.gap-2.mb-3
+        .flex.items-center.gap-4
+          .flex.items-center.gap-1.5
+            %i.bi.bi-diagram-3.text-gray-400{style: "font-size:.75rem"}
+            %span.font-bold.text-lg.text-gray-100{id: 'stat-total'}= visible_count
+            %span.text-xs.text-ghdim Nodes
+          .flex.items-center.gap-1.5
+            %i.bi.bi-wifi.text-blue-500{style: "font-size:.75rem"}
+            %span.font-bold.text-lg.text-blue-400{id: 'stat-active'}= active_count
+            %span.text-xs.text-ghdim Active
+          .flex.items-center.gap-1.5
+            %i.bi.bi-mic-fill.text-green-500{style: "font-size:.75rem"}
+            %span.font-bold.text-lg.text-green-400{id: 'stat-talking'}= talking_count
+            %span.text-xs.text-ghdim Talking
+          .flex.items-center.gap-1.5
+            %i.bi.bi-arrow-repeat.text-yellow-500{style: "font-size:.75rem"}
+            %span.font-bold.text-lg.text-yellow-400{id: 'stat-updates'} 0
+            %span.text-xs.text-ghdim Updates
+        .flex.items-center.gap-2
+          %button#toggle-detail.px-2.5.py-1.5.text-sm.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.hover:border-gray-500.cursor-pointer.transition-colors{type: "button", title: "Toggle node details"}
+            %i.bi.bi-eye-fill#toggle-detail-icon
+            %span.ml-1#toggle-detail-label Detailed
+          .inline-flex.rounded.border.border-ghborder.overflow-hidden
+            %button#view-cards.px-2.5.py-1.5.text-sm.text-gray-200.cursor-pointer.transition-colors.view-toggle-active{type: "button", title: "Card view"}
+              %i.bi.bi-grid-3x3-gap
+            %button#view-table.px-2.5.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", title: "Table view"}
+              %i.bi.bi-table
 
-      -# ── Cluster TG indicator ──────────────────────────────────────────────
-      - if @cluster_tgs.any?
-        .flex.items-center.gap-2.mb-3
-          %i.bi.bi-globe2.text-cyan-400
-          %span.text-gray-400.uppercase.font-semibold.text-xs Cluster TGs
-          .flex.gap-1.flex-wrap
-            - @cluster_tgs.each do |tg|
-              %span.text-xs.px-1.5.py-0.5.rounded-full.border.font-mono{class: "bg-cyan-900/30 text-cyan-400 border-cyan-700"}= "TG #{tg}"
-
-      -# ── Node grid ──────────────────────────────────────────────────────────
-      .flex.items-center.mb-2.gap-2.flex-wrap
-        %span.text-gray-500.uppercase.font-semibold.text-sm
-          %i.bi.bi-hdd-network.mr-1
-          Connected Nodes
-        %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-gray-600.text-gray-200#nodes-count
-          = @nodes.reject { |_, n| n['hidden'] }.size
-        .inline-flex.rounded.border.border-ghborder.overflow-hidden
-          %button#view-cards.px-3.py-1.5.text-sm.text-gray-200.cursor-pointer.transition-colors.view-toggle-active{type: "button", title: "Card view"}
-            %i.bi.bi-grid-3x3-gap
-          %button#view-table.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", title: "Table view"}
-            %i.bi.bi-table
-        %button#toggle-detail.px-3.py-1.5.text-sm.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.hover:border-gray-500.cursor-pointer.transition-colors{type: "button", title: "Toggle node details"}
-          %i.bi.bi-eye-fill#toggle-detail-icon
-          %span#toggle-detail-label Detailed
+      -# ── Filters ────────────────────────────────────────────────────────────
       .overflow-x-auto.mb-3.pb-1{style: "-webkit-overflow-scrolling:touch"}
-        .inline-flex.rounded.border.border-ghborder.overflow-hidden#node-filters
-          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", "data-filter" => "all"}
-            %i.bi.bi-grid.mr-1
-            All
-          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "repeater"}
-            %i.bi.bi-arrow-repeat.mr-1
-            Repeaters
-          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "bridge"}
-            %i.bi.bi-link-45deg.mr-1
-            Bridges
-          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "echolink"}
-            %i.bi.bi-headset.mr-1
-            EchoLink
-          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "xlx"}
-            %i.bi.bi-globe.mr-1
-            XLX
-          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "dmr"}
-            %i.bi.bi-broadcast-pin.mr-1
-            DMR
-          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "ysf"}
-            %i.bi.bi-soundwave.mr-1
-            YSF
-          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "allstar"}
-            %i.bi.bi-telephone.mr-1
-            AllStar
-          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "zello"}
-            %i.bi.bi-phone.mr-1
-            Zello
-          %button.filter-btn.px-3.py-1.5.text-sm.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "simplex"}
-            %i.bi.bi-broadcast.mr-1
-            Simplex
+        .flex.items-center.gap-3.flex-wrap
+          %span.text-xs.text-ghdim.uppercase.font-semibold{style: "letter-spacing:.08em"} Type
+          .inline-flex.rounded.border.border-ghborder.overflow-hidden#node-filters
+            %button.filter-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", "data-filter" => "all"}
+              All
+            %button.filter-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "repeater"}
+              %i.bi.bi-arrow-repeat.mr-1
+              Repeaters
+            %button.filter-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "bridge"}
+              %i.bi.bi-link-45deg.mr-1
+              Bridges
+            %button.filter-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "echolink"}
+              EchoLink
+            %button.filter-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "xlx"}
+              XLX
+            %button.filter-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "dmr"}
+              DMR
+            %button.filter-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "ysf"}
+              YSF
+            %button.filter-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "allstar"}
+              AllStar
+            %button.filter-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "zello"}
+              Zello
+            %button.filter-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "simplex"}
+              Simplex
+          %span.text-xs.text-ghdim.uppercase.font-semibold{style: "letter-spacing:.08em"} Source
+          .inline-flex.rounded.border.border-ghborder.overflow-hidden#source-filters
+            %button.source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", "data-source" => "all"}
+              All
+            %button.source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-source" => "local"}
+              %i.bi.bi-broadcast.mr-1
+              Local
+            %button.source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-source" => "trunk"}
+              %i.bi.bi-diagram-3.mr-1
+              Trunk
+            %button.source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-source" => "svx"}
+              %i.bi.bi-globe2.mr-1
+              Ext SVX
 
       .grid.grid-cols-1.sm:grid-cols-2.xl:grid-cols-3.2xl:grid-cols-5.gap-3#nodes-grid
         - visible = @nodes.reject { |_, n| n['hidden'] }
@@ -246,8 +249,10 @@
           - rx_ports  = (node['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }
 
           - is_external = node['_external'].present?
-          %div{id: "node-col-#{callsign}", "data-node-class" => node['nodeClass'].to_s.downcase}
-            .rounded-lg.node-card.h-full{class: st_cls, id: "node-#{callsign}", "data-callsign" => callsign, style: (is_external ? "border-color: #92400e" : nil)}
+          - ext_type = node['_external_type']
+          - ext_border = ext_type == 'trunk' ? '#155e75' : '#92400e'
+          %div{id: "node-col-#{callsign}", "data-node-class" => node['nodeClass'].to_s.downcase, "data-source" => (ext_type || 'local')}
+            .rounded-lg.node-card.h-full{class: st_cls, id: "node-#{callsign}", "data-callsign" => callsign, style: (is_external ? "border-color: #{ext_border}" : nil)}
 
               -# ── Card header: callsign + mic + status badge ──
               .card-header.flex.items-center.justify-between.py-2.px-3
@@ -401,17 +406,25 @@
                         %span.t-freq= "#{tone} Hz"
                         %span.t-tg= tg_num == 0 ? '— local' : tg_num
 
-                -# Sysop
-                - if node['sysop'].present? || node['_external']
-                  .flex.items-center.gap-2.flex-wrap
-                    - if node['sysop'].present?
-                      %span
-                        %i.bi.bi-person.mr-1
-                        = node['sysop']
-                    - if node['_external']
+                -# Sysop + source
+                .flex.items-center.gap-2.flex-wrap
+                  - if node['sysop'].present?
+                    %span
+                      %i.bi.bi-person.mr-1
+                      = node['sysop']
+                  - if node['_external']
+                    - if ext_type == 'trunk'
+                      %span.text-cyan-500
+                        %i.bi.bi-diagram-3.mr-1
+                        = node['_external']
+                    - else
                       %span.text-amber-600.cursor-pointer.hover:text-amber-400{onclick: "openExtModal('#{node['_external'].gsub("'", "\\\\'")}', '#{(node['_external_portal'] || '').gsub("'", "\\\\'")}')", title: "External reflector"}
                         %i.bi.bi-globe2.mr-1
                         = node['_external']
+                  - else
+                    %span.text-gray-500
+                      %i.bi.bi-broadcast.mr-1
+                      = "SVX #{@reflector_host}"
 
               .card-footer.flex.justify-between.px-3.py-1.node-detail
                 %span.text-gray-500{id: "node-#{callsign}-sw"}= [node['sw'], node['swVer'].to_s.sub(/(\.0)+$/, '')].reject(&:blank?).join(' ')
@@ -442,7 +455,7 @@
                 - node_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'xlx' => 'bi-globe', 'dmr' => 'bi-broadcast-pin', 'ysf' => 'bi-soundwave', 'allstar' => 'bi-telephone', 'echolink' => 'bi-headset', 'simplex' => 'bi-broadcast' }.fetch(node_cls, 'bi-broadcast')
                 - rx_ports = (node['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }
                 - best_sig = rx_ports.map { |_, r| r['siglev'] }.compact.max
-                %tr.border-b.border-ghborder2.hover:bg-ghcard{"data-node-class" => node_cls}
+                %tr.border-b.border-ghborder2.hover:bg-ghcard{"data-node-class" => node_cls, "data-source" => (node['_external_type'] || 'local')}
                   %td.px-3.py-2.truncate{style: "width:120px;max-width:120px"}
                     %i.bi.mr-1{class: node_icon}
                     %span.capitalize= node_cls.presence || '—'
@@ -476,12 +489,18 @@
                   %td.px-3.py-2.text-gray-400= node['nodeLocation'].presence || '—'
                   %td.px-3.py-2.text-gray-500{style: "font-size:.75rem"}= [node['sw'], node['swVer']].compact.join(' ').presence || '—'
                   %td.px-3.py-2
-                    - if node['_external']
+                    - if node['_external_type'] == 'trunk'
+                      %span.text-cyan-500
+                        %i.bi.bi-diagram-3.mr-1
+                        = node['_external']
+                    - elsif node['_external']
                       %span.text-amber-600.cursor-pointer.hover:text-amber-400{onclick: "openExtModal('#{node['_external'].gsub("'", "\\\\'")}', '#{(node['_external_portal'] || '').gsub("'", "\\\\'")}')", title: "External reflector"}
                         %i.bi.bi-globe2.mr-1
                         = node['_external']
                     - else
-                      %span.text-gray-500 Local
+                      %span.text-gray-500
+                        %i.bi.bi-broadcast.mr-1
+                        = "SVX #{@reflector_host}"
 
 
     -# ── External SVX Modal ──
@@ -622,7 +641,6 @@
           setText('stat-total',   vals.length);
           setText('stat-active',  vals.filter(function(n){ return n.tg && n.tg !== 0; }).length);
           setText('stat-talking', vals.filter(function(n){ return n.isTalker; }).length);
-          setText('nodes-count',  vals.filter(function(n){ return !n.hidden; }).length);
         }
 
         // ── Node card update ───────────────────────────────────────────────────────
@@ -1118,7 +1136,7 @@
             case 'tg': return n.tg || 0;
             case 'location': return (n.nodeLocation || '').toLowerCase();
             case 'software': return [n.sw, n.swVer].filter(Boolean).join(' ').toLowerCase();
-            case 'source': return (n._external || '').toLowerCase();
+            case 'source': return (n._external || 'SVX #{@reflector_host}').toLowerCase();
             default: return '';
           }
         }
@@ -1193,7 +1211,7 @@
                 sig += '</div>';
               }
             }
-            h += '<tr class="border-b border-ghborder2 hover:bg-ghcard" data-node-class="' + esc(nc) + '">';
+            h += '<tr class="border-b border-ghborder2 hover:bg-ghcard" data-node-class="' + esc(nc) + '" data-source="' + (n._external_type || 'local') + '">';
             h += '<td class="px-3 py-2 truncate" style="width:120px;max-width:120px"><i class="bi ' + icon + ' mr-1"></i><span class="capitalize">' + (nc || '—') + '</span></td>';
             h += '<td class="px-3 py-2">' + (isTalker ? '<i class="bi bi-mic-fill text-green-500 mr-1" style="font-size:.7rem"></i>' : '') + '<strong class="font-mono text-gray-100">' + esc(cs) + '</strong></td>';
             h += '<td class="px-3 py-2">' + (sig || '<span class="text-gray-500">—</span>') + '</td>';
@@ -1202,11 +1220,14 @@
             h += '<td class="px-3 py-2 text-gray-400">' + esc(n.nodeLocation || '—') + '</td>';
             h += '<td class="px-3 py-2 text-gray-500" style="font-size:.75rem">' + esc([n.sw, n.swVer].filter(Boolean).join(' ') || '—') + '</td>';
             var ext = n._external;
-            if (ext) {
+            var extType = n._external_type;
+            if (ext && extType === 'trunk') {
+              h += '<td class="px-3 py-2"><span class="text-cyan-500"><i class="bi bi-diagram-3 mr-1"></i>' + esc(ext) + '</span></td>';
+            } else if (ext) {
               var extPortal = n._external_portal || '';
               h += '<td class="px-3 py-2"><span class="text-amber-600 cursor-pointer hover:text-amber-400" onclick="openExtModal(\'' + esc(ext).replace(/'/g,'&#39;') + '\',\'' + esc(extPortal).replace(/'/g,'&#39;') + '\')"><i class="bi bi-globe2 mr-1"></i>' + esc(ext) + '</span></td>';
             } else {
-              h += '<td class="px-3 py-2 text-gray-500">Local</td>';
+              h += '<td class="px-3 py-2 text-gray-500"><i class="bi bi-broadcast mr-1"></i>SVX #{@reflector_host}</td>';
             }
             h += '</tr>';
           });
@@ -1276,15 +1297,23 @@
             localStorage.setItem('nodes-filter', currentFilter);
           }
         }
+        var currentSource = localStorage.getItem('nodes-source') || 'all';
+        var sourceBtns = document.querySelectorAll('.source-btn');
+
         function applyFilter() {
           updateFilterVisibility();
           filterBtns.forEach(function(b) { b.classList.toggle('active', b.dataset.filter === currentFilter); });
+          sourceBtns.forEach(function(b) { b.classList.toggle('active', b.dataset.source === currentSource); });
           grid.querySelectorAll('[data-node-class]').forEach(function(col) {
-            col.style.display = (currentFilter === 'all' || col.dataset.nodeClass === currentFilter) ? '' : 'none';
+            var classMatch = currentFilter === 'all' || col.dataset.nodeClass === currentFilter;
+            var sourceMatch = currentSource === 'all' || col.dataset.source === currentSource;
+            col.style.display = (classMatch && sourceMatch) ? '' : 'none';
           });
           if (nodesTable) {
             nodesTable.querySelectorAll('tbody tr[data-node-class]').forEach(function(row) {
-              row.style.display = (currentFilter === 'all' || row.dataset.nodeClass === currentFilter) ? '' : 'none';
+              var classMatch = currentFilter === 'all' || row.dataset.nodeClass === currentFilter;
+              var sourceMatch = currentSource === 'all' || row.dataset.source === currentSource;
+              row.style.display = (classMatch && sourceMatch) ? '' : 'none';
             });
           }
         }
@@ -1293,6 +1322,13 @@
           btn.addEventListener('click', function() {
             currentFilter = btn.dataset.filter;
             localStorage.setItem('nodes-filter', currentFilter);
+            applyFilter();
+          });
+        });
+        sourceBtns.forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            currentSource = btn.dataset.source;
+            localStorage.setItem('nodes-source', currentSource);
             applyFilter();
           });
         });

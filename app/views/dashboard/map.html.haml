@@ -200,6 +200,7 @@
             '<div class="legend-row"><span class="legend-dot" style="background:#3fb950"></span>Talking</div>' +
             '<div class="legend-row"><span class="legend-dot" style="background:#1f6feb"></span>Active (on TG)</div>' +
             '<div class="legend-row"><span class="legend-dot" style="background:#6e7681"></span>Idle</div>' +
+            '<div class="legend-row"><span class="legend-dot" style="background:#0891b2;border:1px dashed #0e4a5c"></span>Trunk peer</div>' +
             '<div class="legend-row"><span class="legend-dot" style="background:#d97706;border:1px dashed #78350f"></span>External SVX</div>';
           return div;
         };
@@ -238,10 +239,11 @@
           if (!isFinite(lat) || !isFinite(lng)) return;
 
           var isExt = !!node._external;
-          var color  = isExt ? (node.isTalker ? '#f59e0b' : (node.tg ? '#d97706' : '#92400e')) : markerColor(node);
+          var isTrunk = node._external_type === 'trunk';
+          var color  = isExt ? (isTrunk ? (node.isTalker ? '#22d3ee' : (node.tg ? '#0891b2' : '#155e75')) : (node.isTalker ? '#f59e0b' : (node.tg ? '#d97706' : '#92400e'))) : markerColor(node);
           var marker = L.circleMarker([lat, lng], {
             radius: isExt ? 6 : 8,
-            color: isExt ? '#78350f' : color,
+            color: isExt ? (isTrunk ? '#0e4a5c' : '#78350f') : color,
             fillColor: color,
             fillOpacity: 0.85,
             weight: isExt ? 1.5 : 2,
@@ -370,11 +372,11 @@
           var isExt = !!node._external;
           var color = isExt ? (node.isTalker ? '#f59e0b' : (node.tg ? '#d97706' : '#92400e')) : markerColor(node);
           if (markersByCs[cs]) {
-            markersByCs[cs].setStyle({ color: isExt ? '#78350f' : color, fillColor: color });
+            markersByCs[cs].setStyle({ color: isExt ? (isTrunk ? '#0e4a5c' : '#78350f') : color, fillColor: color });
             markersByCs[cs].setPopupContent(buildPopupHtml(cs, node));
           } else {
             var marker = L.circleMarker([lat, lng], {
-              radius: isExt ? 6 : 8, color: isExt ? '#78350f' : color, fillColor: color,
+              radius: isExt ? 6 : 8, color: isExt ? (isTrunk ? '#0e4a5c' : '#78350f') : color, fillColor: color,
               fillOpacity: 0.85, weight: isExt ? 1.5 : 2, opacity: 1, dashArray: isExt ? '4 3' : null
             }).addTo(map);
             marker.bindTooltip(esc(cs), { permanent: !isExt, direction: isExt ? 'right' : 'bottom', className: isExt ? 'map-tooltip' : 'node-label', offset: isExt ? [0, 0] : [0, 6] });
