@@ -38,12 +38,19 @@
       .matrix-wrap {
         overflow-x: auto;
         overflow-y: auto;
-        max-height: calc(100vh - 160px);
+        max-height: calc(100vh - 180px);
         border: 1px solid var(--border, #30363d);
         border-radius: .4rem;
+        scrollbar-width: thin;
+        scrollbar-color: #30363d transparent;
       }
+      .matrix-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
+      .matrix-wrap::-webkit-scrollbar-track { background: transparent; }
+      .matrix-wrap::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+      .matrix-wrap::-webkit-scrollbar-thumb:hover { background: #484f58; }
+      .matrix-wrap::-webkit-scrollbar-corner { background: transparent; }
       @media (min-width: 1024px) {
-        .matrix-wrap { max-height: calc(100vh - 100px); }
+        .matrix-wrap { max-height: calc(100vh - 140px); }
       }
 
       .matrix-table {
@@ -127,6 +134,7 @@
       .tone-pill.local .tone-unit { color: #6e7681; }
 
       .empty-cell { color: #30363d; font-size: .9rem; }
+      .radio-source-btn.active { background: #1f3a5f; color: #79c0ff; }
   %body.text-ghtext
 
     = render 'shared/navbar', active: 'radio'
@@ -138,15 +146,36 @@
           %i.bi.bi-exclamation-triangle-fill.mr-2.shrink-0
           = @fetch_error
 
-      .flex.items-center.justify-between.flex-wrap.gap-2
-        .page-header.grow.mb-0
-          %i.bi.bi-broadcast.mr-1
-          Radio Programming
-          %span.ml-1.font-normal
-            = "#{@all_tgs.size} talkgroup#{'s' unless @all_tgs.size == 1} · #{@node_rows.size} repeater#{'s' unless @node_rows.size == 1}"
+      -# ── Header bar ─────────────────────────────────────────────────────
+      .flex.items-center.justify-between.flex-wrap.gap-2.mb-3
+        .flex.items-center.gap-4
+          .flex.items-center.gap-1.5
+            %i.bi.bi-broadcast.text-gray-400{style: "font-size:.75rem"}
+            %span.font-bold.text-lg.text-gray-100= @node_rows.size
+            %span.text-xs.text-ghdim Repeaters
+          .flex.items-center.gap-1.5
+            %i.bi.bi-diagram-3.text-blue-400{style: "font-size:.75rem"}
+            %span.font-bold.text-lg.text-blue-400= @all_tgs.size
+            %span.text-xs.text-ghdim Talkgroups
         %button#chirp-export.text-sm.px-3.py-1.5.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "exportChirp()"}
           %i.bi.bi-download.mr-1
           CHIRP CSV
+
+      -# ── Source filter ──────────────────────────────────────────────────
+      .flex.items-center.gap-3.flex-wrap.mb-3
+        %span.text-xs.text-ghdim.uppercase.font-semibold{style: "letter-spacing:.08em"} Source
+        .inline-flex.rounded.border.border-ghborder.overflow-hidden#radio-source-filters
+          %button.radio-source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.active{type: "button", "data-source" => "all"}
+            All
+          %button.radio-source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-source" => "local"}
+            %i.bi.bi-broadcast.mr-1
+            Local
+          %button.radio-source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-source" => "trunk"}
+            %i.bi.bi-diagram-3.mr-1
+            Trunk
+          %button.radio-source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-source" => "svx"}
+            %i.bi.bi-globe2.mr-1
+            Ext SVX
 
       .matrix-wrap
         %table.matrix-table
@@ -168,7 +197,7 @@
                 - tx_freq = qth['tx']&.values&.first&.dig('freq')
                 - rx_freq = qth['rx']&.values&.first&.dig('freq')
                 - offset  = (tx_freq && rx_freq && tx_freq.to_f > 0 && rx_freq.to_f > 0) ? ((rx_freq.to_f - tx_freq.to_f) * 1000).round : nil
-                %tr
+                %tr{"data-source" => (node['_external_type'] || 'local')}
                   %td.col-node
                     .node-cs= cs
                     - if node['nodeLocation']
@@ -193,6 +222,24 @@
     - nodes_json = @nodes.to_json.html_safe
     :javascript
       var _tgNodes = #{nodes_json};
+
+      // ── Source filter ──
+      (function() {
+        var btns = document.querySelectorAll('.radio-source-btn');
+        var current = 'all';
+        function apply() {
+          btns.forEach(function(b) { b.classList.toggle('active', b.dataset.source === current); });
+          document.querySelectorAll('.matrix-table tbody tr[data-source]').forEach(function(row) {
+            row.style.display = (current === 'all' || row.dataset.source === current) ? '' : 'none';
+          });
+        }
+        btns.forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            current = btn.dataset.source;
+            apply();
+          });
+        });
+      })();
 
       function exportChirp() {
         var header = 'Location,Name,Frequency,Duplex,Offset,Tone,rToneFreq,cToneFreq,DtcsCode,DtcsPolarity,Mode,TStep,Skip,Comment,URCALL,RPT1CALL,RPT2CALL';
@@ -241,11 +288,11 @@
             rows.push([
               loc++,
               name,
-              repTx.toFixed(6),
+              parseFloat(repTx).toFixed(6),
               duplex,
-              offset.toFixed(6),
+              parseFloat(offset).toFixed(6),
               'Tone',
-              tone.toFixed(1),
+              parseFloat(tone).toFixed(1),
               '88.5',
               '023',
               'NN',

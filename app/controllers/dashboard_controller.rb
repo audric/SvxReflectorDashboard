@@ -49,6 +49,9 @@ class DashboardController < ApplicationController
 
   def radio
     fetch_nodes
+    fetch_extended
+    fetch_external_reflectors
+    merge_external_nodes
     bridge_classes = %w[bridge xlx dmr ysf allstar echolink web].freeze
     visible = @nodes.reject { |_, n| n['hidden'] || bridge_classes.include?(n['nodeClass'].to_s) }
 
@@ -138,7 +141,9 @@ class DashboardController < ApplicationController
     # ── Web users ─────────────────────────────────────────────────────────────
     @total_users  = User.where(approved: true).count
     redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
-    @online_users = redis.keys("session:*").size
+    all_sessions = redis.keys("session:*")
+    @online_users = all_sessions.count { |k| redis.get(k).to_s.include?("user_id") }
+    @anonymous_sessions = all_sessions.size - @online_users
     redis.close
 
     # ── Trunk traffic stats ────────────────────────────────────────────────────

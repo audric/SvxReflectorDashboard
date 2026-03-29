@@ -194,6 +194,19 @@
       -# ── Filters ────────────────────────────────────────────────────────────
       .overflow-x-auto.mb-3.pb-1{style: "-webkit-overflow-scrolling:touch"}
         .flex.items-center.gap-3.flex-wrap
+          %span.text-xs.text-ghdim.uppercase.font-semibold{style: "letter-spacing:.08em"} Source
+          .inline-flex.rounded.border.border-ghborder.overflow-hidden#source-filters
+            %button.source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", "data-source" => "all"}
+              All
+            %button.source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-source" => "local"}
+              %i.bi.bi-broadcast.mr-1
+              Local
+            %button.source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-source" => "trunk"}
+              %i.bi.bi-diagram-3.mr-1
+              Trunk
+            %button.source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-source" => "svx"}
+              %i.bi.bi-globe2.mr-1
+              Ext SVX
           %span.text-xs.text-ghdim.uppercase.font-semibold{style: "letter-spacing:.08em"} Type
           .inline-flex.rounded.border.border-ghborder.overflow-hidden#node-filters
             %button.filter-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", "data-filter" => "all"}
@@ -218,19 +231,6 @@
               Zello
             %button.filter-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "simplex"}
               Simplex
-          %span.text-xs.text-ghdim.uppercase.font-semibold{style: "letter-spacing:.08em"} Source
-          .inline-flex.rounded.border.border-ghborder.overflow-hidden#source-filters
-            %button.source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", "data-source" => "all"}
-              All
-            %button.source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-source" => "local"}
-              %i.bi.bi-broadcast.mr-1
-              Local
-            %button.source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-source" => "trunk"}
-              %i.bi.bi-diagram-3.mr-1
-              Trunk
-            %button.source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-source" => "svx"}
-              %i.bi.bi-globe2.mr-1
-              Ext SVX
 
       .grid.grid-cols-1.sm:grid-cols-2.xl:grid-cols-3.2xl:grid-cols-5.gap-3#nodes-grid
         - visible = @nodes.reject { |_, n| n['hidden'] }

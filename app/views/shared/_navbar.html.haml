@@ -2,6 +2,10 @@
 #toast-container.fixed.top-4.right-4.z-50.flex.flex-col.gap-2{style: "pointer-events:none;"}
 
 :css
+  nav::-webkit-scrollbar { width: 4px; }
+  nav::-webkit-scrollbar-track { background: transparent; }
+  nav::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+  nav::-webkit-scrollbar-thumb:hover { background: #484f58; }
   .toast-item {
     pointer-events: auto;
     padding: .6rem 1rem;
@@ -89,7 +93,7 @@
           %button#theme-btn-mobile.text-gray-400.cursor-pointer.p-2{type: "button", title: "Theme"}
             %i.bi.bi-palette.text-lg#theme-icon-mobile
           #theme-menu-mobile.absolute.left-0.mt-1.w-44.rounded-md.border.border-gray-600.bg-ghcard.shadow-xl.z-50.hidden.py-1
-            - [['dark', 'bi-moon-fill', 'Dark'], ['light', 'bi-sun-fill', 'Light'], ['auto', 'bi-circle-half', 'Auto (OS)'], ['oled', 'bi-phone', 'OLED Black'], ['blue', 'bi-water', 'Navy Blue'], ['green', 'bi-tree', 'Military'], ['high-contrast', 'bi-eye', 'High Contrast']].each do |val, icon, label|
+            - [['dark', 'bi-moon-fill', 'Dark'], ['light', 'bi-sun-fill', 'Light'], ['auto', 'bi-circle-half', 'Auto (OS)'], ['oled', 'bi-phone', 'OLED Black'], ['blue', 'bi-water', 'Navy Blue']].each do |val, icon, label|
               %button.theme-option.flex.items-center.gap-2.w-full.px-3.py-2.5.text-base.md:text-sm.md:py-1.5.text-gray-300.hover:bg-ghborder2.cursor-pointer{type: "button", "data-theme" => val}
                 %i.bi{class: icon, style: "font-size:.8rem;width:16px"}
                 = label
@@ -139,7 +143,7 @@
       - if @reflector_host.present?
         %span.text-lg.font-normal.text-ghmuted= @reflector_host
 
-  %nav.flex-1.px-3.py-4.overflow-y-auto
+  %nav.flex-1.px-3.py-4.overflow-y-auto{style: "scrollbar-width:thin;scrollbar-color:#30363d transparent"}
     .space-y-1
       - [['dashboard', 'bi-grid', 'Dashboard', root_path], ['map', 'bi-map', 'Map', map_path], ['tg', 'bi-collection', 'TG List', tg_path], ['radio', 'bi-broadcast', 'Radio Memory', radio_path], ['trunks', 'bi-diagram-3', 'Trunks & Sat', trunks_path], ['events', 'bi-activity', 'Events', events_path], ['stats', 'bi-bar-chart-line', 'Stats', stats_path]].each do |key, icon, label, path|
         %a.flex.items-center.gap-3.px-3.py-2.rounded-md.text-sm.transition-colors{class: (active == key ? 'bg-ghborder2 text-gray-100' : 'text-ghmuted hover:bg-ghborder2 hover:text-gray-300'), href: path}
@@ -194,7 +198,7 @@
         %span Theme
         %span.ml-auto.text-xs.text-ghdim#theme-current-label
       #theme-menu-sidebar.absolute.bottom-full.left-0.mb-1.w-full.rounded-md.border.border-gray-600.bg-ghcard.shadow-xl.z-50.hidden
-        - [['dark', 'bi-moon-fill', 'Dark'], ['light', 'bi-sun-fill', 'Light'], ['auto', 'bi-circle-half', 'Auto (OS)'], ['oled', 'bi-phone', 'OLED Black'], ['blue', 'bi-water', 'Navy Blue'], ['green', 'bi-tree', 'Military'], ['high-contrast', 'bi-eye', 'High Contrast']].each do |val, icon, label|
+        - [['dark', 'bi-moon-fill', 'Dark'], ['light', 'bi-sun-fill', 'Light'], ['auto', 'bi-circle-half', 'Auto (OS)'], ['oled', 'bi-phone', 'OLED Black'], ['blue', 'bi-water', 'Navy Blue']].each do |val, icon, label|
           %button.theme-option.flex.items-center.gap-2.w-full.px-3.py-1.5.text-sm.text-gray-300.hover:bg-ghborder2.cursor-pointer{type: "button", "data-theme" => val}
             %i.bi{class: icon, style: "font-size:.7rem;width:16px"}
             = label
@@ -260,16 +264,6 @@
     --text: #c8d8e8; --muted: #7a98b5; --dim: #4a6a88;
     --nav-bg: #0c1a2e; --nav-border: #1a3550;
   }
-  [data-theme="green"] {
-    --bg: #0a150a; --card: #111e11; --border: #1e3520; --border2: #162a16;
-    --text: #c5d8c5; --muted: #7a9a7a; --dim: #4a6a4a;
-    --nav-bg: #0c180c; --nav-border: #1e3520;
-  }
-  [data-theme="high-contrast"] {
-    --bg: #000000; --card: #1a1a1a; --border: #ffffff; --border2: #cccccc;
-    --text: #ffffff; --muted: #dddddd; --dim: #aaaaaa;
-    --nav-bg: #0a0a0a; --nav-border: #ffffff;
-  }
   body { background: var(--bg) !important; color: var(--text); }
   .bg-ghbg, .bg-\[\#0d1117\] { background: var(--bg) !important; }
   .bg-ghcard { background: var(--card) !important; }
@@ -311,8 +305,17 @@
   [data-theme="light"] .event-type-badge { opacity: 0.9; }
   [data-theme="light"] pre { background: #f6f8fa !important; color: #1f2328 !important; }
   [data-theme="light"] .filter-btn.active,
+  [data-theme="light"] .source-btn.active,
+  [data-theme="light"] .radio-source-btn.active,
+  [data-theme="light"] .view-toggle-active,
   [data-theme="light"] .evt-filter-btn[style*="1f3a5f"],
   [data-theme="light"] .bridge-filter-btn.active { background: #dbeafe !important; color: #1e40af !important; }
+  [data-theme="light"] nav { scrollbar-color: #d0d7de transparent !important; }
+  [data-theme="light"] nav::-webkit-scrollbar-thumb { background: #d0d7de !important; }
+  [data-theme="light"] nav::-webkit-scrollbar-thumb:hover { background: #b0b8c1 !important; }
+  [data-theme="light"] .matrix-wrap { scrollbar-color: #d0d7de transparent !important; }
+  [data-theme="light"] .matrix-wrap::-webkit-scrollbar-thumb { background: #d0d7de !important; }
+  [data-theme="light"] .matrix-wrap::-webkit-scrollbar-thumb:hover { background: #b0b8c1 !important; }
   [data-theme="light"] .bg-ghborder2, [data-theme="light"] .bg-ghborder { background: #e8ecf0 !important; }
   [data-theme="light"] .rounded-full.bg-gray-600 { background: #e5e7eb !important; color: #374151 !important; }
   [data-theme="light"] .bg-gray-600.text-gray-200 { background: #e5e7eb !important; color: #374151 !important; }
@@ -409,7 +412,7 @@
         opt.classList.toggle('text-gray-300', !active);
       });
       // Update sidebar label
-      var names = {dark:'Dark',light:'Light',auto:'Auto',oled:'OLED',blue:'Navy',green:'Military','high-contrast':'Hi-Con'};
+      var names = {dark:'Dark',light:'Light',auto:'Auto',oled:'OLED',blue:'Navy'};
       var lbl = document.getElementById('theme-current-label');
       if (lbl) lbl.textContent = names[name] || name;
     }
