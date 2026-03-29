@@ -137,7 +137,7 @@
 
     %script{src: "/vendor/leaflet/leaflet.js"}
     - nodes_json = @nodes.to_json.html_safe
-    - external_json = (@external_reflectors.is_a?(Hash) ? @external_reflectors : {}).to_json.html_safe
+    -# external nodes are now merged into @nodes server-side
     :javascript
       (function () {
         'use strict';
@@ -205,47 +205,6 @@
         };
         legend.addTo(map);
 
-        // External SVX reflector layers (after helpers, before local markers)
-        try {
-          var extData = #{external_json} || {};
-          Object.keys(extData).forEach(function(refName) {
-            var layer = L.layerGroup();
-            var ref = extData[refName];
-            var refNodes = ref.nodes || {};
-            var portalUrl = ref.portal_url;
-            Object.keys(refNodes).forEach(function(cs) {
-              var node = refNodes[cs];
-              var nc = node.nodeClass;
-              if (nc && nc !== 'repeater') return;
-              var pos = node.qth && node.qth[0] && node.qth[0].pos;
-              if (!pos) return;
-              var lat = parseFloat(pos.lat);
-              var lng = parseFloat(pos.long || pos.lon);
-              if (!isFinite(lat) || !isFinite(lng) || lat === 0 || lng === 0) return;
-              if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
-              var tg = node.tg || 0;
-              var col = node.isTalker ? '#f59e0b' : (tg ? '#d97706' : '#92400e');
-              var marker = L.circleMarker([lat, lng], {
-                radius: 6, fillColor: col, color: '#78350f', weight: 1.5,
-                fillOpacity: 0.85, dashArray: '4 3'
-              });
-              var popup = '<div style="min-width:180px"><strong class="font-mono">' + esc(cs) + '</strong>';
-              popup += '<br><span style="font-size:.75rem;color:#d97706"><i class="bi bi-globe2 mr-1"></i>' + esc(refName) + '</span>';
-              if (tg) popup += '<br><span style="font-size:.8rem">TG ' + tg + '</span>';
-              if (node.nodeLocation) popup += '<br><span style="font-size:.75rem;color:#8b949e"><i class="bi bi-geo-alt mr-1"></i>' + esc(node.nodeLocation) + '</span>';
-              if (node.nodeClass) popup += '<br><span style="font-size:.75rem;color:#8b949e"><i class="bi bi-broadcast mr-1"></i>' + esc(node.nodeClass) + '</span>';
-              if (node.sysop) popup += '<br><span style="font-size:.75rem;color:#8b949e"><i class="bi bi-person mr-1"></i>' + esc(node.sysop) + '</span>';
-              if (portalUrl) popup += '<br><a href="' + esc(portalUrl) + '" target="_blank" style="font-size:.75rem;color:#58a6ff"><i class="bi bi-box-arrow-up-right mr-1"></i>' + esc(refName) + ' dashboard</a>';
-              popup += '</div>';
-              marker.bindPopup(popup);
-              marker.bindTooltip(esc(cs), { permanent: false, direction: 'right', className: 'map-tooltip' });
-              layer.addLayer(marker);
-            });
-            layer.addTo(map);
-            layerControl.addOverlay(layer, '<i class="bi bi-globe2 mr-1" style="color:#d97706"></i>' + esc(refName));
-          });
-        } catch(e) { console.warn('[External SVX] Map overlay error:', e); }
-
         // ── Place markers ──────────────────────────────────────────────────────────
         var bounds = [];
         var markersByCs = {};
@@ -257,22 +216,24 @@
           var lng = parseFloat(pos && pos.long);
           if (!isFinite(lat) || !isFinite(lng)) return;
 
-          var color  = markerColor(node);
+          var isExt = !!node._external;
+          var color  = isExt ? (node.isTalker ? '#f59e0b' : (node.tg ? '#d97706' : '#92400e')) : markerColor(node);
           var marker = L.circleMarker([lat, lng], {
-            radius: 8,
-            color: color,
+            radius: isExt ? 6 : 8,
+            color: isExt ? '#78350f' : color,
             fillColor: color,
             fillOpacity: 0.85,
-            weight: 2,
-            opacity: 1
+            weight: isExt ? 1.5 : 2,
+            opacity: 1,
+            dashArray: isExt ? '4 3' : null
           }).addTo(map);
 
-          // Permanent callsign label
+          // Callsign label (permanent for local, hover for external)
           marker.bindTooltip(esc(cs), {
-            permanent: true,
-            direction: 'bottom',
-            className: 'node-label',
-            offset: [0, 6]
+            permanent: !isExt,
+            direction: isExt ? 'right' : 'bottom',
+            className: isExt ? 'map-tooltip' : 'node-label',
+            offset: isExt ? [0, 0] : [0, 6]
           });
 
           // Popup
@@ -288,9 +249,10 @@
           if (node.nodeClass)    html += '<div class="popup-row"><i class="bi ' + iconCls + ' mr-1"></i><span>' + esc(node.nodeClass) + '</span></div>';
           if (node.nodeLocation) html += '<div class="popup-row"><i class="bi bi-geo-alt mr-1"></i><span>' + esc(node.nodeLocation) + '</span></div>';
           if (locator)           html += '<div class="popup-row"><i class="bi bi-grid-3x3-gap mr-1"></i><span class="font-mono">' + esc(locator) + '</span></div>';
-          if (rxFreq && rxFreq > 0) html += '<div class="popup-row">RX <span class="font-mono">' + rxFreq.toFixed(4) + ' MHz</span></div>';
-          if (txFreq && txFreq > 0) html += '<div class="popup-row">TX <span class="font-mono">' + txFreq.toFixed(4) + ' MHz</span></div>';
+          if (rxFreq && rxFreq > 0) html += '<div class="popup-row">RX <span class="font-mono">' + parseFloat(rxFreq).toFixed(4) + ' MHz</span></div>';
+          if (txFreq && txFreq > 0) html += '<div class="popup-row">TX <span class="font-mono">' + parseFloat(txFreq).toFixed(4) + ' MHz</span></div>';
           if (node.sysop)        html += '<div class="popup-row"><i class="bi bi-person mr-1"></i><span>' + esc(node.sysop) + '</span></div>';
+          if (node._external)   html += '<div class="popup-row" style="color:#d97706"><i class="bi bi-globe2 mr-1"></i><span>' + esc(node._external) + '</span></div>';
           if (node.links && node.links.length > 0) {
             html += '<div class="popup-row"><i class="bi bi-diagram-3 mr-1"></i>';
             if (node.remoteHost) html += '<span>' + esc(node.remoteHost) + '</span> ';
@@ -347,9 +309,10 @@
           if (node.nodeClass)    html += '<div class="popup-row"><i class="bi ' + iconCls + ' mr-1"></i><span>' + esc(node.nodeClass) + '</span></div>';
           if (node.nodeLocation) html += '<div class="popup-row"><i class="bi bi-geo-alt mr-1"></i><span>' + esc(node.nodeLocation) + '</span></div>';
           if (locator)           html += '<div class="popup-row"><i class="bi bi-grid-3x3-gap mr-1"></i><span class="font-mono">' + esc(locator) + '</span></div>';
-          if (rxFreq && rxFreq > 0) html += '<div class="popup-row">RX <span class="font-mono">' + rxFreq.toFixed(4) + ' MHz</span></div>';
-          if (txFreq && txFreq > 0) html += '<div class="popup-row">TX <span class="font-mono">' + txFreq.toFixed(4) + ' MHz</span></div>';
+          if (rxFreq && rxFreq > 0) html += '<div class="popup-row">RX <span class="font-mono">' + parseFloat(rxFreq).toFixed(4) + ' MHz</span></div>';
+          if (txFreq && txFreq > 0) html += '<div class="popup-row">TX <span class="font-mono">' + parseFloat(txFreq).toFixed(4) + ' MHz</span></div>';
           if (node.sysop)        html += '<div class="popup-row"><i class="bi bi-person mr-1"></i><span>' + esc(node.sysop) + '</span></div>';
+          if (node._external)   html += '<div class="popup-row" style="color:#d97706"><i class="bi bi-globe2 mr-1"></i><span>' + esc(node._external) + '</span></div>';
           if (node.links && node.links.length > 0) {
             html += '<div class="popup-row"><i class="bi bi-diagram-3 mr-1"></i>';
             if (node.remoteHost) html += '<span>' + esc(node.remoteHost) + '</span> ';
@@ -378,19 +341,22 @@
           var pos = node.qth && node.qth[0] && node.qth[0].pos;
           var lat = parseFloat(pos && pos.lat);
           var lng = parseFloat(pos && pos.long);
-          if (node.hidden || node.nodeClass !== 'repeater' || !isFinite(lat) || !isFinite(lng)) {
+          var nc = node.nodeClass;
+          if (node.hidden || (nc && nc !== 'repeater') || !isFinite(lat) || !isFinite(lng)) {
             if (markersByCs[cs]) { markersByCs[cs].remove(); delete markersByCs[cs]; }
             return;
           }
-          var color = markerColor(node);
+          var isExt = !!node._external;
+          var color = isExt ? (node.isTalker ? '#f59e0b' : (node.tg ? '#d97706' : '#92400e')) : markerColor(node);
           if (markersByCs[cs]) {
-            markersByCs[cs].setStyle({ color: color, fillColor: color });
+            markersByCs[cs].setStyle({ color: isExt ? '#78350f' : color, fillColor: color });
             markersByCs[cs].setPopupContent(buildPopupHtml(cs, node));
           } else {
             var marker = L.circleMarker([lat, lng], {
-              radius: 8, color: color, fillColor: color, fillOpacity: 0.85, weight: 2, opacity: 1
+              radius: isExt ? 6 : 8, color: isExt ? '#78350f' : color, fillColor: color,
+              fillOpacity: 0.85, weight: isExt ? 1.5 : 2, opacity: 1, dashArray: isExt ? '4 3' : null
             }).addTo(map);
-            marker.bindTooltip(esc(cs), { permanent: true, direction: 'bottom', className: 'node-label', offset: [0, 6] });
+            marker.bindTooltip(esc(cs), { permanent: !isExt, direction: isExt ? 'right' : 'bottom', className: isExt ? 'map-tooltip' : 'node-label', offset: isExt ? [0, 0] : [0, 6] });
             marker.bindPopup(buildPopupHtml(cs, node), { maxWidth: 260 });
             markersByCs[cs] = marker;
           }
