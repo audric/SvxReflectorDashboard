@@ -151,11 +151,11 @@
         .flex.items-center.gap-4
           .flex.items-center.gap-1.5
             %i.bi.bi-broadcast.text-gray-400{style: "font-size:.75rem"}
-            %span.font-bold.text-lg.text-gray-100= @node_rows.size
+            %span.font-bold.text-lg.text-gray-100#radio-repeater-count= @node_rows.size
             %span.text-xs.text-ghdim Repeaters
           .flex.items-center.gap-1.5
             %i.bi.bi-diagram-3.text-blue-400{style: "font-size:.75rem"}
-            %span.font-bold.text-lg.text-blue-400= @all_tgs.size
+            %span.font-bold.text-lg.text-blue-400#radio-tg-count= @all_tgs.size
             %span.text-xs.text-ghdim Talkgroups
         %button#chirp-export.text-sm.px-3.py-1.5.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "exportChirp()"}
           %i.bi.bi-download.mr-1
@@ -229,9 +229,39 @@
         var current = 'all';
         function apply() {
           btns.forEach(function(b) { b.classList.toggle('active', b.dataset.source === current); });
-          document.querySelectorAll('.matrix-table tbody tr[data-source]').forEach(function(row) {
-            row.style.display = (current === 'all' || row.dataset.source === current) ? '' : 'none';
+          var rows = document.querySelectorAll('.matrix-table tbody tr[data-source]');
+          var table = document.querySelector('.matrix-table');
+          var headerCells = table ? table.querySelectorAll('thead th') : [];
+          var colCount = headerCells.length;
+
+          // Find visible rows and which TG columns have tone pills
+          var visible = 0;
+          var activeCols = {};
+          rows.forEach(function(row) {
+            var show = current === 'all' || row.dataset.source === current;
+            row.style.display = show ? '' : 'none';
+            if (show) {
+              visible++;
+              var cells = row.children;
+              for (var i = 1; i < cells.length; i++) {
+                if (cells[i].querySelector('.tone-pill')) activeCols[i] = true;
+              }
+            }
           });
+
+          // Show/hide TG columns (header + body cells)
+          for (var c = 1; c < colCount; c++) {
+            var vis = !!activeCols[c] ? '' : 'none';
+            headerCells[c].style.display = vis;
+            rows.forEach(function(row) {
+              if (row.children[c]) row.children[c].style.display = vis;
+            });
+          }
+
+          var countEl = document.getElementById('radio-repeater-count');
+          var tgEl = document.getElementById('radio-tg-count');
+          if (countEl) countEl.textContent = visible;
+          if (tgEl) tgEl.textContent = Object.keys(activeCols).length;
         }
         btns.forEach(function(btn) {
           btn.addEventListener('click', function() {
