@@ -61,6 +61,7 @@
   - help["COUNTRY"] = "The ISO country code (C) used in the subject of the certificate. Example: COUNTRY=SE"
   - help["EMAIL_ADDRESS"] = "The email address that can be used to get in contact with the owner of the certificate. Example: EMAIL_ADDRESS=sysop@svxlink.example.org"
   - help["SUBJECT_ALT_NAME"] = "A comma separated list of subject alternative names. Example: SUBJECT_ALT_NAME=DNS:public-hostname.example.org,IP:172.17.1.42"
+  - help["TRUNK_SECTION_NAME"] = "Enter a short identifier for this trunk peer (e.g. REFA_REFB). The TRUNK_ prefix is added automatically to form the config section name (e.g. [TRUNK_REFA_REFB]). The section name must be identical on both sides of the trunk link. By convention, put the two reflector identifiers in alphabetical order — REFA_REFB, not REFB_REFA."
   - help["ALLOW"] = "A regular expression that must match the whole callsign of the nodes that try to select this talkgroup. The regular expression standard used is the same as for ECMAScript with the exception that the backslash special patterns (e.g. \\s, \\d etc) must be expressed with double backslash notation. An example that match most Swedish callsigns and a specific Norwegian one is \"S[A-M]\\\\d.*|LA8PV\"."
   - help["AUTO_QSY_AFTER"] = "Set this to the number of seconds after which an automatic QSY to a random talkgroup is requested. This is typically used to keep call channels and wide area channels clear so that stations does not dwell there for too long. Auto QSY is only triggered directly after a talker stop event. The default is that auto QSY is disabled (AUTO_QSY_AFTER=0)."
   - help["SHOW_ACTIVITY"] = "If set to 0, do not indicate in the HTTP status message when the talkgroup is in use by a node. Default is 1 = show activity."
@@ -289,8 +290,13 @@
                       %i.bi.bi-x-lg
                     .grid.grid-cols-1.md:grid-cols-2.gap-3
                       .col-span-1
-                        %label.block.text-sm.text-gray-500.mb-1 Section Name
-                        %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_names][]", value: trunk_name, placeholder: "TRUNK_2"}
+                        %label.block.text-sm.text-gray-500.mb-1
+                          Section Name
+                          %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('TRUNK_SECTION_NAME')", title: "Help"}
+                            %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                        .flex.items-center.gap-0
+                          %span.px-2.py-1.rounded-l.border.border-r-0.border-gray-600.text-sm.text-gray-500{class: "bg-[#161b22]"} TRUNK_
+                          %input.w-full.px-2.py-1.rounded-r.border.border-gray-600.text-sm.uppercase{class: "bg-[#0d1117]", type: "text", name: "config[trunk_names][]", value: trunk_name.delete_prefix("TRUNK_"), placeholder: "REFA_REFB"}
                       .col-span-1
                         %label.block.text-sm.text-gray-500.mb-1 HOST
                         %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_hosts][]", value: trunk['HOST']}
@@ -753,7 +759,7 @@
         div.className = 'trunk-peer border border-gray-700 rounded-lg p-4 relative';
         div.innerHTML = '<button type="button" class="absolute top-2 right-2 text-red-400 hover:text-red-300 cursor-pointer" onclick="confirmRemove(this,\'.trunk-peer\')"><i class="bi bi-x-lg"></i></button>' +
           '<div class="grid grid-cols-1 md:grid-cols-2 gap-3">' +
-            '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">Section Name</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_names][]" placeholder="TRUNK_2"></div>' +
+            '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">Section Name <button type="button" class="ml-1 text-gray-500 hover:text-blue-400 cursor-pointer" onclick="showHelp(\'TRUNK_SECTION_NAME\')" title="Help"><i class="bi bi-question-circle" style="font-size:0.75rem"></i></button></label><div class="flex items-center gap-0"><span class="px-2 py-1 rounded-l border border-r-0 border-gray-600 text-sm text-gray-500 bg-[#161b22]">TRUNK_</span><input class="w-full px-2 py-1 rounded-r border border-gray-600 text-sm uppercase bg-[#0d1117]" type="text" name="config[trunk_names][]" placeholder="REFA_REFB"></div></div>' +
             '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">HOST</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_hosts][]" placeholder="reflector-b.example.com"></div>' +
             '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">PORT</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_ports][]" placeholder="5302"></div>' +
             '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">SECRET</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_secrets][]"></div>' +
@@ -764,6 +770,21 @@
         var body = document.getElementById('body-trunking');
         if (!body.classList.contains('open')) toggleSection('trunking');
       }
+
+      // Auto-prefill Remote status URL from HOST
+      document.getElementById('trunk-peers').addEventListener('input', function(e) {
+        var input = e.target;
+        if (input.name === 'config[trunk_hosts][]') {
+          var row = input.closest('.trunk-peer');
+          if (!row) return;
+          var urlInput = row.querySelector('input[name="config[trunk_status_urls][]"]');
+          if (!urlInput || urlInput.dataset.userEdited) return;
+          var host = input.value.trim();
+          urlInput.value = host ? 'https://' + host + '/status' : '';
+        } else if (input.name === 'config[trunk_status_urls][]') {
+          input.dataset.userEdited = 'true';
+        }
+      });
 
       function addTgRule() {
         var container = document.getElementById('tg-rules');

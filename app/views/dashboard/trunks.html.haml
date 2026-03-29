@@ -94,14 +94,14 @@
               .rounded-lg.border.border-ghborder.p-4
                 .flex.items-center.gap-2.mb-3
                   - if connected
-                    %span.inline-block.w-2.5.h-2.5.rounded-full.bg-green-500{title: "Connected"}
+                    %span.inline-block.w-2.5.h-2.5.rounded-full.bg-green-500{title: "Outbound Connected"}
                   - elsif live
-                    %span.inline-block.w-2.5.h-2.5.rounded-full.bg-red-500{title: "Disconnected"}
+                    %span.inline-block.w-2.5.h-2.5.rounded-full.bg-red-500{title: "Outbound Disconnected"}
                   - else
                     %span.inline-block.w-2.5.h-2.5.rounded-full.bg-gray-600{title: "Unknown"}
                   %span.font-mono.text-sm.font-semibold.text-gray-100= name
                   %span.ml-auto.text-xs.px-2.py-0.5.rounded-full.font-semibold{class: connected ? "bg-green-900/50 text-green-400 border border-green-700" : "bg-red-900/50 text-red-400 border border-red-700"}
-                    = connected ? 'Connected' : 'Disconnected'
+                    = connected ? 'Outbound Connected' : 'Outbound Disconnected'
                 .space-y-1.5
                   .flex.items-center.gap-2
                     %i.bi.bi-globe.text-ghdim{style: "font-size:.7rem"}

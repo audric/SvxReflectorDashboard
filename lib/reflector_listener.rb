@@ -168,7 +168,12 @@ class ReflectorListener
         STDERR.puts "[Poller] Trunk #{tname} status thread started (#{url})"
         loop do
           begin
-            res = http_get(url)
+            uri = URI.parse(url)
+            http = Net::HTTP.new(uri.host.delete('[]'), uri.port)
+            http.use_ssl = uri.scheme == 'https'
+            http.open_timeout = 10
+            http.read_timeout = 10
+            res = http.get(uri.request_uri)
             if res.is_a?(Net::HTTPSuccess)
               data = JSON.parse(res.body)
               @trunk_status_mutex.synchronize { @trunk_status_cache[tname] = data }

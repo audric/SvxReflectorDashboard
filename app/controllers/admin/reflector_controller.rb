@@ -324,7 +324,9 @@ module Admin
         trunk_status_urls = Array(cfg[:trunk_status_urls])
         trunk_names.each_with_index do |name, i|
           next if name.blank?
-          config.trunks[name.strip] = {
+          section = name.strip.upcase
+          section = "TRUNK_#{section}" unless section.start_with?("TRUNK_")
+          config.trunks[section] = {
             "HOST" => trunk_hosts[i].to_s.strip,
             "PORT" => trunk_ports[i].to_s.strip,
             "SECRET" => trunk_secrets[i].to_s.strip,
