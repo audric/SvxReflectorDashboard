@@ -1031,6 +1031,7 @@
           var colEl = document.createElement('div');
           colEl.id = 'node-col-' + callsign;
           colEl.setAttribute('data-node-class', (n.nodeClass || '').toLowerCase());
+          colEl.setAttribute('data-source', n._external_type || 'local');
           colEl.appendChild(card);
 
           var grid = document.getElementById('nodes-grid');
@@ -1038,9 +1039,12 @@
             // Remove the "no nodes connected" placeholder if present
             var empty = grid.querySelector('.text-center.py-5');
             if (empty) empty.remove();
-            // Apply current filter
+            // Apply current filters
             var f = localStorage.getItem('nodes-filter') || 'all';
-            if (f !== 'all' && colEl.dataset.nodeClass !== f) colEl.style.display = 'none';
+            var s = localStorage.getItem('nodes-source') || 'all';
+            var classMatch = f === 'all' || colEl.dataset.nodeClass === f;
+            var sourceMatch = s === 'all' || colEl.dataset.source === s;
+            if (!classMatch || !sourceMatch) colEl.style.display = 'none';
             grid.appendChild(colEl);
           }
         }
