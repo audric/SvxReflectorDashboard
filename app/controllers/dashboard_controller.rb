@@ -15,14 +15,18 @@ class DashboardController < ApplicationController
     fetch_external_reflectors
     merge_external_nodes
 
+    all_visible = @nodes.reject { |_, n| n['hidden'] }
     # Only show repeaters with valid coordinates
-    @nodes = @nodes.select do |_, n|
-      next false if n['hidden']
+    @nodes = all_visible.select do |_, n|
       nc = n['nodeClass']
       next false if nc && nc != 'repeater'
       pos = n.dig('qth', 0, 'pos')
       pos && pos['lat'].present? && pos['long'].present?
     end
+    off_map = all_visible.reject { |cs, _| @nodes.key?(cs) }
+    @off_map_total   = off_map.size
+    @off_map_talking = off_map.count { |_, n| n['isTalker'] }
+    @off_map_active  = off_map.count { |_, n| n['tg'].to_i != 0 }
   end
 
   def tg
