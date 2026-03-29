@@ -198,6 +198,9 @@
           .inline-flex.rounded.border.border-ghborder.overflow-hidden#source-filters
             %button.source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", "data-source" => "all"}
               All
+            %button.source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-source" => "network"}
+              %i.bi.bi-hdd-network.mr-1
+              Network
             %button.source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-source" => "local"}
               %i.bi.bi-broadcast.mr-1
               Local
@@ -1043,7 +1046,7 @@
             var f = localStorage.getItem('nodes-filter') || 'all';
             var s = localStorage.getItem('nodes-source') || 'all';
             var classMatch = f === 'all' || colEl.dataset.nodeClass === f;
-            var sourceMatch = s === 'all' || colEl.dataset.source === s;
+            var sourceMatch = matchesSource(s, colEl.dataset.source);
             if (!classMatch || !sourceMatch) colEl.style.display = 'none';
             grid.appendChild(colEl);
           }
@@ -1304,19 +1307,25 @@
         var currentSource = localStorage.getItem('nodes-source') || 'all';
         var sourceBtns = document.querySelectorAll('.source-btn');
 
+        function matchesSource(src, nodeSource) {
+          if (src === 'all') return true;
+          if (src === 'network') return nodeSource === 'local' || nodeSource === 'trunk';
+          return nodeSource === src;
+        }
+
         function applyFilter() {
           updateFilterVisibility();
           filterBtns.forEach(function(b) { b.classList.toggle('active', b.dataset.filter === currentFilter); });
           sourceBtns.forEach(function(b) { b.classList.toggle('active', b.dataset.source === currentSource); });
           grid.querySelectorAll('[data-node-class]').forEach(function(col) {
             var classMatch = currentFilter === 'all' || col.dataset.nodeClass === currentFilter;
-            var sourceMatch = currentSource === 'all' || col.dataset.source === currentSource;
+            var sourceMatch = matchesSource(currentSource, col.dataset.source);
             col.style.display = (classMatch && sourceMatch) ? '' : 'none';
           });
           if (nodesTable) {
             nodesTable.querySelectorAll('tbody tr[data-node-class]').forEach(function(row) {
               var classMatch = currentFilter === 'all' || row.dataset.nodeClass === currentFilter;
-              var sourceMatch = currentSource === 'all' || row.dataset.source === currentSource;
+              var sourceMatch = matchesSource(currentSource, row.dataset.source);
               row.style.display = (classMatch && sourceMatch) ? '' : 'none';
             });
           }

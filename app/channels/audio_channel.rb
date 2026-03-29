@@ -145,6 +145,7 @@ class AudioChannel < ApplicationCable::Channel
   end
 
   def update_web_node_info(redis, callsign)
+    return if callsign.blank?
     meta = { sw: params[:sw].to_s, swVer: params[:sw_ver].to_s,
              nodeClass: params[:node_class].to_s, nodeLocation: params[:node_location].to_s,
              sysop: params[:sysop].to_s }.reject { |_, v| v.blank? }
