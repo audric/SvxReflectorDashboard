@@ -9,6 +9,16 @@ class ReflectorListener
   POLL_INTERVAL = 1 # seconds
   CONFIG_POLL_INTERVAL = 60 # seconds — how often to re-fetch /config
 
+  # Net::HTTP needs bare IPv6 addresses without the brackets that URI keeps.
+  def self.http_get(url)
+    uri = URI.parse(url)
+    http = Net::HTTP.new(uri.host.delete('[]'), uri.port)
+    http.use_ssl = uri.scheme == 'https'
+    http.open_timeout = 5
+    http.read_timeout = 5
+    http.get(uri.request_uri)
+  end
+
   def self.start(_host = nil, _port = nil)
     STDERR.puts "[Poller] Starting HTTP poll every #{POLL_INTERVAL}s"
 
@@ -22,7 +32,7 @@ class ReflectorListener
       loop do
         begin
           status_url = Setting.get('reflector_status_url', ENV.fetch('REFLECTOR_STATUS_URL', 'http://213.254.10.33:8181/status'))
-          res  = Net::HTTP.get_response(URI.parse(status_url))
+          res  = http_get(status_url)
           status_data = JSON.parse(res.body)
 
           curr             = status_data.fetch('nodes', {})
@@ -131,7 +141,7 @@ class ReflectorListener
   def self.fetch_config(status_url)
     uri = URI.parse(status_url)
     uri.path = '/config'
-    res = Net::HTTP.get_response(uri)
+    res = http_get(uri.to_s)
     return unless res.is_a?(Net::HTTPSuccess)
 
     config_data = JSON.parse(res.body)

@@ -240,16 +240,22 @@ class DashboardController < ApplicationController
     end
   end
 
+  # Net::HTTP needs bare IPv6 addresses without brackets;
+  # URI.parse keeps them as part of the host string.
+  def http_for_uri(uri)
+    http = Net::HTTP.new(uri.host.delete('[]'), uri.port)
+    http.use_ssl = uri.scheme == "https"
+    http.open_timeout = 3
+    http.read_timeout = 5
+    http
+  end
+
   def fetch_remote_config(url)
     cache_key = "trunk_remote_config:#{Digest::MD5.hexdigest(url)}"
     fresh = begin
       require "net/http"
       uri = URI(url)
-      http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl = uri.scheme == "https"
-      http.open_timeout = 3
-      http.read_timeout = 5
-      response = http.get(uri.request_uri)
+      response = http_for_uri(uri).get(uri.request_uri)
       response.is_a?(Net::HTTPSuccess) ? JSON.parse(response.body) : nil
     rescue => e
       Rails.logger.warn "[Trunks] Failed to fetch remote config #{url}: #{e.message}"
@@ -283,11 +289,7 @@ class DashboardController < ApplicationController
   def fetch_remote_nodes(url)
     require "net/http"
     uri = URI(url)
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = uri.scheme == "https"
-    http.open_timeout = 3
-    http.read_timeout = 5
-    response = http.get(uri.request_uri)
+    response = http_for_uri(uri).get(uri.request_uri)
     return nil unless response.is_a?(Net::HTTPSuccess)
     data = JSON.parse(response.body)
     data["nodes"] || {}

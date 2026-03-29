@@ -221,7 +221,8 @@
               if (!pos) return;
               var lat = parseFloat(pos.lat);
               var lng = parseFloat(pos.long || pos.lon);
-              if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) return;
+              if (!isFinite(lat) || !isFinite(lng) || lat === 0 || lng === 0) return;
+              if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
               var tg = node.tg || 0;
               var col = node.isTalker ? '#f59e0b' : (tg ? '#d97706' : '#92400e');
               var marker = L.circleMarker([lat, lng], {
@@ -252,9 +253,9 @@
         Object.keys(nodes).forEach(function (cs) {
           var node = nodes[cs];
           var pos = node.qth && node.qth[0] && node.qth[0].pos;
-          var lat = pos && pos.lat;
-          var lng = pos && pos.long;
-          if (!lat || !lng) return;
+          var lat = parseFloat(pos && pos.lat);
+          var lng = parseFloat(pos && pos.long);
+          if (!isFinite(lat) || !isFinite(lng)) return;
 
           var color  = markerColor(node);
           var marker = L.circleMarker([lat, lng], {
@@ -375,9 +376,9 @@
         // ── Live marker management ──────────────────────────────────────────────────
         function addOrUpdateMarker(cs, node) {
           var pos = node.qth && node.qth[0] && node.qth[0].pos;
-          var lat = pos && pos.lat;
-          var lng = pos && pos.long;
-          if (node.hidden || node.nodeClass !== 'repeater' || !lat || !lng) {
+          var lat = parseFloat(pos && pos.lat);
+          var lng = parseFloat(pos && pos.long);
+          if (node.hidden || node.nodeClass !== 'repeater' || !isFinite(lat) || !isFinite(lng)) {
             if (markersByCs[cs]) { markersByCs[cs].remove(); delete markersByCs[cs]; }
             return;
           }
