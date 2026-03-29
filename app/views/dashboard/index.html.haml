@@ -257,7 +257,7 @@
                 .flex.items-center.gap-2
                   %span.inline-block.px-2.py-0.5.text-xs.rounded.font-semibold.text-white{class: "bg-#{st_col}-600", id: "node-#{callsign}-status"}
                     = st_txt
-                  - if current_user&.reflector_admin?
+                  - if current_user&.reflector_admin? && !is_external
                     %button.block-node-btn.text-gray-500.hover:text-orange-400.cursor-pointer.transition-colors{type: "button", onclick: "openBlockModal('#{callsign}')", title: "Block node"}
                       %i.bi.bi-mic-mute{style: "font-size: 0.85rem"}
 
@@ -402,19 +402,20 @@
                         %span.t-tg= tg_num == 0 ? '— local' : tg_num
 
                 -# Sysop
-                - if node['sysop'].present?
-                  %div
-                    %i.bi.bi-person.mr-1
-                    = node['sysop']
+                - if node['sysop'].present? || node['_external']
+                  .flex.items-center.gap-2.flex-wrap
+                    - if node['sysop'].present?
+                      %span
+                        %i.bi.bi-person.mr-1
+                        = node['sysop']
+                    - if node['_external']
+                      %span.text-amber-600.cursor-pointer.hover:text-amber-400{onclick: "openExtModal('#{node['_external'].gsub("'", "\\\\'")}', '#{(node['_external_portal'] || '').gsub("'", "\\\\'")}')", title: "External reflector"}
+                        %i.bi.bi-globe2.mr-1
+                        = node['_external']
 
               .card-footer.flex.justify-between.px-3.py-1.node-detail
                 %span.text-gray-500{id: "node-#{callsign}-sw"}= [node['sw'], node['swVer'].to_s.sub(/(\.0)+$/, '')].reject(&:blank?).join(' ')
-                - if node['_external']
-                  %span.text-amber-600.text-xs
-                    %i.bi.bi-globe2.mr-1
-                    = node['_external']
-                - else
-                  %span.text-gray-500{id: "node-#{callsign}-updated"}
+                %span.text-gray-500{id: "node-#{callsign}-updated"}
 
         - if visible.empty?
           .text-center.text-gray-500.py-5
@@ -427,13 +428,10 @@
           %table.w-full.text-left.text-sm
             %thead
               %tr.bg-ghcard.border-b.border-ghborder
-                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Type
-                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Callsign
-                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Signal
-                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Status
-                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold TG
-                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Location
-                %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Software
+                - %w[type callsign signal status tg location software source].each do |col|
+                  %th.px-3.py-2.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold.cursor-pointer.hover:text-gray-300.select-none{"data-sort" => col, onclick: "sortTable('#{col}')", style: (col == 'type' ? 'width:120px;max-width:120px' : nil)}
+                    = col
+                    %i.bi.bi-chevron-expand.ml-1.opacity-50{style: "font-size:.6rem"}
             %tbody
               - sorted.each do |callsign, node|
                 - tg = node['tg'].to_i
@@ -445,7 +443,7 @@
                 - rx_ports = (node['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }
                 - best_sig = rx_ports.map { |_, r| r['siglev'] }.compact.max
                 %tr.border-b.border-ghborder2.hover:bg-ghcard{"data-node-class" => node_cls}
-                  %td.px-3.py-2
+                  %td.px-3.py-2.truncate{style: "width:120px;max-width:120px"}
                     %i.bi.mr-1{class: node_icon}
                     %span.capitalize= node_cls.presence || '—'
                   %td.px-3.py-2
@@ -476,13 +474,46 @@
                     - else
                       %span.text-gray-500 —
                   %td.px-3.py-2.text-gray-400= node['nodeLocation'].presence || '—'
-                  %td.px-3.py-2.text-gray-500{style: "font-size:.75rem"}
-                    = [node['sw'], node['swVer']].compact.join(' ').presence || '—'
+                  %td.px-3.py-2.text-gray-500{style: "font-size:.75rem"}= [node['sw'], node['swVer']].compact.join(' ').presence || '—'
+                  %td.px-3.py-2
                     - if node['_external']
-                      %span.text-amber-600.ml-2
+                      %span.text-amber-600.cursor-pointer.hover:text-amber-400{onclick: "openExtModal('#{node['_external'].gsub("'", "\\\\'")}', '#{(node['_external_portal'] || '').gsub("'", "\\\\'")}')", title: "External reflector"}
                         %i.bi.bi-globe2.mr-1
                         = node['_external']
+                    - else
+                      %span.text-gray-500 Local
 
+
+    -# ── External SVX Modal ──
+    #ext-modal.hidden.fixed.inset-0.z-50.items-center.justify-center{style: "background: rgba(0,0,0,0.6)"}
+      .bg-ghcard.border.border-gray-600.rounded-lg.p-6.shadow-xl{style: "width: 380px; max-width: 95vw;"}
+        .flex.items-center.gap-3.mb-4
+          .w-10.h-10.rounded-full.flex.items-center.justify-center.shrink-0{class: "bg-amber-500/15"}
+            %i.bi.bi-globe2.text-amber-400
+          %h6.text-lg.font-semibold.text-gray-100#ext-modal-title External Reflector
+        %p.text-sm.text-gray-400.mb-4
+          This node is connected to the
+          %span.font-semibold.text-amber-400#ext-modal-name
+          reflector. Its data is fetched from that reflector's status API.
+        .flex.justify-end.gap-2
+          %button.px-4.py-2.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer.text-sm{type: "button", onclick: "closeExtModal()"} Close
+          %a#ext-modal-link.px-4.py-2.rounded-md.bg-amber-600.hover:bg-amber-700.text-white.font-semibold.text-sm.hidden{target: "_blank"}
+            %i.bi.bi-box-arrow-up-right.mr-1
+            Open Dashboard
+
+    :javascript
+      function openExtModal(name, portalUrl) {
+        document.getElementById('ext-modal-name').textContent = name;
+        document.getElementById('ext-modal-title').textContent = name;
+        var link = document.getElementById('ext-modal-link');
+        if (portalUrl) { link.href = portalUrl; link.classList.remove('hidden'); }
+        else { link.classList.add('hidden'); }
+        document.getElementById('ext-modal').style.display = 'flex';
+      }
+      function closeExtModal() { document.getElementById('ext-modal').style.display = 'none'; }
+      document.getElementById('ext-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeExtModal();
+      });
 
     - if current_user&.reflector_admin?
       -# ── Block Node Modal ──
@@ -527,6 +558,8 @@
         var clusterTgs = #{cluster_tgs_json};
         var trunks = #{trunks_json};
         var satellites = #{satellites_json};
+        var tableSortCol = null;
+        var tableSortAsc = true;
 
         // ── Utilities ──────────────────────────────────────────────────────────────
         function setText(id, val) {
@@ -1071,16 +1104,60 @@
           ws.onerror = function () { setWs('disconnected'); };
         }
 
+        function tableSortVal(cs, col) {
+          var n = nodes[cs];
+          switch (col) {
+            case 'type': return (n.nodeClass || '').toLowerCase();
+            case 'callsign': return cs.toLowerCase();
+            case 'signal':
+              var rx = n.qth && n.qth[0] && n.qth[0].rx;
+              if (!rx) return -999;
+              var sigs = Object.keys(rx).map(function(k) { return rx[k].siglev; }).filter(function(s) { return s !== undefined && s !== null; });
+              return sigs.length ? Math.max.apply(null, sigs) : -999;
+            case 'status': return n.isTalker ? 0 : (n.tg ? 1 : 2);
+            case 'tg': return n.tg || 0;
+            case 'location': return (n.nodeLocation || '').toLowerCase();
+            case 'software': return [n.sw, n.swVer].filter(Boolean).join(' ').toLowerCase();
+            case 'source': return (n._external || '').toLowerCase();
+            default: return '';
+          }
+        }
+
+        window.sortTable = function(col) {
+          if (tableSortCol === col) {
+            if (tableSortAsc) { tableSortAsc = false; }
+            else { tableSortCol = null; tableSortAsc = true; }
+          } else { tableSortCol = col; tableSortAsc = true; }
+          // Update header icons
+          document.querySelectorAll('#nodes-table th[data-sort]').forEach(function(th) {
+            var icon = th.querySelector('i.bi');
+            if (!icon) return;
+            if (tableSortCol && th.dataset.sort === tableSortCol) {
+              icon.className = 'bi ml-1 ' + (tableSortAsc ? 'bi-chevron-up' : 'bi-chevron-down');
+              icon.style.opacity = '1';
+            } else {
+              icon.className = 'bi bi-chevron-expand ml-1';
+              icon.style.opacity = '0.5';
+            }
+          });
+          rebuildTable();
+        };
+
         function rebuildTable() {
           if (!nodesTable) return;
           var tbody = nodesTable.querySelector('tbody');
           if (!tbody) return;
           var iconMap = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', echolink: 'bi-headset', simplex: 'bi-broadcast' };
           var sorted = Object.keys(nodes).filter(function(cs) { return !nodes[cs].hidden; }).sort(function(a, b) {
-            var na = nodes[a], nb = nodes[b];
-            var ra = na.isTalker ? 0 : (na.tg ? 1 : 2);
-            var rb = nb.isTalker ? 0 : (nb.tg ? 1 : 2);
-            return ra !== rb ? ra - rb : a.localeCompare(b);
+            if (!tableSortCol) {
+              var na = nodes[a], nb = nodes[b];
+              var ra = na.isTalker ? 0 : (na.tg ? 1 : 2);
+              var rb = nb.isTalker ? 0 : (nb.tg ? 1 : 2);
+              return ra !== rb ? ra - rb : a.localeCompare(b);
+            }
+            var va = tableSortVal(a, tableSortCol), vb = tableSortVal(b, tableSortCol);
+            var cmp = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb));
+            return tableSortAsc ? cmp : -cmp;
           });
           var h = '';
           sorted.forEach(function(cs) {
@@ -1117,13 +1194,20 @@
               }
             }
             h += '<tr class="border-b border-ghborder2 hover:bg-ghcard" data-node-class="' + esc(nc) + '">';
-            h += '<td class="px-3 py-2"><i class="bi ' + icon + ' mr-1"></i><span class="capitalize">' + (nc || '—') + '</span></td>';
+            h += '<td class="px-3 py-2 truncate" style="width:120px;max-width:120px"><i class="bi ' + icon + ' mr-1"></i><span class="capitalize">' + (nc || '—') + '</span></td>';
             h += '<td class="px-3 py-2">' + (isTalker ? '<i class="bi bi-mic-fill text-green-500 mr-1" style="font-size:.7rem"></i>' : '') + '<strong class="font-mono text-gray-100">' + esc(cs) + '</strong></td>';
             h += '<td class="px-3 py-2">' + (sig || '<span class="text-gray-500">—</span>') + '</td>';
             h += '<td class="px-3 py-2"><span class="inline-block px-2 py-0.5 text-xs rounded font-semibold bg-' + stCol + '-600 text-white">' + stTxt + '</span></td>';
             h += '<td class="px-3 py-2">' + (tg ? '<span class="font-mono text-yellow-500 font-semibold">' + tg + '</span>' : '<span class="text-gray-500">—</span>') + '</td>';
             h += '<td class="px-3 py-2 text-gray-400">' + esc(n.nodeLocation || '—') + '</td>';
             h += '<td class="px-3 py-2 text-gray-500" style="font-size:.75rem">' + esc([n.sw, n.swVer].filter(Boolean).join(' ') || '—') + '</td>';
+            var ext = n._external;
+            if (ext) {
+              var extPortal = n._external_portal || '';
+              h += '<td class="px-3 py-2"><span class="text-amber-600 cursor-pointer hover:text-amber-400" onclick="openExtModal(\'' + esc(ext).replace(/'/g,'&#39;') + '\',\'' + esc(extPortal).replace(/'/g,'&#39;') + '\')"><i class="bi bi-globe2 mr-1"></i>' + esc(ext) + '</span></td>';
+            } else {
+              h += '<td class="px-3 py-2 text-gray-500">Local</td>';
+            }
             h += '</tr>';
           });
           tbody.innerHTML = h;
