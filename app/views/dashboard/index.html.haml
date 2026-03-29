@@ -1044,7 +1044,7 @@
             if (empty) empty.remove();
             // Apply current filters
             var f = localStorage.getItem('nodes-filter') || 'all';
-            var s = localStorage.getItem('nodes-source') || 'all';
+            var s = localStorage.getItem('nodes-source') || 'network';
             var classMatch = f === 'all' || colEl.dataset.nodeClass === f;
             var sourceMatch = matchesSource(s, colEl.dataset.source);
             if (!classMatch || !sourceMatch) colEl.style.display = 'none';
@@ -1304,7 +1304,7 @@
             localStorage.setItem('nodes-filter', currentFilter);
           }
         }
-        var currentSource = localStorage.getItem('nodes-source') || 'all';
+        var currentSource = localStorage.getItem('nodes-source') || 'network';
         var sourceBtns = document.querySelectorAll('.source-btn');
 
         function matchesSource(src, nodeSource) {
