@@ -159,16 +159,20 @@ class ReflectorListener
   @trunk_status_mutex = Mutex.new
 
   def self.start_trunk_status_threads
-    config = ReflectorConfig.load
-    config.trunks.each do |name, cfg|
-      next unless cfg['STATUS_URL'].present?
+    # Read trunk STATUS_URLs from Redis (published by the web container)
+    redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
+    raw = redis.get('reflector:trunk_status_urls')
+    trunk_urls = raw ? JSON.parse(raw) : {}
+
+    trunk_urls.each do |name, url|
+      next if url.blank?
       next if @trunk_status_threads[name]&.alive?
 
-      @trunk_status_threads[name] = Thread.new(name, cfg['STATUS_URL']) do |tname, url|
-        STDERR.puts "[Poller] Trunk #{tname} status thread started (#{url})"
+      @trunk_status_threads[name] = Thread.new(name, url) do |tname, turl|
+        STDERR.puts "[Poller] Trunk #{tname} status thread started (#{turl})"
         loop do
           begin
-            uri = URI.parse(url)
+            uri = URI.parse(turl)
             http = Net::HTTP.new(uri.host.delete('[]'), uri.port)
             http.use_ssl = uri.scheme == 'https'
             http.open_timeout = 10
@@ -187,7 +191,7 @@ class ReflectorListener
     end
 
     # Clean up threads for trunks that no longer have a STATUS_URL
-    trunk_names = config.trunks.select { |_, c| c['STATUS_URL'].present? }.keys
+    trunk_names = trunk_urls.keys
     (@trunk_status_threads.keys - trunk_names).each do |old|
       @trunk_status_threads.delete(old)&.kill
       @trunk_status_mutex.synchronize { @trunk_status_cache.delete(old) }

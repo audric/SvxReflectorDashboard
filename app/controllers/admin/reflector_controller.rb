@@ -6,6 +6,7 @@ module Admin
     def edit
       @config = ReflectorConfig.load
       @has_certs = Dir.glob(Rails.root.join("reflector_pki", "certs", "*.crt")).any?
+      publish_trunk_status_urls(@config)
     end
 
     def backups
@@ -345,6 +346,7 @@ module Admin
       end
 
       config.save
+      publish_trunk_status_urls(config)
       restart_svxreflector
       refresh_reflector_config_cache
       redirect_to edit_admin_reflector_path, notice: "Configuration saved and svxreflector restarted."
@@ -385,6 +387,20 @@ module Admin
           Rails.logger.warn "[ReflectorConfig] Config cache refresh failed: #{e.message}"
         end
       end
+    end
+
+    # Publish trunk STATUS_URLs to Redis so the updater can start polling threads
+    # without needing direct access to svxreflector.conf
+    def publish_trunk_status_urls(config = nil)
+      config ||= ReflectorConfig.load
+      urls = {}
+      config.trunks.each do |name, cfg|
+        urls[name] = cfg['STATUS_URL'] if cfg['STATUS_URL'].present?
+      end
+      redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://redis:6379/1'))
+      redis.set('reflector:trunk_status_urls', urls.to_json)
+    rescue => e
+      Rails.logger.warn "[ReflectorConfig] Failed to publish trunk STATUS_URLs: #{e.message}"
     end
 
     def restart_svxreflector
