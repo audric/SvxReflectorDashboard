@@ -245,8 +245,9 @@
           - node_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'xlx' => 'bi-globe', 'dmr' => 'bi-broadcast-pin', 'ysf' => 'bi-soundwave', 'allstar' => 'bi-telephone', 'echolink' => 'bi-headset', 'simplex' => 'bi-broadcast' }.fetch(node['nodeClass'].to_s, 'bi-broadcast')
           - rx_ports  = (node['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }
 
+          - is_external = node['_external'].present?
           %div{id: "node-col-#{callsign}", "data-node-class" => node['nodeClass'].to_s.downcase}
-            .rounded-lg.node-card.h-full{class: st_cls, id: "node-#{callsign}", "data-callsign" => callsign}
+            .rounded-lg.node-card.h-full{class: st_cls, id: "node-#{callsign}", "data-callsign" => callsign, style: (is_external ? "border-color: #92400e" : nil)}
 
               -# ── Card header: callsign + mic + status badge ──
               .card-header.flex.items-center.justify-between.py-2.px-3
@@ -408,7 +409,12 @@
 
               .card-footer.flex.justify-between.px-3.py-1.node-detail
                 %span.text-gray-500{id: "node-#{callsign}-sw"}= [node['sw'], node['swVer'].to_s.sub(/(\.0)+$/, '')].reject(&:blank?).join(' ')
-                %span.text-gray-500{id: "node-#{callsign}-updated"}
+                - if node['_external']
+                  %span.text-amber-600.text-xs
+                    %i.bi.bi-globe2.mr-1
+                    = node['_external']
+                - else
+                  %span.text-gray-500{id: "node-#{callsign}-updated"}
 
         - if visible.empty?
           .text-center.text-gray-500.py-5
@@ -470,7 +476,12 @@
                     - else
                       %span.text-gray-500 —
                   %td.px-3.py-2.text-gray-400= node['nodeLocation'].presence || '—'
-                  %td.px-3.py-2.text-gray-500{style: "font-size:.75rem"}= [node['sw'], node['swVer']].compact.join(' ').presence || '—'
+                  %td.px-3.py-2.text-gray-500{style: "font-size:.75rem"}
+                    = [node['sw'], node['swVer']].compact.join(' ').presence || '—'
+                    - if node['_external']
+                      %span.text-amber-600.ml-2
+                        %i.bi.bi-globe2.mr-1
+                        = node['_external']
 
 
     - if current_user&.reflector_admin?

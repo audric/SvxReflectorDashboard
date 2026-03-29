@@ -25,7 +25,12 @@
 
   .mb-4.flex.items-center.gap-2
     = f.check_box :enabled, class: "rounded border-gray-600 bg-[#0d1117]"
-    = f.label :enabled, "Enabled (show on map)", class: "text-sm text-gray-400"
+    = f.label :enabled, "Enabled (show on map and dashboard)", class: "text-sm text-gray-400"
+
+  .mb-4.flex.items-center.gap-2
+    = f.check_box :poll, class: "rounded border-gray-600 bg-[#0d1117]"
+    = f.label :poll, "Poll (live updates via background poller)", class: "text-sm text-gray-400"
+    %p.text-xs.text-ghmuted.ml-2 When enabled, the updater polls this reflector's status and pushes live updates to connected browsers.
 
   .flex.gap-2
     = f.submit (reflector.persisted? ? "Update" : "Add Reflector"), class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"

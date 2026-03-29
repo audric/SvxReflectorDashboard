@@ -43,7 +43,7 @@ module Admin
     end
 
     def reflector_params
-      params.require(:external_reflector).permit(:name, :status_url, :portal_url, :description, :enabled)
+      params.require(:external_reflector).permit(:name, :status_url, :portal_url, :description, :enabled, :poll)
     end
   end
 end

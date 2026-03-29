@@ -74,10 +74,14 @@
           %i.bi.bi-gear.mr-1
           Local Configuration
 
-        - if @local_prefix.present?
+        - if @reflector_config['version'].present? || @local_prefix.present? || @cluster_tgs.any?
           .mb-3
-            %span.text-xs.text-ghmuted LOCAL_PREFIX:
-            %span.text-xs.font-mono.text-cyan-400.ml-1= @local_prefix
+            - if @reflector_config['version'].present?
+              %span.text-xs.text-ghmuted Version:
+              %span.text-xs.font-mono.text-gray-300.ml-1= @reflector_config['version']
+            - if @local_prefix.present?
+              %span.text-xs.text-ghmuted{class: @reflector_config['version'].present? ? 'ml-3' : ''} LOCAL_PREFIX:
+              %span.text-xs.font-mono.text-cyan-400.ml-1= @local_prefix
             - if @cluster_tgs.any?
               %span.text-xs.text-ghmuted.ml-3 CLUSTER_TGS:
               %span.text-xs.font-mono.text-cyan-400.ml-1= @cluster_tgs.join(', ')
@@ -137,6 +141,11 @@
                     - r_local_prefix = remote.dig('global', 'LOCAL_PREFIX') || remote['local_prefix']
                     - r_cluster_tgs = remote['cluster_tgs'] || []
                     .space-y-1.5
+                      - if remote['version'].present?
+                        .flex.items-center.gap-2
+                          %i.bi.bi-code-square.text-ghdim{style: "font-size:.7rem"}
+                          %span.text-xs.text-ghmuted Version
+                          %span.text-xs.font-mono.text-gray-300.ml-auto= remote['version']
                       .flex.items-center.gap-2
                         %i.bi.bi-broadcast-pin.text-ghdim{style: "font-size:.7rem"}
                         %span.text-xs.text-ghmuted Mode

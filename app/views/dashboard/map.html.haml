@@ -215,11 +215,13 @@
             var portalUrl = ref.portal_url;
             Object.keys(refNodes).forEach(function(cs) {
               var node = refNodes[cs];
+              var nc = node.nodeClass;
+              if (nc && nc !== 'repeater') return;
               var pos = node.qth && node.qth[0] && node.qth[0].pos;
               if (!pos) return;
               var lat = parseFloat(pos.lat);
               var lng = parseFloat(pos.long || pos.lon);
-              if (isNaN(lat) || isNaN(lng)) return;
+              if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) return;
               var tg = node.tg || 0;
               var col = node.isTalker ? '#f59e0b' : (tg ? '#d97706' : '#92400e');
               var marker = L.circleMarker([lat, lng], {
@@ -238,6 +240,7 @@
               marker.bindTooltip(esc(cs), { permanent: false, direction: 'right', className: 'map-tooltip' });
               layer.addLayer(marker);
             });
+            layer.addTo(map);
             layerControl.addOverlay(layer, '<i class="bi bi-globe2 mr-1" style="color:#d97706"></i>' + esc(refName));
           });
         } catch(e) { console.warn('[External SVX] Map overlay error:', e); }

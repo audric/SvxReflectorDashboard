@@ -4,6 +4,8 @@ class DashboardController < ApplicationController
   def index
     fetch_nodes
     fetch_extended
+    fetch_external_reflectors
+    merge_external_nodes
     load_sql_timeout
   end
 
@@ -199,6 +201,17 @@ class DashboardController < ApplicationController
     @sql_timeout_ms = val > 0 ? val * 1000 : nil
   end
 
+  def merge_external_nodes
+    return unless @external_reflectors.is_a?(Hash)
+    @external_reflectors.each do |ref_name, ref_data|
+      (ref_data[:nodes] || {}).each do |cs, node|
+        next if node['hidden']
+        next if @nodes.key?(cs) # local node takes precedence
+        @nodes[cs] = node.merge('_external' => ref_name, '_external_portal' => ref_data[:portal_url])
+      end
+    end
+  end
+
   def fetch_nodes
     begin
       redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
@@ -228,7 +241,8 @@ class DashboardController < ApplicationController
   end
 
   def fetch_remote_config(url)
-    Rails.cache.fetch("trunk_remote_config:#{Digest::MD5.hexdigest(url)}", expires_in: 60.seconds) do
+    cache_key = "trunk_remote_config:#{Digest::MD5.hexdigest(url)}"
+    fresh = begin
       require "net/http"
       uri = URI(url)
       http = Net::HTTP.new(uri.host, uri.port)
@@ -236,12 +250,18 @@ class DashboardController < ApplicationController
       http.open_timeout = 3
       http.read_timeout = 5
       response = http.get(uri.request_uri)
-      return nil unless response.is_a?(Net::HTTPSuccess)
-      JSON.parse(response.body)
+      response.is_a?(Net::HTTPSuccess) ? JSON.parse(response.body) : nil
+    rescue => e
+      Rails.logger.warn "[Trunks] Failed to fetch remote config #{url}: #{e.message}"
+      nil
     end
-  rescue => e
-    Rails.logger.warn "[Trunks] Failed to fetch remote config #{url}: #{e.message}"
-    nil
+
+    if fresh
+      Rails.cache.write(cache_key, fresh, expires_in: 5.minutes)
+      fresh
+    else
+      Rails.cache.read(cache_key) # return last known good value
+    end
   end
 
   def fetch_external_reflectors
