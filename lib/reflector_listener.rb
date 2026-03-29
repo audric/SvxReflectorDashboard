@@ -142,7 +142,7 @@ class ReflectorListener
       # Cache trunk status data for remote peer view on /trunks
       trunk_data = @trunk_status_mutex.synchronize { @trunk_status_cache.dup }
       trunk_data.each do |name, data|
-        pipe.set("reflector:trunk_status:#{name}", data.to_json)
+        pipe.set("reflector:trunk_status:#{name}", data.to_json, ex: 60)
       end
     end
   rescue => e

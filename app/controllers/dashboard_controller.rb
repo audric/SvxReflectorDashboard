@@ -173,11 +173,30 @@ class DashboardController < ApplicationController
     @local_prefix = @local_config.global['LOCAL_PREFIX']
 
     # Read remote peer status from Redis (cached by trunk status threads)
+    # Falls back to direct fetch if Redis key is missing (e.g. after restart)
     @remote_configs = {}
     redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://redis:6379/1'))
-    @local_trunks.each do |name, _|
+    @local_trunks.each do |name, cfg|
       data = redis.get("reflector:trunk_status:#{name}")
-      @remote_configs[name] = JSON.parse(data) if data
+      if data
+        @remote_configs[name] = JSON.parse(data)
+      elsif cfg['STATUS_URL'].present?
+        begin
+          uri = URI.parse(cfg['STATUS_URL'])
+          http = Net::HTTP.new(uri.host.delete('[]'), uri.port)
+          http.use_ssl = uri.scheme == 'https'
+          http.open_timeout = 3
+          http.read_timeout = 3
+          res = http.get(uri.request_uri)
+          if res.is_a?(Net::HTTPSuccess)
+            parsed = JSON.parse(res.body)
+            redis.set("reflector:trunk_status:#{name}", parsed.to_json, ex: 60)
+            @remote_configs[name] = parsed
+          end
+        rescue => e
+          Rails.logger.debug "[Trunks] Fallback fetch for #{name} failed: #{e.message}"
+        end
+      end
     end
 
     # Recent trunk and satellite events
