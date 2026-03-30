@@ -62,20 +62,6 @@
       .badge-active  { background: #1f3a5f; color: #79c0ff; border: 1px solid #1f6feb; border-radius: .25em; padding: .1em .45em; font-size: .72rem; font-weight: 600; }
       .badge-idle    { background: #21262d; color: #8b949e; border: 1px solid #30363d; border-radius: .25em; padding: .1em .45em; font-size: .72rem; }
 
-      /* ── Node callsign labels ───────────────────────────────────────────────── */
-      .node-label {
-        background: rgba(13, 17, 23, 0.82) !important;
-        border: 1px solid #30363d !important;
-        color: #c9d1d9 !important;
-        font-family: monospace !important;
-        font-size: .7rem !important;
-        font-weight: 600 !important;
-        padding: .1em .4em !important;
-        border-radius: .2em !important;
-        box-shadow: none !important;
-        white-space: nowrap !important;
-      }
-      .node-label::before { display: none !important; } /* hide tooltip arrow */
 
       /* ── Layer control dark skin ────────────────────────────────────────────── */
       .leaflet-control-layers {
@@ -97,6 +83,81 @@
         color: #c9d1d9 !important;
       }
       .leaflet-bar a:hover { background-color: #21262d !important; }
+
+      /* ── Map filters ──────────────────────────────────────────────────────── */
+      .map-filters {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: .4rem;
+        padding: .5rem .6rem;
+        font-size: .78rem;
+        color: #8b949e;
+        max-width: 360px;
+      }
+      .map-filters .filter-title {
+        font-size: .62rem;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        font-weight: 600;
+        color: #6e7681;
+        margin-bottom: .3rem;
+      }
+      .map-filters .filter-title:not(:first-child) { margin-top: .5rem; }
+      .map-filters .filter-toggle {
+        display: flex; align-items: center; justify-content: space-between;
+        cursor: pointer; user-select: none; margin-bottom: .3rem;
+      }
+      .map-filters .filter-toggle-label {
+        font-size: .72rem; font-weight: 700; color: #c9d1d9;
+        letter-spacing: .04em;
+      }
+      .map-filters .filter-toggle i { color: #6e7681; transition: transform .2s; font-size: .7rem; }
+      .map-filters .filter-toggle-icon { display: none; font-size: 1rem; color: #c9d1d9; }
+      .map-filters .filter-toggle i.open { transform: rotate(180deg); }
+      .map-filters .filter-body { overflow: hidden; transition: max-height .2s ease; }
+      .map-filters .filter-body.collapsed { max-height: 0 !important; }
+      .map-filter-btn {
+        display: inline-block;
+        padding: .15rem .45rem;
+        font-size: .7rem;
+        border-radius: .25rem;
+        cursor: pointer;
+        color: #8b949e;
+        border: 1px solid #30363d;
+        background: transparent;
+        margin: .1rem .1rem;
+        transition: background .15s, color .15s;
+      }
+      .map-filter-btn:hover { color: #c9d1d9; border-color: #6e7681; }
+      .map-filter-btn.active { background: #1f3a5f; color: #79c0ff; border-color: #1f6feb; }
+
+      /* ── Icon markers ─────────────────────────────────────────────────────── */
+      .map-marker {
+        display: flex; align-items: center; justify-content: center;
+        width: 36px; height: 36px; border-radius: 50%;
+        border: 2px solid rgba(255,255,255,.3);
+        font-size: 16px; color: #fff;
+        box-shadow: 0 1px 4px rgba(0,0,0,.4);
+        transition: transform .15s;
+      }
+      .map-marker:hover { transform: scale(1.2); }
+      .map-marker-ext {
+        width: 28px; height: 28px; font-size: 13px;
+        border-style: dashed; opacity: .9;
+      }
+      .map-marker-talking { animation: marker-pulse 1s ease infinite; }
+      @keyframes marker-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(63,185,80,.5); } 50% { box-shadow: 0 0 0 8px rgba(63,185,80,0); } }
+
+      @media (max-width: 767px) {
+        .map-filters .filter-toggle-label { display: none; }
+        .map-filters .filter-toggle-icon { display: block; }
+        .map-filters #filter-chevron { display: none; }
+        .map-filters .filter-body { display: none; }
+        .map-filters.expanded .filter-toggle-label { display: inline; }
+        .map-filters.expanded .filter-toggle-icon { display: none; }
+        .map-filters.expanded #filter-chevron { display: inline; }
+        .map-filters.expanded .filter-body { display: block; }
+      }
 
       /* ── Legend ─────────────────────────────────────────────────────────────── */
       .map-legend {
@@ -227,6 +288,163 @@
           offMap.addTo(map);
         }
 
+        // ── Filter control ─────────────────────────────────────────────────────────
+        var currentTypeFilter = 'all';
+        var currentSourceFilter = 'network';
+        var markerMeta = {}; // cs → { nodeClass, source }
+
+        var filterCtrl = L.control({ position: 'topleft' });
+        filterCtrl.onAdd = function () {
+          var div = L.DomUtil.create('div', 'map-filters');
+          L.DomEvent.disableClickPropagation(div);
+          L.DomEvent.disableScrollPropagation(div);
+
+          var sourceTypes = [
+            ['all', 'All'],
+            ['network', '<i class="bi bi-hdd-network"></i> Network'],
+            ['local', '<i class="bi bi-broadcast"></i> Local'],
+            ['trunk', '<i class="bi bi-diagram-3"></i> Trunk'],
+            ['svx', '<i class="bi bi-globe2"></i> Ext SVX']
+          ];
+          var nodeTypes = [
+            ['all', 'All'], ['repeater', 'Repeater'], ['bridge', 'Bridge'],
+            ['echolink', 'EchoLink'], ['xlx', 'XLX'], ['dmr', 'DMR'],
+            ['ysf', 'YSF'], ['allstar', 'AllStar'], ['zello', 'Zello'],
+            ['iax', 'IAX'], ['sip', 'SIP'], ['simplex', 'Simplex']
+          ];
+
+          var startCollapsed = window.innerWidth < 768;
+
+          var html = '<div class="filter-toggle" id="filter-toggle">' +
+                     '<span class="filter-toggle-label"><i class="bi bi-funnel mr-1"></i>Filters</span>' +
+                     '<i class="bi bi-funnel filter-toggle-icon"></i>' +
+                     '<i class="bi bi-chevron-down' + (startCollapsed ? '' : ' open') + '" id="filter-chevron"></i>' +
+                     '</div>' +
+                     '<div class="filter-body' + (startCollapsed ? ' collapsed' : '') + '" id="filter-body" style="max-height:500px">';
+          html += '<div class="filter-title">Source</div><div class="source-btns">';
+          sourceTypes.forEach(function(st) {
+            html += '<button class="map-filter-btn' + (st[0] === 'network' ? ' active' : '') + '" data-source="' + st[0] + '">' + st[1] + '</button>';
+          });
+          html += '</div><div class="filter-title">Type</div><div class="type-btns">';
+          nodeTypes.forEach(function(nt) {
+            html += '<button class="map-filter-btn' + (nt[0] === 'all' ? ' active' : '') + '" data-type="' + nt[0] + '">' + nt[1] + '</button>';
+          });
+          html += '</div></div>';
+          div.innerHTML = html;
+
+          // Toggle collapse
+          div.querySelector('#filter-toggle').addEventListener('click', function() {
+            var body = div.querySelector('#filter-body');
+            var chevron = div.querySelector('#filter-chevron');
+            body.classList.toggle('collapsed');
+            chevron.classList.toggle('open');
+            div.classList.toggle('expanded');
+          });
+
+          div.querySelectorAll('[data-source]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+              currentSourceFilter = btn.dataset.source;
+              div.querySelectorAll('[data-source]').forEach(function(b) { b.classList.toggle('active', b.dataset.source === currentSourceFilter); });
+              applyMapFilters();
+            });
+          });
+          div.querySelectorAll('[data-type]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+              currentTypeFilter = btn.dataset.type;
+              div.querySelectorAll('[data-type]').forEach(function(b) { b.classList.toggle('active', b.dataset.type === currentTypeFilter); });
+              applyMapFilters();
+            });
+          });
+
+          return div;
+        };
+        filterCtrl.addTo(map);
+
+        function sourceMatches(source, filter) {
+          if (filter === 'all') return true;
+          if (filter === 'network') return source === 'local' || source === 'trunk';
+          return source === filter;
+        }
+
+        function applyMapFilters() {
+          // Count which node types exist for the current source filter
+          var typeCounts = {};
+          Object.keys(markersByCs).forEach(function(cs) {
+            var meta = markerMeta[cs];
+            if (!meta) return;
+            if (sourceMatches(meta.source, currentSourceFilter)) {
+              typeCounts[meta.nodeClass] = (typeCounts[meta.nodeClass] || 0) + 1;
+            }
+          });
+
+          // Show/hide type buttons based on available types
+          var typeBtns = document.querySelectorAll('[data-type]');
+          typeBtns.forEach(function(btn) {
+            var t = btn.dataset.type;
+            if (t === 'all') {
+              btn.style.display = '';
+            } else {
+              btn.style.display = typeCounts[t] ? '' : 'none';
+            }
+          });
+
+          // If current type filter has no markers, reset to 'all'
+          if (currentTypeFilter !== 'all' && !typeCounts[currentTypeFilter]) {
+            currentTypeFilter = 'all';
+            typeBtns.forEach(function(b) { b.classList.toggle('active', b.dataset.type === 'all'); });
+          }
+
+          // Apply visibility
+          Object.keys(markersByCs).forEach(function(cs) {
+            var meta = markerMeta[cs];
+            if (!meta) return;
+            var typeMatch = currentTypeFilter === 'all' || meta.nodeClass === currentTypeFilter;
+            var sourceMatch = sourceMatches(meta.source, currentSourceFilter);
+            var visible = typeMatch && sourceMatch;
+            if (visible) {
+              if (!map.hasLayer(markersByCs[cs])) markersByCs[cs].addTo(map);
+            } else {
+              if (map.hasLayer(markersByCs[cs])) markersByCs[cs].remove();
+            }
+          });
+        }
+
+        // ── Icon marker factory ────────────────────────────────────────────────────
+        var markerIconMap = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', zello: 'bi-phone', simplex: 'bi-broadcast' };
+
+        function createMarkerIcon(node) {
+          var isExt = !!node._external;
+          var isTrunk = node._external_type === 'trunk';
+          var bg = isExt
+            ? (isTrunk ? (node.isTalker ? '#22d3ee' : (node.tg ? '#0891b2' : '#155e75'))
+                       : (node.isTalker ? '#f59e0b' : (node.tg ? '#d97706' : '#92400e')))
+            : markerColor(node);
+          var iconCls = markerIconMap[node.nodeClass] || 'bi-broadcast';
+          var size = isExt ? 28 : 36;
+          var cls = 'map-marker' + (isExt ? ' map-marker-ext' : '') + (node.isTalker ? ' map-marker-talking' : '');
+          return L.divIcon({
+            className: '',
+            iconSize: [size, size],
+            iconAnchor: [size/2, size/2],
+            popupAnchor: [0, -size/2],
+            html: '<div class="' + cls + '" style="background:' + bg + '"><i class="bi ' + iconCls + '"></i></div>'
+          });
+        }
+
+        // ── Tooltip HTML builder (compact — no tone table, no links) ──────────────
+        var tooltipIconMap = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', zello: 'bi-phone', simplex: 'bi-broadcast' };
+
+        function buildTooltipHtml(cs, node) {
+          var iconCls = tooltipIconMap[node.nodeClass] || 'bi-broadcast';
+          var html = '<div class="popup-callsign">' + esc(cs) + '</div>' +
+                     '<div class="popup-row" style="margin-top:.35rem">' + statusBadge(node) + '</div>';
+          if (node.nodeClass)    html += '<div class="popup-row"><i class="bi ' + iconCls + ' mr-1"></i><span>' + esc(node.nodeClass) + '</span></div>';
+          if (node.nodeLocation) html += '<div class="popup-row"><i class="bi bi-geo-alt mr-1"></i><span>' + esc(node.nodeLocation) + '</span></div>';
+          if (node.sysop)        html += '<div class="popup-row"><i class="bi bi-person mr-1"></i><span>' + esc(node.sysop) + '</span></div>';
+          if (node._external)    html += '<div class="popup-row" style="color:#d97706"><i class="bi bi-globe2 mr-1"></i><span>' + esc(node._external) + '</span></div>';
+          return html;
+        }
+
         // ── Place markers ──────────────────────────────────────────────────────────
         var bounds = [];
         var markersByCs = {};
@@ -240,24 +458,10 @@
 
           var isExt = !!node._external;
           var isTrunk = node._external_type === 'trunk';
-          var color  = isExt ? (isTrunk ? (node.isTalker ? '#22d3ee' : (node.tg ? '#0891b2' : '#155e75')) : (node.isTalker ? '#f59e0b' : (node.tg ? '#d97706' : '#92400e'))) : markerColor(node);
-          var marker = L.circleMarker([lat, lng], {
-            radius: isExt ? 6 : 8,
-            color: isExt ? (isTrunk ? '#0e4a5c' : '#78350f') : color,
-            fillColor: color,
-            fillOpacity: 0.85,
-            weight: isExt ? 1.5 : 2,
-            opacity: 1,
-            dashArray: isExt ? '4 3' : null
-          }).addTo(map);
+          var marker = L.marker([lat, lng], { icon: createMarkerIcon(node) }).addTo(map);
 
-          // Callsign label (permanent for local, hover for external)
-          marker.bindTooltip(esc(cs), {
-            permanent: !isExt,
-            direction: isExt ? 'right' : 'bottom',
-            className: isExt ? 'map-tooltip' : 'node-label',
-            offset: isExt ? [0, 0] : [0, 6]
-          });
+          marker.on('mouseover', function() { this.openPopup(); });
+          marker.on('mouseout', function() { this.closePopup(); });
 
           // Popup
           var qth     = node.qth[0];
@@ -301,8 +505,14 @@
                     '<table class="tone-table"><thead><tr><th>CTCSS</th><th>TG</th></tr></thead><tbody>' + rows + '</tbody></table>';
           }
 
-          marker.bindPopup(html, { maxWidth: 260 });
+          marker.bindPopup(buildTooltipHtml(cs, node), { maxWidth: 260 });
+          marker.on('mouseover', function() { this.openPopup(); });
+          marker.on('mouseout', function() { this.closePopup(); });
           markersByCs[cs] = marker;
+          markerMeta[cs] = {
+            nodeClass: (node.nodeClass || '').toLowerCase(),
+            source: node._external_type === 'trunk' ? 'trunk' : (node._external_type === 'svx' ? 'svx' : 'local')
+          };
           bounds.push([lat, lng]);
         });
 
@@ -312,6 +522,9 @@
         } else {
           map.setView([48, 10], 5);
         }
+
+        // Apply default filter (network = local + trunk)
+        applyMapFilters();
 
         // Open popup for any node already talking at page load
         Object.keys(markersByCs).forEach(function (cs) {
@@ -364,26 +577,38 @@
           var pos = node.qth && node.qth[0] && node.qth[0].pos;
           var lat = parseFloat(pos && pos.lat);
           var lng = parseFloat(pos && pos.long);
-          var nc = node.nodeClass;
-          if (node.hidden || (nc && nc !== 'repeater') || !isFinite(lat) || !isFinite(lng)) {
-            if (markersByCs[cs]) { markersByCs[cs].remove(); delete markersByCs[cs]; }
+          if (node.hidden || !isFinite(lat) || !isFinite(lng)) {
+            if (markersByCs[cs]) { markersByCs[cs].remove(); delete markersByCs[cs]; delete markerMeta[cs]; }
             return;
           }
           var isExt = !!node._external;
-          var color = isExt ? (node.isTalker ? '#f59e0b' : (node.tg ? '#d97706' : '#92400e')) : markerColor(node);
+          var isTrunk = node._external_type === 'trunk';
+
+          markerMeta[cs] = {
+            nodeClass: (node.nodeClass || '').toLowerCase(),
+            source: isTrunk ? 'trunk' : (node._external_type === 'svx' ? 'svx' : 'local')
+          };
+
           if (markersByCs[cs]) {
-            markersByCs[cs].setStyle({ color: isExt ? (isTrunk ? '#0e4a5c' : '#78350f') : color, fillColor: color });
-            markersByCs[cs].setPopupContent(buildPopupHtml(cs, node));
+            markersByCs[cs].setIcon(createMarkerIcon(node));
+            markersByCs[cs].setPopupContent(buildTooltipHtml(cs, node));
           } else {
-            var marker = L.circleMarker([lat, lng], {
-              radius: isExt ? 6 : 8, color: isExt ? (isTrunk ? '#0e4a5c' : '#78350f') : color, fillColor: color,
-              fillOpacity: 0.85, weight: isExt ? 1.5 : 2, opacity: 1, dashArray: isExt ? '4 3' : null
-            }).addTo(map);
-            marker.bindTooltip(esc(cs), { permanent: !isExt, direction: isExt ? 'right' : 'bottom', className: isExt ? 'map-tooltip' : 'node-label', offset: isExt ? [0, 0] : [0, 6] });
-            marker.bindPopup(buildPopupHtml(cs, node), { maxWidth: 260 });
+            var marker = L.marker([lat, lng], { icon: createMarkerIcon(node) });
+            marker.bindPopup(buildTooltipHtml(cs, node), { maxWidth: 260 });
+            marker.on('mouseover', function() { this.openPopup(); });
+            marker.on('mouseout', function() { this.closePopup(); });
             markersByCs[cs] = marker;
           }
-          if (node.isTalker) {
+          // Respect active filters
+          var meta = markerMeta[cs];
+          var typeMatch = currentTypeFilter === 'all' || meta.nodeClass === currentTypeFilter;
+          var sourceMatch = sourceMatches(meta.source, currentSourceFilter);
+          if (typeMatch && sourceMatch) {
+            if (!map.hasLayer(markersByCs[cs])) markersByCs[cs].addTo(map);
+          } else {
+            if (map.hasLayer(markersByCs[cs])) markersByCs[cs].remove();
+          }
+          if (node.isTalker && typeMatch && sourceMatch) {
             markersByCs[cs].openPopup();
           } else {
             markersByCs[cs].closePopup();
@@ -421,7 +646,7 @@
             if (!msg || !msg.nodes) return;
             if (window.audioPlayerUpdateTgs) window.audioPlayerUpdateTgs(msg.nodes);
             (msg.removed || []).forEach(function (cs) {
-              if (markersByCs[cs]) { markersByCs[cs].remove(); delete markersByCs[cs]; }
+              if (markersByCs[cs]) { markersByCs[cs].remove(); delete markersByCs[cs]; delete markerMeta[cs]; }
             });
             (msg.changed || []).forEach(function (cs) {
               if (msg.nodes[cs]) addOrUpdateMarker(cs, msg.nodes[cs]);
