@@ -198,12 +198,14 @@
 
     %script{src: "/vendor/leaflet/leaflet.js"}
     - nodes_json = @nodes.to_json.html_safe
+    - off_map_json = @off_map_nodes.to_json.html_safe
     -# external nodes are now merged into @nodes server-side
     :javascript
       (function () {
         'use strict';
 
         var nodes = #{nodes_json};
+        var offMapNodes = #{off_map_json};
 
         // ── Tile layers ────────────────────────────────────────────────────────────
         var tileLayers = {
@@ -261,32 +263,10 @@
             '<div class="legend-row"><span class="legend-dot" style="background:#3fb950"></span>Talking</div>' +
             '<div class="legend-row"><span class="legend-dot" style="background:#1f6feb"></span>Active (on TG)</div>' +
             '<div class="legend-row"><span class="legend-dot" style="background:#6e7681"></span>Idle</div>' +
-            '<div class="legend-row"><span class="legend-dot" style="background:#0891b2;border:1px dashed #0e4a5c"></span>Trunk peer</div>' +
             '<div class="legend-row"><span class="legend-dot" style="background:#d97706;border:1px dashed #78350f"></span>External SVX</div>';
           return div;
         };
         legend.addTo(map);
-
-        // ── Off-map indicator ─────────────────────────────────────────────────────
-        var offMapTotal = #{@off_map_total || 0};
-        var offMapTalking = #{@off_map_talking || 0};
-        var offMapActive = #{@off_map_active || 0};
-        if (offMapTotal > 0) {
-          var offMap = L.control({ position: 'bottomright' });
-          offMap.onAdd = function () {
-            var div = L.DomUtil.create('div', 'map-legend');
-            div.id = 'off-map-info';
-            var parts = [];
-            if (offMapTalking > 0) parts.push('<span style="color:#3fb950;font-weight:600">' + offMapTalking + ' talking</span>');
-            if (offMapActive > 0) parts.push('<span style="color:#79c0ff">' + offMapActive + ' active</span>');
-            div.innerHTML =
-              '<div class="legend-title"><i class="bi bi-geo-alt-fill mr-1"></i>Off map</div>' +
-              '<div style="color:#c9d1d9;font-size:.8rem">' + offMapTotal + ' nodes without coordinates</div>' +
-              (parts.length ? '<div style="font-size:.8rem;margin-top:.2rem">' + parts.join(' · ') + '</div>' : '');
-            return div;
-          };
-          offMap.addTo(map);
-        }
 
         // ── Filter control ─────────────────────────────────────────────────────────
         var currentTypeFilter = 'all';
@@ -403,10 +383,12 @@
             var visible = typeMatch && sourceMatch;
             if (visible) {
               if (!map.hasLayer(markersByCs[cs])) markersByCs[cs].addTo(map);
+              if (nodes[cs] && nodes[cs].isTalker) markersByCs[cs].openPopup();
             } else {
               if (map.hasLayer(markersByCs[cs])) markersByCs[cs].remove();
             }
           });
+          if (typeof updateOffMap === 'function') updateOffMap();
         }
 
         // ── Icon marker factory ────────────────────────────────────────────────────
@@ -505,7 +487,7 @@
                     '<table class="tone-table"><thead><tr><th>CTCSS</th><th>TG</th></tr></thead><tbody>' + rows + '</tbody></table>';
           }
 
-          marker.bindPopup(buildTooltipHtml(cs, node), { maxWidth: 260 });
+          marker.bindPopup(buildTooltipHtml(cs, node), { maxWidth: 260, autoClose: false, closeOnClick: false });
           marker.on('mouseover', function() { this.openPopup(); });
           marker.on('mouseout', function() { this.closePopup(); });
           markersByCs[cs] = marker;
@@ -523,7 +505,47 @@
           map.setView([48, 10], 5);
         }
 
-        // Apply default filter (network = local + trunk)
+        // ── Off-map indicator (updates with source filter) ─────────────────────────
+        var offMapCtrl = L.control({ position: 'bottomright' });
+        var offMapDiv;
+        offMapCtrl.onAdd = function () {
+          offMapDiv = L.DomUtil.create('div', 'map-legend');
+          offMapDiv.id = 'off-map-info';
+          return offMapDiv;
+        };
+        offMapCtrl.addTo(map);
+
+        function offMapSource(n) {
+          if (n._external_type === 'trunk') return 'trunk';
+          if (n._external_type === 'svx') return 'svx';
+          return 'local';
+        }
+
+        function updateOffMap() {
+          var total = 0, talking = 0, active = 0;
+          Object.keys(offMapNodes).forEach(function(cs) {
+            var n = offMapNodes[cs];
+            if (!sourceMatches(offMapSource(n), currentSourceFilter)) return;
+            total++;
+            if (n.isTalker) talking++;
+            if (parseInt(n.tg) !== 0) active++;
+          });
+          if (total > 0) {
+            var parts = [];
+            if (talking > 0) parts.push('<span style="color:#3fb950;font-weight:600">' + talking + ' talking</span>');
+            if (active > 0) parts.push('<span style="color:#79c0ff">' + active + ' active</span>');
+            offMapDiv.innerHTML =
+              '<div class="legend-title"><i class="bi bi-geo-alt-fill mr-1"></i>Off map</div>' +
+              '<div style="color:#c9d1d9;font-size:.8rem">' + total + ' nodes without coordinates</div>' +
+              (parts.length ? '<div style="font-size:.8rem;margin-top:.2rem">' + parts.join(' · ') + '</div>' : '');
+            offMapDiv.style.display = '';
+          } else {
+            offMapDiv.innerHTML = '';
+            offMapDiv.style.display = 'none';
+          }
+        }
+
+        // Apply default filter (network = local + trunk) — also updates off-map box
         applyMapFilters();
 
         // Open popup for any node already talking at page load
@@ -594,7 +616,7 @@
             markersByCs[cs].setPopupContent(buildTooltipHtml(cs, node));
           } else {
             var marker = L.marker([lat, lng], { icon: createMarkerIcon(node) });
-            marker.bindPopup(buildTooltipHtml(cs, node), { maxWidth: 260 });
+            marker.bindPopup(buildTooltipHtml(cs, node), { maxWidth: 260, autoClose: false, closeOnClick: false });
             marker.on('mouseover', function() { this.openPopup(); });
             marker.on('mouseout', function() { this.closePopup(); });
             markersByCs[cs] = marker;
@@ -647,10 +669,13 @@
             if (window.audioPlayerUpdateTgs) window.audioPlayerUpdateTgs(msg.nodes);
             (msg.removed || []).forEach(function (cs) {
               if (markersByCs[cs]) { markersByCs[cs].remove(); delete markersByCs[cs]; delete markerMeta[cs]; }
+              delete nodes[cs];
             });
             (msg.changed || []).forEach(function (cs) {
-              if (msg.nodes[cs]) addOrUpdateMarker(cs, msg.nodes[cs]);
+              if (msg.nodes[cs]) { nodes[cs] = msg.nodes[cs]; addOrUpdateMarker(cs, msg.nodes[cs]); }
             });
+            applyMapFilters();
+            updateOffMap();
           };
           ws.onclose = function () { setWs('disconnected'); setTimeout(connectMapWs, 5000); };
           ws.onerror = function () { setWs('disconnected'); };
