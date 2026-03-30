@@ -1,0 +1,182 @@
+- if @bridge.errors.any?
+  .p-3.rounded.border.border-red-700.text-red-400.text-sm.mb-4{class: "bg-red-900/30"}
+    %p.font-semibold.mb-1= "#{@bridge.errors.count} error(s):"
+    %ul.list-disc.ml-4
+      - @bridge.errors.full_messages.each do |msg|
+        %li= msg
+
+= form_with model: [:admin, @bridge], local: true do |f|
+  = f.hidden_field :bridge_type, value: "iax"
+
+  -# ── Name ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4.p-4
+    %label.block.text-sm.font-semibold.text-gray-400.mb-2 Bridge Name
+    = f.text_field :name, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. HamsOverIP"
+    - if @bridge.persisted?
+      #name-warn.p-2.rounded.border.text-sm.mt-2.items-center.gap-2.hidden{class: "border-yellow-700/50 text-yellow-400 bg-yellow-900/20"}
+        %i.bi.bi-exclamation-triangle.mr-1
+        Changing the name will recreate the container.
+
+  -# ── IAX2 Server ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-phone-vibrate.mr-2
+        IAX2 Server
+    .px-4.py-4
+      .grid.grid-cols-1.md:grid-cols-2.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 USERNAME
+          = f.text_field :iax_username, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. 100123"
+          %p.text-xs.text-ghmuted.mt-1 IAX2 registration username
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 PASSWORD
+          = f.text_field :iax_password, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "IAX2 secret"
+          %p.text-xs.text-ghmuted.mt-1 IAX2 registration password
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 SERVER
+          = f.text_field :iax_server, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. pbx.hamsoverip.com"
+          %p.text-xs.text-ghmuted.mt-1 Asterisk/PBX server hostname
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 PORT
+          = f.number_field :iax_port, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "4569"
+          %p.text-xs.text-ghmuted.mt-1 IAX2 port (default 4569)
+
+  -# ── Call Settings ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-telephone-forward.mr-2
+        Call Settings
+    .px-4.py-4
+      .grid.grid-cols-1.md:grid-cols-2.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 EXTENSION
+          = f.text_field :iax_extension, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. 1000"
+          %p.text-xs.text-ghmuted.mt-1 Extension to dial for outbound calls
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 CONTEXT
+          = f.text_field :iax_context, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "friend"
+          %p.text-xs.text-ghmuted.mt-1 Asterisk dial context (default: friend)
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 MODE
+          = f.select :iax_mode, [["Persistent (always connected)", "persistent"], ["On-demand (call on activity)", "on_demand"]], {}, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext"
+          %p.text-xs.text-ghmuted.mt-1 Persistent keeps the call up; on-demand dials when someone talks
+        #idle-timeout-field.mb-1
+          %label.block.text-sm.text-gray-500.mb-1 IDLE TIMEOUT
+          = f.number_field :iax_idle_timeout, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "30", min: 5
+          %p.text-xs.text-ghmuted.mt-1 Seconds of silence before hanging up (on-demand mode only)
+      .mt-4
+        %label.block.text-sm.text-gray-500.mb-1 CODECS
+        = f.text_field :iax_codecs, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "gsm,ulaw,alaw,g726"
+        %p.text-xs.text-ghmuted.mt-1 Comma-separated codec preference order. Supported: gsm, ulaw, alaw, g726
+
+  -# ── node_info.json ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-info-circle.mr-2
+        node_info.json
+    .px-4.py-4
+      .grid.grid-cols-1.md:grid-cols-2.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 NODE_LOCATION
+          = f.text_field :node_location, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. Milan, Italy (shown on dashboard)"
+          %p.text-xs.text-ghmuted.mt-1 Defaults to bridge name if empty.
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 SYSOP
+          = f.text_field :sysop, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. F1ABC"
+
+  -# ── Local Reflector ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-broadcast.mr-2
+        Local SVXReflector
+    .px-4.py-4
+      .grid.grid-cols-1.md:grid-cols-2.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 HOST
+          = f.text_field :local_host, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "svxreflector"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 PORT
+          = f.number_field :local_port, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "5300"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 CALLSIGN
+          = f.text_field :local_callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. F4ABC-IAX"
+          %p.text-xs.text-ghmuted.mt-1 Callsign for the bridge on the local reflector
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 AUTH_KEY
+          = f.text_field :local_auth_key, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "Shared secret"
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 TALKGROUP
+          = f.number_field :local_default_tg, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "1"
+          %p.text-xs.text-ghmuted.mt-1 TG to bridge to the IAX2 server
+
+  -# ── Audio AGC ──
+  = render 'form_agc', f: f
+
+  -# Help popup modal
+  #help-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
+    .bg-ghcard.border.border-gray-600.rounded-lg.p-5.max-w-md.w-full.mx-4.shadow-xl
+      .flex.items-center.justify-between.mb-3
+        %h6.text-base.font-semibold.text-gray-100#help-modal-title
+        %button.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "closeHelp()"}
+          %i.bi.bi-x-lg
+      %p.text-sm.text-gray-300.leading-relaxed#help-modal-body
+
+  -# ── Save ──
+  .flex.items-center.justify-between
+    = link_to admin_bridges_path, class: "px-4 py-2 rounded-md border border-gray-600 text-sm text-gray-300 hover:text-gray-100" do
+      %i.bi.bi-arrow-left.mr-1
+      Cancel
+    = f.submit(@bridge.persisted? ? "Update Bridge" : "Create Bridge", class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold cursor-pointer")
+
+:css
+  .accordion-body { max-height: 0; overflow: hidden; padding-top: 0; padding-bottom: 0; transition: max-height 0.3s ease, padding 0.3s ease; }
+  .accordion-body.open { max-height: 5000px; padding-top: 1rem; padding-bottom: 1rem; }
+  .accordion-chevron { transition: transform 0.3s ease; }
+  .accordion-chevron.open { transform: rotate(180deg); }
+
+:javascript
+  function openModal(id) { var m = document.getElementById(id); m.classList.remove('hidden'); m.classList.add('flex'); }
+  function closeModal(id) { var m = document.getElementById(id); m.classList.add('hidden'); m.classList.remove('flex'); }
+
+  function showHelp(key) {
+    document.getElementById('help-modal-title').textContent = key;
+    document.getElementById('help-modal-body').textContent = (typeof HELP_TEXTS !== 'undefined' && HELP_TEXTS[key]) || 'No description available.';
+    openModal('help-modal');
+  }
+  function closeHelp() { closeModal('help-modal'); }
+  document.getElementById('help-modal').addEventListener('click', function(e) { if (e.target === this) closeHelp(); });
+
+  function toggleSection(id) {
+    var body = document.getElementById('body-' + id);
+    var chevron = document.getElementById('chevron-' + id);
+    body.classList.toggle('open');
+    chevron.classList.toggle('open');
+  }
+
+  (function() {
+    var modeSelect = document.querySelector('select[name="bridge[iax_mode]"]');
+    var idleField = document.getElementById('idle-timeout-field');
+    function updateIdleVisibility() {
+      if (!modeSelect || !idleField) return;
+      idleField.style.display = modeSelect.value === 'persistent' ? 'none' : '';
+    }
+    if (modeSelect) {
+      modeSelect.addEventListener('change', updateIdleVisibility);
+      updateIdleVisibility();
+    }
+  })();
+
+- if @bridge.persisted?
+  :javascript
+    (function() {
+      var inp = document.querySelector('input[name="bridge[name]"]');
+      if (!inp) return;
+      var orig = inp.dataset.original;
+      inp.addEventListener('input', function() {
+        document.getElementById('name-warn').classList.toggle('hidden', inp.value === orig);
+      });
+    })();

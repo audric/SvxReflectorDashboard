@@ -43,5 +43,7 @@
         = render 'form_allstar'
       - elsif @bridge.zello?
         = render 'form_zello'
+      - elsif @bridge.iax?
+        = render 'form_iax'
       - else
         = render 'form'

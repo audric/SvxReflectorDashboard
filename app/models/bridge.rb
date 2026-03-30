@@ -1,7 +1,7 @@
 class Bridge < ApplicationRecord
   has_many :bridge_tg_mappings, dependent: :destroy
 
-  ALL_BRIDGE_TYPES = %w[reflector echolink xlx dmr ysf allstar zello].freeze
+  ALL_BRIDGE_TYPES = %w[reflector echolink xlx dmr ysf allstar zello iax].freeze
   BRIDGE_TYPES = (ENV.fetch('BRIDGE_TYPES', 'reflector').split(',').map(&:strip) & ALL_BRIDGE_TYPES).freeze
 
   validates :name, presence: true, uniqueness: true
@@ -67,6 +67,14 @@ class Bridge < ApplicationRecord
     validates :zello_private_key, presence: true
   end
 
+  # IAX-specific validations
+  with_options if: :iax? do
+    validates :iax_username, presence: true
+    validates :iax_password, presence: true
+    validates :iax_server, presence: true
+    validates :iax_mode, inclusion: { in: %w[persistent on_demand], message: "must be persistent or on_demand" }
+  end
+
   # Returns the 8-char DCS callsign: base callsign (space-padded to 7) + suffix letter.
   def dcs_callsign
     "%-7s%s" % [xlx_callsign.to_s.upcase, xlx_callsign_suffix.to_s.upcase]
@@ -103,8 +111,12 @@ class Bridge < ApplicationRecord
     bridge_type == "zello"
   end
 
+  def iax?
+    bridge_type == "iax"
+  end
+
   def has_agc?
-    xlx? || dmr? || ysf? || allstar? || zello?
+    xlx? || dmr? || ysf? || allstar? || zello? || iax?
   end
 
   AGC_DEFAULTS = {
@@ -140,6 +152,8 @@ class Bridge < ApplicationRecord
       "allstar-bridge-#{id}"
     elsif zello?
       "zello-bridge-#{id}"
+    elsif iax?
+      "iax-bridge-#{id}"
     else
       "svxlink-bridge-#{id}"
     end
@@ -161,12 +175,14 @@ class Bridge < ApplicationRecord
       generate_allstar_config
     elsif zello?
       generate_zello_config
+    elsif iax?
+      generate_iax_config
     elsif echolink?
       generate_echolink_config
     else
       generate_reflector_config
     end
-    write_node_info unless xlx? || dmr? || ysf? || allstar? || zello?
+    write_node_info unless xlx? || dmr? || ysf? || allstar? || zello? || iax?
   end
 
   def echolink_conf_path
@@ -378,6 +394,30 @@ class Bridge < ApplicationRecord
       File.write(path, zello_private_key.to_s)
       FileUtils.chmod(0o600, path)
     end
+  end
+
+  def generate_iax_config
+    lines = []
+    lines << "# IAX Bridge configuration (passed as env vars to container)"
+    lines << "REFLECTOR_HOST=#{local_host}"
+    lines << "REFLECTOR_PORT=#{local_port}"
+    lines << "REFLECTOR_AUTH_KEY=#{local_auth_key}"
+    lines << "REFLECTOR_TG=#{local_default_tg}"
+    lines << "CALLSIGN=#{local_callsign}"
+    lines << "IAX_USERNAME=#{iax_username}"
+    lines << "IAX_PASSWORD=#{iax_password}"
+    lines << "IAX_SERVER=#{iax_server}"
+    lines << "IAX_PORT=#{iax_port || 4569}"
+    lines << "IAX_EXTENSION=#{iax_extension}" if iax_extension.present?
+    lines << "IAX_CONTEXT=#{iax_context.presence || 'friend'}"
+    lines << "IAX_MODE=#{iax_mode.presence || 'persistent'}"
+    lines << "IAX_IDLE_TIMEOUT=#{iax_idle_timeout || 30}"
+    lines << "IAX_CODECS=#{iax_codecs.presence || 'gsm,ulaw,alaw,g726'}"
+    lines << "NODE_LOCATION=#{node_location.presence || name}"
+    lines << "SYSOP=#{sysop}" if sysop.present?
+    lines.concat(agc_env_lines)
+    lines << ""
+    File.write(config_dir.join("iax_bridge.env"), lines.join("\n"))
   end
 
   def generate_reflector_config
@@ -623,7 +663,8 @@ class Bridge < ApplicationRecord
     files = [config_path, node_info_path, echolink_conf_path,
              config_dir.join("xlx_bridge.env"), config_dir.join("dmr_bridge.env"),
              config_dir.join("ysf_bridge.env"), config_dir.join("allstar_bridge.env"),
-             config_dir.join("zello_bridge.env"), config_dir.join("zello_private_key.pem")].select(&:exist?)
+             config_dir.join("zello_bridge.env"), config_dir.join("zello_private_key.pem"),
+             config_dir.join("iax_bridge.env")].select(&:exist?)
     return if files.empty?
 
     migrate_legacy_backups if Dir.glob(config_dir.join("*.bak")).any?

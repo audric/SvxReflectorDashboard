@@ -52,6 +52,14 @@ module Admin
         defaults.merge!(
           allstar_port: 4569
         )
+      elsif bridge_type == "iax"
+        defaults.merge!(
+          iax_port: 4569,
+          iax_context: "friend",
+          iax_mode: "persistent",
+          iax_idle_timeout: 30,
+          iax_codecs: "gsm,ulaw,alaw,g726"
+        )
       else
         defaults.merge!(
           remote_port: 5300,
@@ -181,6 +189,8 @@ module Admin
         :dmr_host, :dmr_port, :dmr_id, :dmr_password, :dmr_talkgroup, :dmr_timeslot, :dmr_color_code, :dmr_callsign,
         :ysf_host, :ysf_port, :ysf_callsign, :ysf_description,
         :allstar_node, :allstar_password, :allstar_server, :allstar_port,
+        :iax_username, :iax_password, :iax_server, :iax_port,
+        :iax_extension, :iax_context, :iax_mode, :iax_idle_timeout, :iax_codecs,
         :zello_username, :zello_password, :zello_channel, :zello_channel_password, :zello_issuer_id, :zello_private_key,
         :agc_target_level, :agc_attack_rate, :agc_decay_rate, :agc_max_gain, :agc_min_gain, :agc_limit_level,
         :filter_hpf_cutoff, :filter_lpf_cutoff
@@ -240,6 +250,9 @@ module Admin
       elsif bridge.allstar?
         pull_image("ghcr.io/audric/svxreflectordashboard-allstar-bridge")
         start_allstar_container(bridge)
+      elsif bridge.iax?
+        pull_image("ghcr.io/audric/svxreflectordashboard-iax-bridge") rescue nil
+        start_iax_container(bridge)
       elsif bridge.zello?
         pull_image("ghcr.io/audric/svxreflectordashboard-zello-bridge") rescue nil
         start_zello_container(bridge)
@@ -411,6 +424,49 @@ module Admin
       end
     end
 
+    def start_iax_container(bridge)
+      network = docker_network
+      body = {
+        Image: "ghcr.io/audric/svxreflectordashboard-iax-bridge",
+        Labels: {
+          "svx.bridge" => "true",
+          "svx.bridge.id" => bridge.id.to_s,
+          "svx.bridge.name" => bridge.name,
+          "com.docker.compose.project" => "",
+          "com.docker.compose.service" => ""
+        },
+        Env: [
+          "REFLECTOR_HOST=#{bridge.local_host}",
+          "REFLECTOR_PORT=#{bridge.local_port}",
+          "REFLECTOR_AUTH_KEY=#{bridge.local_auth_key}",
+          "REFLECTOR_TG=#{bridge.local_default_tg}",
+          "CALLSIGN=#{bridge.local_callsign}",
+          "IAX_USERNAME=#{bridge.iax_username}",
+          "IAX_PASSWORD=#{bridge.iax_password}",
+          "IAX_SERVER=#{bridge.iax_server}",
+          "IAX_PORT=#{bridge.iax_port || 4569}",
+          "IAX_EXTENSION=#{bridge.iax_extension}",
+          "IAX_CONTEXT=#{bridge.iax_context.presence || 'friend'}",
+          "IAX_MODE=#{bridge.iax_mode.presence || 'persistent'}",
+          "IAX_IDLE_TIMEOUT=#{bridge.iax_idle_timeout || 30}",
+          "IAX_CODECS=#{bridge.iax_codecs.presence || 'gsm,ulaw,alaw,g726'}",
+          "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
+          "SYSOP=#{bridge.sysop}",
+          "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
+        ] + agc_env_array(bridge),
+        HostConfig: {
+          RestartPolicy: { Name: "unless-stopped" }
+        }
+      }
+      body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
+
+      result = docker_api_post_json("/containers/create?name=#{bridge.container_name}", body)
+      if result && result["Id"]
+        docker_api_post("/containers/#{result["Id"]}/start")
+        Rails.logger.info "[Bridge] Created and started IAX container #{bridge.container_name}"
+      end
+    end
+
     def start_zello_container(bridge)
       bridge.generate_config
       network = docker_network
@@ -543,7 +599,7 @@ module Admin
       statuses = {}
       containers.each do |c|
         c["Names"].each do |n|
-          if n =~ /\A\/(?:svxlink|xlx|dmr|ysf|allstar|zello)-bridge-(\d+)\z/
+          if n =~ /\A\/(?:svxlink|xlx|dmr|ysf|allstar|zello|iax)-bridge-(\d+)\z/
             statuses[Regexp.last_match(1).to_i] = c["State"]
           end
         end

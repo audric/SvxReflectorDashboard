@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_29_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_30_122124) do
   create_table "bridge_tg_mappings", force: :cascade do |t|
     t.string "activate_on_activity"
     t.integer "bridge_id", null: false
@@ -80,6 +80,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_29_120000) do
     t.boolean "enabled", default: false
     t.float "filter_hpf_cutoff"
     t.float "filter_lpf_cutoff"
+    t.string "iax_codecs", default: "gsm,ulaw,alaw,g726"
+    t.string "iax_context", default: "friend"
+    t.string "iax_extension"
+    t.integer "iax_idle_timeout", default: 30
+    t.string "iax_mode", default: "persistent"
+    t.string "iax_password"
+    t.integer "iax_port", default: 4569
+    t.string "iax_server"
+    t.string "iax_username"
     t.integer "jitter_buffer_delay"
     t.string "local_auth_key"
     t.string "local_callsign"

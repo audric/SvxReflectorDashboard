@@ -124,6 +124,11 @@ services:
     build: ./allstar_bridge
     profiles: ["build-only"]
 
+  iax_bridge:
+    image: ghcr.io/audric/svxreflectordashboard-iax-bridge
+    build: ./iax_bridge
+    profiles: ["build-only"]
+
   redis:
     image: redis:7-alpine
     ports:
