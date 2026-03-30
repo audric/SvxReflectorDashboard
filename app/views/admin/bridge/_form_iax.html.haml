@@ -19,11 +19,12 @@
 
   -# ── IAX2 Server ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
-    .px-4.py-3.border-b.border-gray-600
+    .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('iaxserver')"}
       %h5.text-lg.font-semibold.text-gray-100
         %i.bi.bi-phone-vibrate.mr-2
         IAX2 Server
-    .px-4.py-4
+      %i.bi.bi-chevron-down.accordion-chevron.text-gray-400.open{id: "chevron-iaxserver"}
+    .accordion-body.px-4.open{id: "body-iaxserver"}
       .grid.grid-cols-1.md:grid-cols-2.gap-4
         .mb-1
           %label.block.text-sm.text-gray-500.mb-1 USERNAME
@@ -44,11 +45,12 @@
 
   -# ── Call Settings ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
-    .px-4.py-3.border-b.border-gray-600
+    .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('callsettings')"}
       %h5.text-lg.font-semibold.text-gray-100
         %i.bi.bi-telephone-forward.mr-2
         Call Settings
-    .px-4.py-4
+      %i.bi.bi-chevron-down.accordion-chevron.text-gray-400.open{id: "chevron-callsettings"}
+    .accordion-body.px-4.open{id: "body-callsettings"}
       .grid.grid-cols-1.md:grid-cols-2.gap-4
         .mb-1
           %label.block.text-sm.text-gray-500.mb-1 EXTENSION
@@ -71,29 +73,14 @@
         = f.text_field :iax_codecs, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "gsm,ulaw,alaw,g726"
         %p.text-xs.text-ghmuted.mt-1 Comma-separated codec preference order. Supported: gsm, ulaw, alaw, g726
 
-  -# ── node_info.json ──
-  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
-    .px-4.py-3.border-b.border-gray-600
-      %h5.text-lg.font-semibold.text-gray-100
-        %i.bi.bi-info-circle.mr-2
-        node_info.json
-    .px-4.py-4
-      .grid.grid-cols-1.md:grid-cols-2.gap-4
-        .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 NODE_LOCATION
-          = f.text_field :node_location, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. Milan, Italy (shown on dashboard)"
-          %p.text-xs.text-ghmuted.mt-1 Defaults to bridge name if empty.
-        .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 SYSOP
-          = f.text_field :sysop, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. F1ABC"
-
   -# ── Local Reflector ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
-    .px-4.py-3.border-b.border-gray-600
+    .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('local')"}
       %h5.text-lg.font-semibold.text-gray-100
         %i.bi.bi-broadcast.mr-2
         Local SVXReflector
-    .px-4.py-4
+      %i.bi.bi-chevron-down.accordion-chevron.text-gray-400.open{id: "chevron-local"}
+    .accordion-body.px-4.open{id: "body-local"}
       .grid.grid-cols-1.md:grid-cols-2.gap-4
         .mb-1
           %label.block.text-sm.text-gray-500.mb-1 HOST

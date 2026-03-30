@@ -19,11 +19,12 @@
 
   -# ── XLX Reflector ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
-    .px-4.py-3.border-b.border-gray-600
+    .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('xlx')"}
       %h5.text-lg.font-semibold.text-gray-100
         %i.bi.bi-globe.mr-2
         XLX Reflector
-    .px-4.py-4
+      %i.bi.bi-chevron-down.accordion-chevron.text-gray-400.open{id: "chevron-xlx"}
+    .accordion-body.px-4.open{id: "body-xlx"}
       .grid.grid-cols-1.md:grid-cols-2.gap-4
         .mb-1
           %label.block.text-sm.text-gray-500.mb-1 PROTOCOL
@@ -67,29 +68,14 @@
             = f.select :xlx_callsign_suffix, ("A".."Z").map { |m| [m, m] }, {}, class: "w-16 px-2 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext text-center"
           %p.text-xs.text-ghmuted.mt-1 Callsign + suffix letter for XLX link (8 chars total, letter last)
 
-  -# ── node_info.json ──
-  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
-    .px-4.py-3.border-b.border-gray-600
-      %h5.text-lg.font-semibold.text-gray-100
-        %i.bi.bi-info-circle.mr-2
-        node_info.json
-    .px-4.py-4
-      .grid.grid-cols-1.md:grid-cols-2.gap-4
-        .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 NODE_LOCATION
-          = f.text_field :node_location, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. Milan, Italy (shown on dashboard)"
-          %p.text-xs.text-ghmuted.mt-1 Defaults to bridge name if empty.
-        .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 SYSOP
-          = f.text_field :sysop, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. F1ABC"
-
   -# ── Local Reflector ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
-    .px-4.py-3.border-b.border-gray-600
+    .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('local')"}
       %h5.text-lg.font-semibold.text-gray-100
         %i.bi.bi-broadcast.mr-2
         Local SVXReflector
-    .px-4.py-4
+      %i.bi.bi-chevron-down.accordion-chevron.text-gray-400.open{id: "chevron-local"}
+    .accordion-body.px-4.open{id: "body-local"}
       .grid.grid-cols-1.md:grid-cols-2.gap-4
         .mb-1
           %label.block.text-sm.text-gray-500.mb-1 HOST

@@ -42,6 +42,8 @@ ghcr.io/audric/svxreflectordashboard-dmr-bridge
 ghcr.io/audric/svxreflectordashboard-ysf-bridge
 ghcr.io/audric/svxreflectordashboard-allstar-bridge
 ghcr.io/audric/svxreflectordashboard-zello-bridge
+ghcr.io/audric/svxreflectordashboard-iax-bridge
+ghcr.io/audric/svxreflectordashboard-sip-bridge
 "
 for img in $BRIDGE_IMAGES; do
   echo "  Pulling $img..."

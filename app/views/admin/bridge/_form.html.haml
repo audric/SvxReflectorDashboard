@@ -47,29 +47,6 @@
         %i.bi.bi-exclamation-triangle.mr-1
         Changing the name will recreate the container.
 
-  -# ── node_info.json (collapsible) ──
-  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
-    .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('nodeinfo')"}
-      %h5.text-lg.font-semibold.text-gray-100
-        %i.bi.bi-info-circle.mr-2
-        node_info.json
-      %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-nodeinfo"}
-    .accordion-body.px-4{id: "body-nodeinfo"}
-      .grid.grid-cols-1.md:grid-cols-2.gap-4
-        .mb-1
-          %label.block.text-sm.text-gray-500.mb-1
-            NODE_LOCATION
-            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('NODE_LOCATION')", title: "Help"}
-              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
-          = f.text_field :node_location, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. Milan, Italy (shown on dashboard)"
-          %p.text-xs.text-ghmuted.mt-1 Defaults to bridge name if empty.
-        .mb-1
-          %label.block.text-sm.text-gray-500.mb-1
-            SYSOP
-            %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('SYSOP')", title: "Help"}
-              %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
-          = f.text_field :sysop, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. F1ABC"
-
   -# ── Local Reflector (collapsible) ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
     .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('local')"}
