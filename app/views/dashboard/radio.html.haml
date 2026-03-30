@@ -165,8 +165,11 @@
       .flex.items-center.gap-3.flex-wrap.mb-3
         %span.text-xs.text-ghdim.uppercase.font-semibold{style: "letter-spacing:.08em"} Source
         .inline-flex.rounded.border.border-ghborder.overflow-hidden#radio-source-filters
-          %button.radio-source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.active{type: "button", "data-source" => "all"}
+          %button.radio-source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors{type: "button", "data-source" => "all"}
             All
+          %button.radio-source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder.active{type: "button", "data-source" => "network"}
+            %i.bi.bi-hdd-network.mr-1
+            Network
           %button.radio-source-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-source" => "local"}
             %i.bi.bi-broadcast.mr-1
             Local
@@ -226,7 +229,7 @@
       // ── Source filter ──
       (function() {
         var btns = document.querySelectorAll('.radio-source-btn');
-        var current = 'all';
+        var current = 'network';
         function apply() {
           btns.forEach(function(b) { b.classList.toggle('active', b.dataset.source === current); });
           var rows = document.querySelectorAll('.matrix-table tbody tr[data-source]');
@@ -238,7 +241,7 @@
           var visible = 0;
           var activeCols = {};
           rows.forEach(function(row) {
-            var show = current === 'all' || row.dataset.source === current;
+            var show = current === 'all' || (current === 'network' ? (row.dataset.source === 'local' || row.dataset.source === 'trunk') : row.dataset.source === current);
             row.style.display = show ? '' : 'none';
             if (show) {
               visible++;
@@ -269,6 +272,7 @@
             apply();
           });
         });
+        apply();
       })();
 
       function exportChirp() {
