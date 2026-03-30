@@ -129,6 +129,11 @@ services:
     build: ./iax_bridge
     profiles: ["build-only"]
 
+  sip_bridge:
+    image: ghcr.io/audric/svxreflectordashboard-sip-bridge
+    build: ./sip_bridge
+    profiles: ["build-only"]
+
   redis:
     image: redis:7-alpine
     ports:

@@ -62,7 +62,7 @@
             %i.bi.bi-plus.mr-1
             New Bridge
             %i.bi.bi-chevron-down{style: "font-size: 0.6rem"}
-          - bridge_meta = {'reflector' => ['bi-diagram-3', 'Reflector'], 'echolink' => ['bi-headset', 'EchoLink'], 'xlx' => ['bi-globe', 'XLX'], 'dmr' => ['bi-broadcast-pin', 'DMR'], 'ysf' => ['bi-soundwave', 'YSF'], 'allstar' => ['bi-telephone', 'AllStar'], 'zello' => ['bi-phone', 'Zello'], 'iax' => ['bi-phone-vibrate', 'IAX']}
+          - bridge_meta = {'reflector' => ['bi-diagram-3', 'Reflector'], 'echolink' => ['bi-headset', 'EchoLink'], 'xlx' => ['bi-globe', 'XLX'], 'dmr' => ['bi-broadcast-pin', 'DMR'], 'ysf' => ['bi-soundwave', 'YSF'], 'allstar' => ['bi-telephone', 'AllStar'], 'zello' => ['bi-phone', 'Zello'], 'iax' => ['bi-phone-vibrate', 'IAX'], 'sip' => ['bi-headset-vr', 'SIP']}
           #new-menu.absolute.right-0.mt-1.w-48.rounded-md.border.border-gray-600.bg-ghcard.shadow-xl.z-50.hidden
             - Bridge::BRIDGE_TYPES.each_with_index do |bt, i|
               - icon, label = bridge_meta[bt] || ['bi-link-45deg', bt.titleize]
@@ -124,6 +124,10 @@
                       %span.inline-flex.items-center.gap-1.px-2.py-0.5.rounded-full.text-xs.font-medium.bg-indigo-900.text-indigo-400.border.border-indigo-700
                         %i.bi.bi-phone-vibrate{style: "font-size: 0.6rem"}
                         IAX
+                    - elsif bridge.sip?
+                      %span.inline-flex.items-center.gap-1.px-2.py-0.5.rounded-full.text-xs.font-medium.bg-violet-900.text-violet-400.border.border-violet-700
+                        %i.bi.bi-headset-vr{style: "font-size: 0.6rem"}
+                        SIP
                     - else
                       %span.inline-flex.items-center.gap-1.px-2.py-0.5.rounded-full.text-xs.font-medium.bg-blue-900.text-blue-400.border.border-blue-700
                         %i.bi.bi-diagram-3{style: "font-size: 0.6rem"}
@@ -214,6 +218,21 @@
                       .flex.items-center.gap-2
                         %span.text-ghmuted Mode:
                         %span.text-gray-300= bridge.iax_mode == "on_demand" ? "On-demand" : "Persistent"
+                      .flex.items-center.gap-2
+                        %span.text-ghmuted Reflector:
+                        %span.text-gray-300.font-mono= "#{bridge.local_callsign}@#{bridge.local_host}:#{bridge.local_port} TG#{bridge.local_default_tg}"
+                    - elsif bridge.sip?
+                      .flex.items-center.gap-2
+                        %span.text-ghmuted SIP:
+                        %span.text-gray-300.font-mono= "#{bridge.sip_username}@#{bridge.sip_server}:#{bridge.sip_port || 5060} (#{bridge.sip_transport || 'udp'})"
+                      - if bridge.sip_extension.present?
+                        .flex.items-center.gap-2
+                          %span.text-ghmuted Dial:
+                          %span.text-gray-300.font-mono= bridge.sip_extension
+                      .flex.items-center.gap-2
+                        %span.text-ghmuted Mode:
+                        - mode_label = { "persistent" => "Persistent", "on_demand" => "On-demand", "listen_only" => "Listen-only" }[bridge.sip_mode] || bridge.sip_mode
+                        %span.text-gray-300= mode_label
                       .flex.items-center.gap-2
                         %span.text-ghmuted Reflector:
                         %span.text-gray-300.font-mono= "#{bridge.local_callsign}@#{bridge.local_host}:#{bridge.local_port} TG#{bridge.local_default_tg}"

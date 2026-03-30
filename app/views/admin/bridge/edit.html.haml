@@ -45,6 +45,8 @@
         = render 'form_zello'
       - elsif @bridge.iax?
         = render 'form_iax'
+      - elsif @bridge.sip?
+        = render 'form_sip'
       - else
         = render 'form'
 

@@ -1,7 +1,7 @@
 class Bridge < ApplicationRecord
   has_many :bridge_tg_mappings, dependent: :destroy
 
-  ALL_BRIDGE_TYPES = %w[reflector echolink xlx dmr ysf allstar zello iax].freeze
+  ALL_BRIDGE_TYPES = %w[reflector echolink xlx dmr ysf allstar zello iax sip].freeze
   BRIDGE_TYPES = (ENV.fetch('BRIDGE_TYPES', 'reflector').split(',').map(&:strip) & ALL_BRIDGE_TYPES).freeze
 
   validates :name, presence: true, uniqueness: true
@@ -75,6 +75,15 @@ class Bridge < ApplicationRecord
     validates :iax_mode, inclusion: { in: %w[persistent on_demand], message: "must be persistent or on_demand" }
   end
 
+  # SIP-specific validations
+  with_options if: :sip? do
+    validates :sip_username, presence: true
+    validates :sip_password, presence: true
+    validates :sip_server, presence: true
+    validates :sip_mode, inclusion: { in: %w[persistent on_demand listen_only], message: "must be persistent, on_demand, or listen_only" }
+    validates :sip_transport, inclusion: { in: %w[udp tcp tls], message: "must be udp, tcp, or tls" }
+  end
+
   # Returns the 8-char DCS callsign: base callsign (space-padded to 7) + suffix letter.
   def dcs_callsign
     "%-7s%s" % [xlx_callsign.to_s.upcase, xlx_callsign_suffix.to_s.upcase]
@@ -115,8 +124,12 @@ class Bridge < ApplicationRecord
     bridge_type == "iax"
   end
 
+  def sip?
+    bridge_type == "sip"
+  end
+
   def has_agc?
-    xlx? || dmr? || ysf? || allstar? || zello? || iax?
+    xlx? || dmr? || ysf? || allstar? || zello? || iax? || sip?
   end
 
   AGC_DEFAULTS = {
@@ -154,6 +167,8 @@ class Bridge < ApplicationRecord
       "zello-bridge-#{id}"
     elsif iax?
       "iax-bridge-#{id}"
+    elsif sip?
+      "sip-bridge-#{id}"
     else
       "svxlink-bridge-#{id}"
     end
@@ -177,12 +192,14 @@ class Bridge < ApplicationRecord
       generate_zello_config
     elsif iax?
       generate_iax_config
+    elsif sip?
+      generate_sip_config
     elsif echolink?
       generate_echolink_config
     else
       generate_reflector_config
     end
-    write_node_info unless xlx? || dmr? || ysf? || allstar? || zello? || iax?
+    write_node_info unless xlx? || dmr? || ysf? || allstar? || zello? || iax? || sip?
   end
 
   def echolink_conf_path
@@ -418,6 +435,36 @@ class Bridge < ApplicationRecord
     lines.concat(agc_env_lines)
     lines << ""
     File.write(config_dir.join("iax_bridge.env"), lines.join("\n"))
+  end
+
+  def generate_sip_config
+    lines = []
+    lines << "# SIP Bridge configuration (passed as env vars to container)"
+    lines << "REFLECTOR_HOST=#{local_host}"
+    lines << "REFLECTOR_PORT=#{local_port}"
+    lines << "REFLECTOR_AUTH_KEY=#{local_auth_key}"
+    lines << "REFLECTOR_TG=#{local_default_tg}"
+    lines << "CALLSIGN=#{local_callsign}"
+    lines << "SIP_USERNAME=#{sip_username}"
+    lines << "SIP_PASSWORD=#{sip_password}"
+    lines << "SIP_SERVER=#{sip_server}"
+    lines << "SIP_PORT=#{sip_port || 5060}"
+    lines << "SIP_EXTENSION=#{sip_extension}" if sip_extension.present?
+    lines << "SIP_TRANSPORT=#{sip_transport.presence || 'udp'}"
+    lines << "SIP_MODE=#{sip_mode.presence || 'persistent'}"
+    lines << "SIP_IDLE_TIMEOUT=#{sip_idle_timeout || 30}"
+    lines << "SIP_CODECS=#{sip_codecs.presence || 'opus,g722,gsm,ulaw,alaw'}"
+    lines << "SIP_DTMF=#{sip_dtmf}" if sip_dtmf.present?
+    lines << "SIP_DTMF_DELAY=#{sip_dtmf_delay || 2000}"
+    lines << "SIP_CALLER_ID=#{sip_caller_id}" if sip_caller_id.present?
+    lines << "SIP_LOG_LEVEL=#{sip_log_level || 1}"
+    lines << "SIP_PIN=#{sip_pin}" if sip_pin.present?
+    lines << "SIP_PIN_TIMEOUT=#{sip_pin_timeout || 10}"
+    lines << "NODE_LOCATION=#{node_location.presence || name}"
+    lines << "SYSOP=#{sysop}" if sysop.present?
+    lines.concat(agc_env_lines)
+    lines << ""
+    File.write(config_dir.join("sip_bridge.env"), lines.join("\n"))
   end
 
   def generate_reflector_config
@@ -664,7 +711,8 @@ class Bridge < ApplicationRecord
              config_dir.join("xlx_bridge.env"), config_dir.join("dmr_bridge.env"),
              config_dir.join("ysf_bridge.env"), config_dir.join("allstar_bridge.env"),
              config_dir.join("zello_bridge.env"), config_dir.join("zello_private_key.pem"),
-             config_dir.join("iax_bridge.env")].select(&:exist?)
+             config_dir.join("iax_bridge.env"),
+             config_dir.join("sip_bridge.env")].select(&:exist?)
     return if files.empty?
 
     migrate_legacy_backups if Dir.glob(config_dir.join("*.bak")).any?
