@@ -232,6 +232,10 @@
               AllStar
             %button.filter-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "zello"}
               Zello
+            %button.filter-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "iax"}
+              IAX
+            %button.filter-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "sip"}
+              SIP
             %button.filter-btn.px-3.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.transition-colors.border-l.border-ghborder{type: "button", "data-filter" => "simplex"}
               Simplex
 
@@ -248,7 +252,7 @@
           - rx_freq   = qth['rx']&.values&.first&.dig('freq')
           - tx_freq   = qth['tx']&.values&.first&.dig('freq')
           - locator   = qth.dig('pos', 'loc')
-          - node_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'xlx' => 'bi-globe', 'dmr' => 'bi-broadcast-pin', 'ysf' => 'bi-soundwave', 'allstar' => 'bi-telephone', 'echolink' => 'bi-headset', 'simplex' => 'bi-broadcast' }.fetch(node['nodeClass'].to_s, 'bi-broadcast')
+          - node_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'xlx' => 'bi-globe', 'dmr' => 'bi-broadcast-pin', 'ysf' => 'bi-soundwave', 'allstar' => 'bi-telephone', 'iax' => 'bi-phone-vibrate', 'sip' => 'bi-headset-vr', 'echolink' => 'bi-headset', 'simplex' => 'bi-broadcast' }.fetch(node['nodeClass'].to_s, 'bi-broadcast')
           - rx_ports  = (node['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }
 
           - is_external = node['_external'].present?
@@ -455,7 +459,7 @@
                 - st_col = is_talker ? 'green' : (tg != 0 ? 'blue' : 'gray')
                 - st_txt = is_talker ? "Talking" : (tg != 0 ? "Active" : 'Idle')
                 - node_cls = node['nodeClass'].to_s
-                - node_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'xlx' => 'bi-globe', 'dmr' => 'bi-broadcast-pin', 'ysf' => 'bi-soundwave', 'allstar' => 'bi-telephone', 'echolink' => 'bi-headset', 'simplex' => 'bi-broadcast' }.fetch(node_cls, 'bi-broadcast')
+                - node_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'xlx' => 'bi-globe', 'dmr' => 'bi-broadcast-pin', 'ysf' => 'bi-soundwave', 'allstar' => 'bi-telephone', 'iax' => 'bi-phone-vibrate', 'sip' => 'bi-headset-vr', 'echolink' => 'bi-headset', 'simplex' => 'bi-broadcast' }.fetch(node_cls, 'bi-broadcast')
                 - rx_ports = (node['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }
                 - best_sig = rx_ports.map { |_, r| r['siglev'] }.compact.max
                 %tr.border-b.border-ghborder2.hover:bg-ghcard{"data-node-class" => node_cls, "data-source" => (node['_external_type'] || 'local')}
@@ -868,7 +872,7 @@
           var stCol    = isTalker ? 'green' : (tg !== 0 ? 'blue' : 'gray');
           var cs       = esc(callsign);
 
-          var iconMap = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', echolink: 'bi-headset', simplex: 'bi-broadcast' };
+          var iconMap = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', simplex: 'bi-broadcast' };
           var iconCls = iconMap[n.nodeClass] || 'bi-broadcast';
           var qth     = (n.qth && n.qth[0]) || {};
           var rxFreq  = qth.rx && Object.values(qth.rx)[0] && Object.values(qth.rx)[0].freq;
@@ -1172,7 +1176,7 @@
           if (!nodesTable) return;
           var tbody = nodesTable.querySelector('tbody');
           if (!tbody) return;
-          var iconMap = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', echolink: 'bi-headset', simplex: 'bi-broadcast' };
+          var iconMap = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', simplex: 'bi-broadcast' };
           var sorted = Object.keys(nodes).filter(function(cs) { return !nodes[cs].hidden; }).sort(function(a, b) {
             if (!tableSortCol) {
               var na = nodes[a], nb = nodes[b];

@@ -264,7 +264,7 @@
           var locator = pos.loc || '';
           var rxFreq  = qth.rx && Object.values(qth.rx)[0] && Object.values(qth.rx)[0].freq;
           var txFreq  = qth.tx && Object.values(qth.tx)[0] && Object.values(qth.tx)[0].freq;
-          var nodeIcon = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', simplex: 'bi-broadcast' };
+          var nodeIcon = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', zello: 'bi-phone', simplex: 'bi-broadcast' };
           var iconCls  = nodeIcon[node.nodeClass] || 'bi-broadcast';
 
           var html = '<div class="popup-callsign">' + esc(cs) + '</div>' +
@@ -325,7 +325,7 @@
           var locator = (pos && pos.loc) || '';
           var rxFreq  = qth.rx && Object.values(qth.rx)[0] && Object.values(qth.rx)[0].freq;
           var txFreq  = qth.tx && Object.values(qth.tx)[0] && Object.values(qth.tx)[0].freq;
-          var nodeIcon = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', simplex: 'bi-broadcast' };
+          var nodeIcon = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', zello: 'bi-phone', simplex: 'bi-broadcast' };
           var iconCls  = nodeIcon[node.nodeClass] || 'bi-broadcast';
           var html = '<div class="popup-callsign">' + esc(cs) + '</div>' +
                      '<div class="popup-row" style="margin-top:.35rem">' + statusBadge(node) + '</div>';
