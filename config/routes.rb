@@ -20,7 +20,7 @@ Rails.application.routes.draw do
       end
     end
     resources :tgs, except: :show
-    resource :settings, only: %i[edit update]
+    resource :settings, only: :update
     resource :reflector, only: %i[edit update], controller: "reflector" do
       get :backups, on: :collection
       get :pending_csrs, on: :collection

@@ -345,6 +345,11 @@
                 %small.text-gray-500 Display name shown in the navbar.
 
               .mb-4
+                %label.block.text-sm.text-gray-500.mb-1 External Hostname
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600{class: "bg-[#0d1117]", type: "text", name: "settings[reflector_ext_host]", value: @settings["reflector_ext_host"], placeholder: "svx.example.com"}
+                %small.text-gray-500 Your reflector's public hostname/IP as seen by trunk peers. Used to deduplicate the topology graph.
+
+              .mb-4
                 %label.block.text-sm.text-gray-500.mb-1 Poll Interval (seconds)
                 %input.w-full.px-3.py-2.rounded-md.border.border-gray-600{class: "bg-[#0d1117]", type: "number", name: "settings[poll_interval]", value: @settings["poll_interval"], min: 1, max: 10, step: 1}
                 %small.text-gray-500 How often the updater polls the reflector (1–10 seconds).

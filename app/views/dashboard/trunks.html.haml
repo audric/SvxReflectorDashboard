@@ -63,13 +63,23 @@
         - local_host = @reflector_host || ENV['DOMAIN'] || 'this reflector'
         - local_prefix = @local_prefix || @reflector_config&.dig('local_prefix')
         - local_prefix_str = Array(local_prefix).flatten.flat_map { |x| x.to_s.split(',') }.map(&:strip).join(', ')
+        - local_ext_host = Setting.get('reflector_ext_host', ENV.fetch('REFLECTOR_EXT_HOST', ''))
         :javascript
           (function() {
             var localHost = #{local_host.to_json};
+            var localExtHost = #{local_ext_host.to_json};
             var localPrefix = #{local_prefix_str.to_json};
             var trunksData = #{@trunks.to_json};
             var localTrunks = #{@local_trunks.to_json};
             var remoteConfigs = #{@remote_configs.to_json};
+
+            // Check if a hostname refers to our local reflector
+            function isLocalHost(h) {
+              if (!h) return false;
+              if (h === localHost) return true;
+              if (localExtHost && h === localExtHost) return true;
+              return false;
+            }
 
             function drawTopology() {
               var container = document.getElementById('topology-canvas');
@@ -93,8 +103,8 @@
                 var live = trunksData[name] || {};
                 var rPrefix = remote.local_prefix || live.remote_prefix || [];
                 var host = cfg.HOST || live.host || name;
-                // Deduplicate by host
-                if (!allNodes.some(function(n) { return n.host === host; })) {
+                // Deduplicate by host (skip if it's us or already listed)
+                if (!isLocalHost(host) && !allNodes.some(function(n) { return n.host === host; })) {
                   allNodes.push({
                     id: host,
                     host: host,
@@ -142,18 +152,19 @@
                   if (!rt || typeof rt !== 'object') return;
                   var targetHost = rt.host;
                   if (!targetHost) return;
-                  // Skip link back to local (already covered)
-                  var key = edgeKey(peerHost, targetHost);
+                  // Normalize: if target is our reflector, use canonical local name
+                  var resolvedTarget = isLocalHost(targetHost) ? localHost : targetHost;
+                  var key = edgeKey(peerHost, resolvedTarget);
                   if (edgeMap[key]) return;
                   edgeMap[key] = {
-                    fromHost: peerHost, toHost: targetHost, name: rName,
+                    fromHost: peerHost, toHost: resolvedTarget, name: rName,
                     outFromA: !!rt.outbound_connected, outFromB: !!rt.inbound_connected
                   };
-                  // Ensure target node exists
-                  if (!allNodes.some(function(n) { return n.host === targetHost; })) {
+                  // Ensure target node exists (skip if it's us)
+                  if (!isLocalHost(targetHost) && !allNodes.some(function(n) { return n.host === resolvedTarget; })) {
                     var rPrefix = rt.remote_prefix || [];
                     allNodes.push({
-                      id: targetHost, host: targetHost,
+                      id: resolvedTarget, host: resolvedTarget,
                       prefix: Array.isArray(rPrefix) ? rPrefix.join(', ') : String(rPrefix),
                       isLocal: false, nodeCount: null
                     });
