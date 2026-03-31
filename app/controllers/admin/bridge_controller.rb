@@ -755,6 +755,10 @@ module Admin
     end
 
     def pull_image(image)
+      if ENV['SKIP_IMAGE_PULL'].present?
+        Rails.logger.info "[Bridge] Skipping pull for #{image} (SKIP_IMAGE_PULL set)"
+        return
+      end
       Rails.logger.info "[Bridge] Pulling image #{image}..."
       sock = UNIXSocket.new("/var/run/docker.sock")
       sock.write("POST /images/create?fromImage=#{image}&tag=latest HTTP/1.0\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n")

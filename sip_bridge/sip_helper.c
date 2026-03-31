@@ -38,6 +38,57 @@ static char            g_pin_buf[32];           /* collected DTMF digits */
 static int             g_pin_pos = 0;
 static pj_bool_t       g_pin_pending = PJ_FALSE; /* waiting for PIN entry */
 static time_t          g_pin_start = 0;         /* when PIN collection started */
+static time_t          g_hangup_at = 0;         /* deferred hangup after fail tone */
+
+/* ── Tone generator for PIN feedback ── */
+static pjmedia_port           *g_tonegen = NULL;
+static pjsua_conf_port_id      g_tone_slot = PJSUA_INVALID_ID;
+
+static void play_tone(unsigned freq1, unsigned freq2, unsigned on_ms, unsigned off_ms, unsigned count) {
+    if (!g_tonegen) return;
+    if (g_call_id == PJSUA_INVALID_ID) return;
+
+    pjsua_call_info ci;
+    pjsua_call_get_info(g_call_id, &ci);
+    if (ci.media_status != PJSUA_CALL_MEDIA_ACTIVE) return;
+
+    /* Connect tone generator to the call */
+    pjsua_conf_connect(g_tone_slot, ci.conf_slot);
+
+    pjmedia_tone_desc tones[1];
+    pj_bzero(tones, sizeof(tones));
+    tones[0].freq1 = (short)freq1;
+    tones[0].freq2 = (short)freq2;
+    tones[0].on_msec = (short)on_ms;
+    tones[0].off_msec = (short)off_ms;
+    tones[0].volume = 0; /* 0 = default */
+    pjmedia_tonegen_play(g_tonegen, count, tones, 0);
+}
+
+/* Short beep: "ready for PIN" */
+static void play_prompt_tone(void) {
+    play_tone(800, 0, 200, 0, 1);
+}
+
+/* Rising two-tone: "PIN accepted" */
+static void play_ok_tone(void) {
+    if (!g_tonegen || g_call_id == PJSUA_INVALID_ID) return;
+    pjsua_call_info ci;
+    pjsua_call_get_info(g_call_id, &ci);
+    if (ci.media_status != PJSUA_CALL_MEDIA_ACTIVE) return;
+    pjsua_conf_connect(g_tone_slot, ci.conf_slot);
+
+    pjmedia_tone_desc tones[2];
+    pj_bzero(tones, sizeof(tones));
+    tones[0].freq1 = 800;  tones[0].on_msec = 100; tones[0].off_msec = 50;
+    tones[1].freq1 = 1200; tones[1].on_msec = 200; tones[1].off_msec = 0;
+    pjmedia_tonegen_play(g_tonegen, 2, tones, 0);
+}
+
+/* Low buzz: "PIN rejected" */
+static void play_fail_tone(void) {
+    play_tone(400, 0, 300, 100, 2);
+}
 
 /* Thread-safe event output */
 static pthread_mutex_t g_stdout_mu = PTHREAD_MUTEX_INITIALIZER;
@@ -140,6 +191,7 @@ static void on_call_state(pjsua_call_id call_id, pjsip_event *e) {
         g_call_id = PJSUA_INVALID_ID;
         g_pin_pending = PJ_FALSE;
         g_pin_pos = 0;
+        g_hangup_at = 0;
         g_bridge_slot = PJSUA_INVALID_ID;
         emit("DISCONNECTED");
     }
@@ -166,16 +218,16 @@ static void on_call_media_state(pjsua_call_id call_id) {
 
     if (ci.media_status == PJSUA_CALL_MEDIA_ACTIVE) {
         if (g_pin_pending) {
-            /* PIN gate active — don't connect audio yet, wait for correct PIN */
+            /* PIN gate active — don't connect audio yet, play prompt tone */
             PJ_LOG(3,(THIS_FILE, "Media active, waiting for PIN..."));
+            play_prompt_tone();
         } else {
             connect_audio_bridge();
         }
     }
 }
 
-static void on_dtmf_digit(pjsua_call_id call_id, int digit) {
-    (void)call_id;
+static void handle_dtmf(int digit) {
     emit("DTMF_RECEIVED %c", (char)digit);
 
     if (g_pin_pending && g_pin_pos < (int)sizeof(g_pin_buf) - 1) {
@@ -187,19 +239,25 @@ static void on_dtmf_digit(pjsua_call_id call_id, int digit) {
             g_pin_pending = PJ_FALSE;
             PJ_LOG(3,(THIS_FILE, "PIN accepted"));
             emit("PIN_OK");
+            play_ok_tone();
             connect_audio_bridge();
         }
         /* If they've entered more digits than the PIN length, wrong PIN */
         else if (g_pin_pos >= (int)strlen(g_pin)) {
             g_pin_pending = PJ_FALSE;
             PJ_LOG(3,(THIS_FILE, "Wrong PIN"));
+            play_fail_tone();
             emit("PIN_FAILED");
-            if (g_call_id != PJSUA_INVALID_ID) {
-                pjsua_call_hangup(g_call_id, 0, NULL, NULL);
-                g_call_id = PJSUA_INVALID_ID;
-            }
+            g_hangup_at = time(NULL) + 1; /* hangup after 1s so caller hears tone */
         }
     }
+}
+
+/* Handles both RFC 2833 and SIP INFO DTMF */
+static void on_dtmf_digit2(pjsua_call_id call_id,
+                            const pjsua_dtmf_info *info) {
+    (void)call_id;
+    handle_dtmf(info->digit);
 }
 
 /* ── Codec configuration ── */
@@ -337,7 +395,7 @@ int main(void) {
     cfg.cb.on_incoming_call = &on_incoming_call;
     cfg.cb.on_call_state = &on_call_state;
     cfg.cb.on_call_media_state = &on_call_media_state;
-    cfg.cb.on_dtmf_digit = &on_dtmf_digit;
+    cfg.cb.on_dtmf_digit2 = &on_dtmf_digit2;
     cfg.max_calls = 1;
 
     pjsua_logging_config log_cfg;
@@ -361,6 +419,12 @@ int main(void) {
 
     g_pool = pjsua_pool_create("sip_helper", 4096, 4096);
     g_bridge_port = create_bridge_port(g_pool);
+
+    /* Create tone generator for PIN audio feedback */
+    status = pjmedia_tonegen_create(g_pool, CLOCK_RATE, 1, SAMPLES, 16, 0, &g_tonegen);
+    if (status == PJ_SUCCESS) {
+        pjsua_conf_add_port(g_pool, g_tonegen, &g_tone_slot);
+    }
 
     pjsua_set_null_snd_dev();
 
@@ -446,11 +510,18 @@ int main(void) {
             if (time(NULL) - g_pin_start >= g_pin_timeout) {
                 g_pin_pending = PJ_FALSE;
                 PJ_LOG(3,(THIS_FILE, "PIN timeout"));
+                play_fail_tone();
                 emit("PIN_FAILED");
-                if (g_call_id != PJSUA_INVALID_ID) {
-                    pjsua_call_hangup(g_call_id, 0, NULL, NULL);
-                    g_call_id = PJSUA_INVALID_ID;
-                }
+                g_hangup_at = time(NULL) + 1;
+            }
+        }
+
+        /* Deferred hangup after fail/timeout tone */
+        if (g_hangup_at > 0 && time(NULL) >= g_hangup_at) {
+            g_hangup_at = 0;
+            if (g_call_id != PJSUA_INVALID_ID) {
+                pjsua_call_hangup(g_call_id, 0, NULL, NULL);
+                g_call_id = PJSUA_INVALID_ID;
             }
         }
     }

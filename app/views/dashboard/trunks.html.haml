@@ -66,8 +66,8 @@
         - local_ext_host = Setting.get('reflector_ext_host', ENV.fetch('REFLECTOR_EXT_HOST', ''))
         :javascript
           (function() {
-            var localHost = #{local_host.to_json};
-            var localExtHost = #{local_ext_host.to_json};
+            var localHost = #{local_ext_host.present? ? local_ext_host.to_json : local_host.to_json};
+            var localExtHost = #{local_host.to_json};
             var localPrefix = #{local_prefix_str.to_json};
             var trunksData = #{@trunks.to_json};
             var localTrunks = #{@local_trunks.to_json};
@@ -236,7 +236,7 @@
                   // Find t where ray from (cx,cy) in direction (tux,tuy) hits the box edge
                   var tx = tux !== 0 ? hw / Math.abs(tux) : Infinity;
                   var ty = tuy !== 0 ? hh / Math.abs(tuy) : Infinity;
-                  var t = Math.min(tx, ty) + 4; // +4 margin for arrow tip
+                  var t = Math.min(tx, ty) + 12; // margin so arrow tips clear the box
                   return { x: cx + tux * t, y: cy + tuy * t };
                 }
                 var hwA = (nodeWidths[e.fromHost] || nodeW) / 2;
@@ -263,7 +263,7 @@
                 // B→A arrow
                 var baColor = e.outFromB ? lineColor : '#ef4444';
                 var baMark = e.outFromB ? colorName : 'red';
-                svg += '<line x1="' + (bx-px) + '" y1="' + (by-py) + '" x2="' + (ax-px) + '" y2="' + (ay-py) + '" stroke="' + baColor + '" stroke-width="1.5" marker-end="url(#arr-' + baMark + '-r)" opacity="0.6"/>';
+                svg += '<line x1="' + (bx-px) + '" y1="' + (by-py) + '" x2="' + (ax-px) + '" y2="' + (ay-py) + '" stroke="' + baColor + '" stroke-width="1.5" marker-end="url(#arr-' + baMark + ')" opacity="0.6"/>';
 
                 // Collect label for de-overlap pass
                 var shortName = e.name.replace(/^TRUNK_/, '');
