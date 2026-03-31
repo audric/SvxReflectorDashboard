@@ -313,7 +313,6 @@ func (c *SVXLinkClient) RunUDPReader() {
 				if int(audioLen) < len(audioData) {
 					audioData = audioData[:audioLen]
 				}
-				log.Printf("[SVX] UDP audio frame: %d bytes", len(audioData))
 				if c.onAudio != nil && len(audioData) > 0 {
 					c.onAudio(audioData)
 				}

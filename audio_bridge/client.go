@@ -241,16 +241,14 @@ func (c *Client) RunTCPReader() {
 		switch msg.Type {
 		case MsgTypeHeartbeat:
 			WriteTCPMessage(c.tcpConn, MsgTypeHeartbeat, nil)
-		case MsgTypeNodeJoined:
-			log.Printf("Node joined (%d bytes)", len(msg.Payload))
-		case MsgTypeNodeLeft:
-			log.Printf("Node left (%d bytes)", len(msg.Payload))
+		case MsgTypeNodeJoined, MsgTypeNodeLeft:
+			// node events handled by web updater, ignore here
 		case MsgTypeTalkerStart:
-			log.Printf("Talker start (%d bytes)", len(msg.Payload))
+			log.Println("Talker start")
 		case MsgTypeTalkerStop:
-			log.Printf("Talker stop (%d bytes)", len(msg.Payload))
+			log.Println("Talker stop")
 		default:
-			log.Printf("TCP msg type=%d, %d bytes", msg.Type, len(msg.Payload))
+			log.Printf("TCP msg type=%d", msg.Type)
 		}
 	}
 }
