@@ -480,6 +480,9 @@ func runBridge(
 			}
 
 		case <-idleTickerC:
+			if sipMode != "on_demand" {
+				continue
+			}
 			sipConnectedMu.Lock()
 			connected := sipConnected
 			sipConnectedMu.Unlock()
