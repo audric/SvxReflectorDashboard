@@ -4,6 +4,20 @@ module Admin
     before_action :require_reflector_admin
     before_action :set_bridge, only: %i[edit update destroy toggle backups logs]
 
+    # Called from update.sh to restart all enabled bridges after image pull
+    def self.restart_enabled_bridges
+      ctrl = new
+      Bridge.where(enabled: true).find_each do |bridge|
+        begin
+          puts "  Starting #{bridge.name}..."
+          bridge.generate_config
+          ctrl.send(:start_or_recreate_container, bridge)
+        rescue => e
+          puts "  Failed #{bridge.name}: #{e.message}"
+        end
+      end
+    end
+
     def index
       @bridges = Bridge.includes(:bridge_tg_mappings).order(:name)
       @container_statuses = fetch_container_statuses

@@ -83,6 +83,23 @@ if [ "$FIRST_INSTALL" = true ]; then
 else
   echo "[4/4] Running database migrations..."
   docker compose exec -T web bin/rails db:migrate 2>/dev/null || true
+
+  # Restart running bridge containers so they pick up new images
+  echo ""
+  echo "Restarting bridge containers..."
+  BRIDGE_CONTAINERS=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^(svxlink|xlx|dmr|ysf|allstar|zello|iax|sip)-bridge-[0-9]+$' || true)
+  if [ -n "$BRIDGE_CONTAINERS" ]; then
+    for cname in $BRIDGE_CONTAINERS; do
+      echo "  Restarting $cname..."
+      docker stop "$cname" >/dev/null 2>&1 || true
+      docker rm "$cname" >/dev/null 2>&1 || true
+    done
+    sleep 2
+    docker compose exec -T web bin/rails runner 'Admin::BridgeController.restart_enabled_bridges'
+  else
+    echo "  No bridge containers running."
+  fi
+
   echo ""
   echo "=== Update complete ==="
 fi
