@@ -34,7 +34,7 @@ fi
 # Pull latest Docker images from GHCR (dashboard + reflector + bridges)
 echo ""
 echo "[2/4] Pulling Docker images..."
-docker compose pull
+docker compose pull || echo "  Warning: some images failed to pull (will use cached)"
 # Pull bridge images (managed dynamically, not in docker-compose.yml)
 BRIDGE_IMAGES="
 ghcr.io/audric/svxreflectordashboard-xlx-bridge
@@ -95,7 +95,7 @@ else
       docker rm "$cname" >/dev/null 2>&1 || true
     done
     sleep 2
-    docker compose exec -T web bin/rails runner 'Admin::BridgeController.restart_enabled_bridges'
+    docker compose exec -T web bin/rails runner 'Rails.logger = Logger.new("/dev/null"); Admin::BridgeController.restart_enabled_bridges'
   else
     echo "  No bridge containers running."
   fi
