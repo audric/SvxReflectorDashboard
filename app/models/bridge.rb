@@ -80,7 +80,7 @@ class Bridge < ApplicationRecord
     validates :sip_username, presence: true
     validates :sip_password, presence: true
     validates :sip_server, presence: true
-    validates :sip_mode, inclusion: { in: %w[persistent on_demand listen_only], message: "must be persistent, on_demand, or listen_only" }
+    validates :sip_mode, inclusion: { in: %w[persistent on_demand listen_only dial_in], message: "must be persistent, on_demand, listen_only, or dial_in" }
     validates :sip_transport, inclusion: { in: %w[udp tcp tls], message: "must be udp, tcp, or tls" }
   end
 
@@ -460,6 +460,9 @@ class Bridge < ApplicationRecord
     lines << "SIP_LOG_LEVEL=#{sip_log_level || 1}"
     lines << "SIP_PIN=#{sip_pin}" if sip_pin.present?
     lines << "SIP_PIN_TIMEOUT=#{sip_pin_timeout || 10}"
+    lines << "SIP_VOX_TIMEOUT=#{sip_vox_timeout || 3}" if sip_vox_timeout.present?
+    lines << "SIP_PTT_KEY=#{sip_ptt_key}" if sip_ptt_key.present?
+    lines << "SIP_MAX_CALL_DURATION=#{sip_max_call_duration || 180}" if sip_max_call_duration.present?
     lines << "NODE_LOCATION=#{node_location.presence || name}"
     lines << "SYSOP=#{sysop}" if sysop.present?
     lines.concat(agc_env_lines)

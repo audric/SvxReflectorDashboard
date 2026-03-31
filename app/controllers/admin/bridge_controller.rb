@@ -203,7 +203,7 @@ module Admin
         :iax_extension, :iax_context, :iax_mode, :iax_idle_timeout, :iax_codecs,
         :sip_username, :sip_password, :sip_server, :sip_port,
         :sip_extension, :sip_transport, :sip_mode, :sip_idle_timeout, :sip_codecs,
-        :sip_dtmf, :sip_dtmf_delay, :sip_caller_id, :sip_log_level, :sip_pin, :sip_pin_timeout,
+        :sip_dtmf, :sip_dtmf_delay, :sip_caller_id, :sip_log_level, :sip_pin, :sip_pin_timeout, :sip_vox_timeout, :sip_ptt_key, :sip_max_call_duration,
         :zello_username, :zello_password, :zello_channel, :zello_channel_password, :zello_issuer_id, :zello_private_key,
         :agc_target_level, :agc_attack_rate, :agc_decay_rate, :agc_max_gain, :agc_min_gain, :agc_limit_level,
         :filter_hpf_cutoff, :filter_lpf_cutoff
@@ -515,6 +515,9 @@ module Admin
           "SIP_LOG_LEVEL=#{bridge.sip_log_level || 1}",
           "SIP_PIN=#{bridge.sip_pin}",
           "SIP_PIN_TIMEOUT=#{bridge.sip_pin_timeout || 10}",
+          "SIP_VOX_TIMEOUT=#{bridge.sip_vox_timeout || 3}",
+          "SIP_PTT_KEY=#{bridge.sip_ptt_key.presence || '*'}",
+          "SIP_MAX_CALL_DURATION=#{bridge.sip_max_call_duration || 180}",
           "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
           "SYSOP=#{bridge.sysop}",
           "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"

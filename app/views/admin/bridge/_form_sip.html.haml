@@ -66,8 +66,8 @@
           %p.text-xs.text-ghmuted.mt-1 Extension/number to dial for outbound calls
         .mb-1
           %label.block.text-sm.text-gray-500.mb-1 MODE
-          = f.select :sip_mode, [["Persistent (always connected)", "persistent"], ["On-demand (call on activity)", "on_demand"], ["Listen-only (answer incoming only)", "listen_only"]], {}, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext"
-          %p.text-xs.text-ghmuted.mt-1 Persistent keeps the call up; on-demand dials when someone talks; listen-only answers incoming calls only
+          = f.select :sip_mode, [["Persistent (always connected)", "persistent"], ["On-demand (call on activity)", "on_demand"], ["Listen-only (answer incoming, RX only)", "listen_only"], ["Dial-in (answer incoming, TX via DTMF PTT)", "dial_in"]], {}, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext"
+          %p.text-xs.text-ghmuted.mt-1 Persistent keeps the call up; on-demand dials when someone talks; listen-only is RX only; dial-in allows TX via DTMF PTT with max call duration
         #idle-timeout-field.mb-1
           %label.block.text-sm.text-gray-500.mb-1 IDLE TIMEOUT
           = f.number_field :sip_idle_timeout, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "30", min: 5
@@ -112,6 +112,29 @@
           %label.block.text-sm.text-gray-500.mb-1 PIN TIMEOUT (s)
           = f.number_field :sip_pin_timeout, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "10", min: 3, max: 60
           %p.text-xs.text-ghmuted.mt-1 Seconds the caller has to enter the PIN before being hung up
+
+  -# ── DTMF PTT ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('ptt')"}
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-mic.mr-2
+        DTMF PTT (SIP → Reflector)
+      %i.bi.bi-chevron-down.accordion-chevron.text-gray-400.open{id: "chevron-ptt"}
+    .accordion-body.px-4.open{id: "body-ptt"}
+      %p.text-xs.text-ghmuted.mb-3 In persistent/on_demand/dial_in mode, callers press a DTMF key to open/close the TX gate. Gate auto-closes after silence.
+      .grid.grid-cols-1.md:grid-cols-2.gap-4
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 PTT KEY
+          = f.text_field :sip_ptt_key, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "*", maxlength: 1
+          %p.text-xs.text-ghmuted.mt-1 DTMF key to toggle TX gate (default: *)
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 VOX TIMEOUT (s)
+          = f.number_field :sip_vox_timeout, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "3", min: 1, max: 30
+          %p.text-xs.text-ghmuted.mt-1 Auto-close TX gate after this many seconds of silence
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 MAX CALL DURATION (s)
+          = f.number_field :sip_max_call_duration, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "180", min: 10, max: 3600
+          %p.text-xs.text-ghmuted.mt-1 Auto-hangup after this many seconds (dial-in mode only, 0 = unlimited)
 
   -# ── Advanced ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4

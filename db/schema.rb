@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_30_145538) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_31_121135) do
   create_table "bridge_tg_mappings", force: :cascade do |t|
     t.string "activate_on_activity"
     t.integer "bridge_id", null: false
@@ -125,14 +125,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_30_145538) do
     t.string "sip_extension"
     t.integer "sip_idle_timeout", default: 30
     t.integer "sip_log_level", default: 1
+    t.integer "sip_max_call_duration", default: 180
     t.string "sip_mode", default: "persistent"
     t.string "sip_password"
     t.string "sip_pin"
     t.integer "sip_pin_timeout", default: 10
     t.integer "sip_port", default: 5060
+    t.string "sip_ptt_key", default: "*"
     t.string "sip_server"
     t.string "sip_transport", default: "udp"
     t.string "sip_username"
+    t.integer "sip_vox_timeout", default: 3
     t.string "sysop"
     t.integer "tg_select_timeout"
     t.integer "timeout"

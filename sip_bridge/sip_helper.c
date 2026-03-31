@@ -1,7 +1,7 @@
 /*
  * sip_helper — PJSUA wrapper for the SIP bridge.
  *
- * Commands (stdin):  CALL sip:ext@server | ANSWER | HANGUP | DTMF digits | QUIT
+ * Commands (stdin):  CALL sip:ext@server | ANSWER | HANGUP | DTMF digits | BEEP freq ms | QUIT
  * Events (stdout):   REGISTERED | REG_FAILED reason | INCOMING uri | CONNECTED | DISCONNECTED | DTMF_RECEIVED digit
  * Audio in  (fd 3):  PCM 16-bit LE, 8kHz mono, 320 bytes/frame (20ms)
  * Audio out (fd 4):  same format
@@ -343,6 +343,12 @@ static void process_command(char *line) {
             pj_str_t digits = pj_str(line + 5);
             pjsua_call_dial_dtmf(g_call_id, &digits);
         }
+    }
+    else if (strncmp(line, "BEEP ", 5) == 0) {
+        /* BEEP freq duration_ms — play a short tone to the caller */
+        unsigned freq = 800, dur = 150;
+        sscanf(line + 5, "%u %u", &freq, &dur);
+        play_tone(freq, 0, dur, 0, 1);
     }
     else if (strcmp(line, "QUIT") == 0) {
         g_quit = PJ_TRUE;

@@ -45,6 +45,9 @@ func main() {
 	sipIdleTimeout := envInt("SIP_IDLE_TIMEOUT", 30)
 	sipDTMF := envDefault("SIP_DTMF", "")
 	sipDTMFDelay := envInt("SIP_DTMF_DELAY", 2000)
+	sipVoxTimeout := envInt("SIP_VOX_TIMEOUT", 3)
+	sipPTTKey := envDefault("SIP_PTT_KEY", "*")
+	sipMaxCallDuration := envInt("SIP_MAX_CALL_DURATION", 180)
 
 	nodeLocation := envDefault("NODE_LOCATION", "")
 	sysop := envDefault("SYSOP", "")
@@ -72,7 +75,8 @@ func main() {
 	for {
 		err := runBridge(svxHost, svxPort, svxAuthKey, svxTG, callsign, nodeLocation, sysop,
 			sipServer, sipExtension, sipMode, sipIdleTimeout,
-			sipDTMF, sipDTMFDelay, opusDec, opusEnc, sigCh)
+			sipDTMF, sipDTMFDelay, sipVoxTimeout, sipPTTKey, sipMaxCallDuration,
+			opusDec, opusEnc, sigCh)
 
 		if err == errShutdown {
 			log.Println("Goodbye")
@@ -101,7 +105,7 @@ var errShutdown = fmt.Errorf("shutdown")
 func runBridge(
 	svxHost string, svxPort int, svxAuthKey string, svxTG uint32, callsign, nodeLocation, sysop string,
 	sipServer, sipExtension, sipMode string, sipIdleTimeout int,
-	sipDTMF string, sipDTMFDelay int,
+	sipDTMF string, sipDTMFDelay int, sipVoxTimeout int, sipPTTKey string, sipMaxCallDuration int,
 	opusDec *opus.Decoder, opusEnc *opus.Encoder,
 	sigCh <-chan os.Signal,
 ) error {
@@ -123,6 +127,13 @@ func runBridge(
 		sipStreamActive bool
 		lastActivity    time.Time
 		lastActivityMu  sync.Mutex
+		// DTMF PTT gate: controls SIP→SVX audio flow
+		sipTxGate       bool
+		sipTxGateMu     sync.Mutex
+		sipTxGateVoice  time.Time // last time voice energy was detected while gate open
+		// Call duration limit for dial_in mode
+		callStartTime   time.Time
+		callStartMu     sync.Mutex
 	)
 
 	touchActivity := func() {
@@ -286,6 +297,9 @@ func runBridge(
 
 	log.Printf("SVX connected on TG %d, waiting for SIP registration...", svxTG)
 
+	// needsTxGate: persistent, on_demand, and dial_in use DTMF PTT; listen_only is RX-only
+	needsTxGate := sipMode == "persistent" || sipMode == "on_demand" || sipMode == "dial_in"
+
 	// ── SIP → SVX audio processing ──
 	stopAudio := make(chan struct{})
 	go func() {
@@ -295,6 +309,18 @@ func runBridge(
 				if !ok {
 					return
 				}
+				if sipMode == "listen_only" {
+					continue
+				}
+				// Check DTMF PTT gate
+				if needsTxGate {
+					sipTxGateMu.Lock()
+					open := sipTxGate
+					sipTxGateMu.Unlock()
+					if !open {
+						continue
+					}
+				}
 				svxTalkMu.Lock()
 				if svxTalking {
 					svxTalkMu.Unlock()
@@ -302,6 +328,12 @@ func runBridge(
 				}
 				svxTalkMu.Unlock()
 				touchActivity()
+				// Track voice activity for VOX auto-close
+				if needsTxGate {
+					sipTxGateMu.Lock()
+					sipTxGateVoice = time.Now()
+					sipTxGateMu.Unlock()
+				}
 
 				sipTalkMu.Lock()
 				if !sipStreamActive {
@@ -398,6 +430,74 @@ func runBridge(
 		}
 	}()
 
+	// ── VOX auto-close for DTMF PTT gate ──
+	if needsTxGate {
+		go func() {
+			ticker := time.NewTicker(500 * time.Millisecond)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+				case <-stopAudio:
+					return
+				}
+				sipTxGateMu.Lock()
+				open := sipTxGate
+				lastVoice := sipTxGateVoice
+				sipTxGateMu.Unlock()
+				if !open {
+					continue
+				}
+				if time.Since(lastVoice) > time.Duration(sipVoxTimeout)*time.Second {
+					sipTxGateMu.Lock()
+					sipTxGate = false
+					sipTxGateMu.Unlock()
+					log.Printf("[SIP] TX gate auto-closed (silent %ds)", sipVoxTimeout)
+					sendCmd("BEEP 600 150")
+					// End any active SIP→SVX stream
+					sipTalkMu.Lock()
+					wasActive := sipStreamActive
+					sipStreamActive = false
+					sipTalking = false
+					sipTalkMu.Unlock()
+					if wasActive {
+						svx.SendTalkerStop(svxTG, callsign)
+					}
+				}
+			}
+		}()
+	}
+
+	// ── Max call duration for dial_in ──
+	if sipMode == "dial_in" && sipMaxCallDuration > 0 {
+		go func() {
+			ticker := time.NewTicker(5 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+				case <-stopAudio:
+					return
+				}
+				sipConnectedMu.Lock()
+				connected := sipConnected
+				sipConnectedMu.Unlock()
+				if !connected {
+					continue
+				}
+				callStartMu.Lock()
+				elapsed := time.Since(callStartTime)
+				callStartMu.Unlock()
+				if elapsed > time.Duration(sipMaxCallDuration)*time.Second {
+					log.Printf("[SIP] Max call duration reached (%ds), hanging up", sipMaxCallDuration)
+					sendCmd("BEEP 400 500")
+					time.Sleep(600 * time.Millisecond)
+					sendCmd("HANGUP")
+				}
+			}
+		}()
+	}
+
 	// ── Idle timeout for on-demand ──
 	touchActivity()
 	var idleTicker *time.Ticker
@@ -433,7 +533,7 @@ func runBridge(
 
 			case strings.HasPrefix(event, "INCOMING"):
 				log.Printf("[SIP] %s", event)
-				if sipMode == "listen_only" || sipMode == "on_demand" {
+				if sipMode == "listen_only" || sipMode == "on_demand" || sipMode == "dial_in" {
 					sendCmd("ANSWER")
 				}
 
@@ -441,6 +541,9 @@ func runBridge(
 				sipConnectedMu.Lock()
 				sipConnected = true
 				sipConnectedMu.Unlock()
+				callStartMu.Lock()
+				callStartTime = time.Now()
+				callStartMu.Unlock()
 				touchActivity()
 				log.Println("[SIP] Call connected")
 
@@ -471,6 +574,35 @@ func runBridge(
 
 			case strings.HasPrefix(event, "DTMF_RECEIVED"):
 				log.Printf("[SIP] %s", event)
+				// DTMF PTT gate toggle
+				if needsTxGate {
+					digit := strings.TrimPrefix(event, "DTMF_RECEIVED ")
+					if digit == sipPTTKey {
+						sipTxGateMu.Lock()
+						sipTxGate = !sipTxGate
+						nowOpen := sipTxGate
+						if nowOpen {
+							sipTxGateVoice = time.Now()
+						}
+						sipTxGateMu.Unlock()
+						if nowOpen {
+							log.Println("[SIP] TX gate OPEN (DTMF PTT)")
+							sendCmd("BEEP 1000 100")
+						} else {
+							log.Println("[SIP] TX gate CLOSED (DTMF PTT)")
+							sendCmd("BEEP 600 150")
+							// End any active SIP→SVX stream
+							sipTalkMu.Lock()
+							wasActive := sipStreamActive
+							sipStreamActive = false
+							sipTalking = false
+							sipTalkMu.Unlock()
+							if wasActive {
+								svx.SendTalkerStop(svxTG, callsign)
+							}
+						}
+					}
+				}
 
 			case event == "PIN_OK":
 				log.Println("[SIP] PIN accepted, audio bridged")
