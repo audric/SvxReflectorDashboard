@@ -45,15 +45,16 @@ static pjmedia_port           *g_tonegen = NULL;
 static pjsua_conf_port_id      g_tone_slot = PJSUA_INVALID_ID;
 
 static void play_tone(unsigned freq1, unsigned freq2, unsigned on_ms, unsigned off_ms, unsigned count) {
-    if (!g_tonegen) return;
-    if (g_call_id == PJSUA_INVALID_ID) return;
+    if (!g_tonegen) { PJ_LOG(2,(THIS_FILE, "play_tone: no tonegen")); return; }
+    if (g_call_id == PJSUA_INVALID_ID) { PJ_LOG(2,(THIS_FILE, "play_tone: no call")); return; }
 
     pjsua_call_info ci;
     pjsua_call_get_info(g_call_id, &ci);
-    if (ci.media_status != PJSUA_CALL_MEDIA_ACTIVE) return;
+    if (ci.media_status != PJSUA_CALL_MEDIA_ACTIVE) { PJ_LOG(2,(THIS_FILE, "play_tone: media not active")); return; }
 
     /* Connect tone generator to the call */
-    pjsua_conf_connect(g_tone_slot, ci.conf_slot);
+    pj_status_t st = pjsua_conf_connect(g_tone_slot, ci.conf_slot);
+    PJ_LOG(3,(THIS_FILE, "play_tone: %dHz %dms x%d, connect=%d, call_slot=%d", freq1, on_ms, count, st, ci.conf_slot));
 
     pjmedia_tone_desc tones[1];
     pj_bzero(tones, sizeof(tones));
@@ -423,7 +424,10 @@ int main(void) {
     /* Create tone generator for PIN audio feedback */
     status = pjmedia_tonegen_create(g_pool, CLOCK_RATE, 1, SAMPLES, 16, 0, &g_tonegen);
     if (status == PJ_SUCCESS) {
-        pjsua_conf_add_port(g_pool, g_tonegen, &g_tone_slot);
+        status = pjsua_conf_add_port(g_pool, g_tonegen, &g_tone_slot);
+        PJ_LOG(3,(THIS_FILE, "Tone generator created, slot=%d", g_tone_slot));
+    } else {
+        PJ_LOG(2,(THIS_FILE, "Tone generator FAILED: %d", status));
     }
 
     pjsua_set_null_snd_dev();
