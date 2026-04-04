@@ -97,7 +97,7 @@ func (c *IAX2Client) Register() error {
 	c.dstCallNo = 0
 	c.mu.Unlock()
 
-	addr := fmt.Sprintf("%s:%d", c.host, c.port)
+	addr := net.JoinHostPort(c.host, fmt.Sprintf("%d", c.port))
 	log.Printf("[IAX2] Registering %s@%s...", c.username, addr)
 
 	udpAddr, err := net.ResolveUDPAddr("udp", addr)

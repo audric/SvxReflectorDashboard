@@ -91,7 +91,7 @@ func (c *SVXLinkClient) Connect() error {
 	c.done = make(chan struct{})
 	c.mu.Unlock()
 
-	addr := fmt.Sprintf("%s:%d", c.host, c.port)
+	addr := net.JoinHostPort(c.host, fmt.Sprintf("%d", c.port))
 	log.Printf("[SVX] Connecting to reflector at %s...", addr)
 
 	conn, err := net.DialTimeout("tcp", addr, 10*time.Second)

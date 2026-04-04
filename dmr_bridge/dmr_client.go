@@ -80,7 +80,7 @@ func (c *DMRClient) Connect() error {
 	c.missedPings = 0
 	c.mu.Unlock()
 
-	addr := fmt.Sprintf("%s:%d", c.host, c.port)
+	addr := net.JoinHostPort(c.host, fmt.Sprintf("%d", c.port))
 	log.Printf("[DMR] Connecting to master at %s...", addr)
 
 	udpAddr, err := net.ResolveUDPAddr("udp", addr)

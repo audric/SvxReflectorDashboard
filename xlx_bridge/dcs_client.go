@@ -80,7 +80,7 @@ func (c *DCSClient) Connect() error {
 	c.done = make(chan struct{})
 	c.mu.Unlock()
 
-	addr := fmt.Sprintf("%s:%d", c.host, c.port)
+	addr := net.JoinHostPort(c.host, fmt.Sprintf("%d", c.port))
 	log.Printf("[DCS] Connecting to %s module %c...", addr, c.module)
 
 	udpAddr, err := net.ResolveUDPAddr("udp", addr)

@@ -68,7 +68,7 @@ func (c *Client) readMsg() (*TCPMessage, error) {
 
 // Connect performs the full TCP handshake using protocol V2.
 func (c *Client) Connect() error {
-	addr := fmt.Sprintf("%s:%d", c.host, c.port)
+	addr := net.JoinHostPort(c.host, fmt.Sprintf("%d", c.port))
 	log.Printf("Connecting to reflector at %s (proto V2)...", addr)
 
 	// Step 1: Plain TCP connection
