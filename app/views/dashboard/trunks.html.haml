@@ -316,7 +316,9 @@
                 var hostColor = nd.isLocal ? '#58a6ff' : '#c9d1d9';
 
                 svg += '<rect x="' + (bx - w/2) + '" y="' + (by - nodeH/2) + '" width="' + w + '" height="' + nodeH + '" rx="8" fill="#161b22" stroke="' + stroke + '" stroke-width="' + strokeW + '"/>';
-                svg += '<text x="' + bx + '" y="' + (by - 8) + '" text-anchor="middle" fill="' + hostColor + '" font-size="12" font-weight="700">' + nd.host.replace(/</g, '&lt;') + '</text>';
+                svg += '<a href="https://' + encodeURI(nd.host) + '" target="_blank" rel="noopener">';
+                svg += '<text x="' + bx + '" y="' + (by - 8) + '" text-anchor="middle" fill="' + hostColor + '" font-size="12" font-weight="700" style="cursor:pointer"><title>https://' + nd.host.replace(/</g, '&lt;') + '</title>' + nd.host.replace(/</g, '&lt;') + '</text>';
+                svg += '</a>';
                 if (nd.prefix) {
                   svg += '<text x="' + bx + '" y="' + (by + 10) + '" text-anchor="middle" fill="#8b949e" font-size="10">prefix: ' + nd.prefix.replace(/</g, '&lt;') + '</text>';
                 }
@@ -404,7 +406,7 @@
                   .flex.items-center.gap-2
                     %i.bi.bi-globe.text-ghdim{style: "font-size:.7rem"}
                     %span.text-xs.text-ghmuted Host
-                    %span.text-xs.font-mono.text-gray-300.ml-auto= cfg['HOST']
+                    %a.text-xs.font-mono.text-gray-300.ml-auto.hover:text-blue-400.transition-colors{href: "https://#{cfg['HOST']}", target: "_blank", rel: "noopener"}= cfg['HOST']
                   .flex.items-center.gap-2
                     %i.bi.bi-hdd-network.text-ghdim{style: "font-size:.7rem"}
                     %span.text-xs.text-ghmuted Port
@@ -506,7 +508,7 @@
                               %span.inline-block.w-2.h-2.rounded-full.bg-gray-600
                             %span.font-mono.text-gray-300= r_name
                             - if r_trunk.is_a?(Hash) && r_trunk['host'].present?
-                              %span.text-ghmuted.ml-auto= r_trunk['host']
+                              %a.text-ghmuted.ml-auto.hover:text-blue-400.transition-colors{href: "https://#{r_trunk['host']}", target: "_blank", rel: "noopener"}= r_trunk['host']
                 - elsif cfg['STATUS_URL'].present?
                   .mt-3.pt-3.border-t.border-ghborder2
                     .text-xs.text-ghmuted
@@ -541,7 +543,7 @@
                     .flex.items-center.gap-2
                       %i.bi.bi-globe.text-ghdim{style: "font-size:.7rem"}
                       %span.text-xs.text-ghmuted Host
-                      %span.text-xs.font-mono.text-gray-300.ml-auto= trunk['host']
+                      %a.text-xs.font-mono.text-gray-300.ml-auto.hover:text-blue-400.transition-colors{href: "https://#{trunk['host']}", target: "_blank", rel: "noopener"}= trunk['host']
                   - if trunk['remote_prefix'].present?
                     .flex.items-center.gap-2
                       %i.bi.bi-tag.text-ghdim{style: "font-size:.7rem"}

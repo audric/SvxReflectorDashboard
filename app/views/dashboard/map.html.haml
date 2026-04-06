@@ -145,6 +145,10 @@
       .map-marker-ext {
         border-style: dashed; opacity: .9;
       }
+      .map-marker-rx {
+        width: 22px; height: 22px; font-size: 11px;
+        border-width: 2px; opacity: .8;
+      }
       .map-marker-talking { animation: marker-pulse .8s ease-in-out infinite; }
       @keyframes marker-pulse { 0%,100% { box-shadow: 0 0 4px 0 rgba(74,222,128,.7); transform: scale(1); } 50% { box-shadow: 0 0 8px 12px rgba(74,222,128,0); transform: scale(1.15); } }
 
@@ -263,7 +267,8 @@
             '<div class="legend-row"><span class="legend-dot" style="background:#3fb950"></span>Talking</div>' +
             '<div class="legend-row"><span class="legend-dot" style="background:#1f6feb"></span>Active (on TG)</div>' +
             '<div class="legend-row"><span class="legend-dot" style="background:#6e7681"></span>Idle</div>' +
-            '<div class="legend-row"><span class="legend-dot" style="background:#d97706;border:1px dashed #78350f"></span>External SVX</div>';
+            '<div class="legend-row"><span class="legend-dot" style="background:#d97706;border:1px dashed #78350f"></span>External SVX</div>' +
+            '<div class="legend-row"><span class="legend-dot" style="background:#6e7681;width:8px;height:8px"></span>Receiver (rx-only)</div>';
           return div;
         };
         legend.addTo(map);
@@ -290,7 +295,7 @@
             ['all', 'All'], ['repeater', 'Repeater'], ['bridge', 'Bridge'],
             ['echolink', 'EchoLink'], ['xlx', 'XLX'], ['dmr', 'DMR'],
             ['ysf', 'YSF'], ['allstar', 'AllStar'], ['zello', 'Zello'],
-            ['iax', 'IAX'], ['sip', 'SIP'], ['simplex', 'Simplex']
+            ['iax', 'IAX'], ['sip', 'SIP'], ['simplex', 'Simplex'], ['receiver', 'Receiver']
           ];
 
           var startCollapsed = window.innerWidth < 768;
@@ -392,7 +397,7 @@
         }
 
         // ── Icon marker factory ────────────────────────────────────────────────────
-        var markerIconMap = { repeater: 'bi-broadcast', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', zello: 'bi-phone', simplex: 'bi-wifi' };
+        var markerIconMap = { repeater: 'bi-broadcast', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', zello: 'bi-phone', simplex: 'bi-wifi', receiver: 'bi-ear' };
 
         function createMarkerIcon(node) {
           var isExt = !!node._external;
@@ -402,8 +407,9 @@
                        : (node.isTalker ? '#fbbf24' : (node.tg ? '#fbbf24' : '#fcd34d')))
             : markerColor(node);
           var iconCls = markerIconMap[node.nodeClass] || 'bi-circle-fill';
-          var size = 30;
-          var cls = 'map-marker' + (isExt ? ' map-marker-ext' : '') + (node.isTalker ? ' map-marker-talking' : '');
+          var isRx = node.nodeClass === 'receiver';
+          var size = isRx ? 22 : 30;
+          var cls = 'map-marker' + (isRx ? ' map-marker-rx' : '') + (isExt ? ' map-marker-ext' : '') + (node.isTalker ? ' map-marker-talking' : '');
           var iStyle = 'color:' + bg + ';-webkit-text-stroke:1px ' + bg + ';filter:drop-shadow(0 0 2px rgba(0,0,0,.8))';
           if (iconCls === 'bi-circle-fill') iStyle += ';font-size:8px';
           return L.divIcon({
@@ -416,7 +422,7 @@
         }
 
         // ── Tooltip HTML builder (compact — no tone table, no links) ──────────────
-        var tooltipIconMap = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', zello: 'bi-phone', simplex: 'bi-broadcast' };
+        var tooltipIconMap = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', zello: 'bi-phone', simplex: 'bi-broadcast', receiver: 'bi-ear' };
 
         function buildTooltipHtml(cs, node) {
           var iconCls = tooltipIconMap[node.nodeClass] || 'bi-broadcast';
@@ -452,7 +458,7 @@
           var locator = pos.loc || '';
           var rxFreq  = qth.rx && Object.values(qth.rx)[0] && Object.values(qth.rx)[0].freq;
           var txFreq  = qth.tx && Object.values(qth.tx)[0] && Object.values(qth.tx)[0].freq;
-          var nodeIcon = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', zello: 'bi-phone', simplex: 'bi-broadcast' };
+          var nodeIcon = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', zello: 'bi-phone', simplex: 'bi-broadcast', receiver: 'bi-ear' };
           var iconCls  = nodeIcon[node.nodeClass] || 'bi-broadcast';
 
           var html = '<div class="popup-callsign">' + esc(cs) + '</div>' +
@@ -498,7 +504,48 @@
             source: node._external_type === 'trunk' ? 'trunk' : (node._external_type === 'svx' ? 'svx' : 'local')
           };
           bounds.push([lat, lng]);
+
+          // Place receiver markers for additional qth entries (rx-only sites)
+          placeReceiverMarkers(cs, node);
         });
+
+        function buildRxTooltipHtml(cs, qth, node) {
+          var rxKey = qth.rx && Object.keys(qth.rx)[0];
+          var rxObj = rxKey && qth.rx[rxKey];
+          var html = '<div class="popup-callsign">' + esc(cs) + '</div>';
+          html += '<div class="popup-row"><i class="bi bi-ear mr-1"></i><span>Receiver</span></div>';
+          if (qth.name) html += '<div class="popup-row"><i class="bi bi-geo-alt mr-1"></i><span>' + esc(qth.name) + '</span></div>';
+          if (qth.pos && qth.pos.loc) html += '<div class="popup-row"><i class="bi bi-grid-3x3-gap mr-1"></i><span class="font-mono">' + esc(qth.pos.loc) + '</span></div>';
+          if (rxObj) {
+            if (rxObj.name) html += '<div class="popup-row"><i class="bi bi-tag mr-1"></i><span>' + esc(rxObj.name) + '</span></div>';
+            if (rxObj.freq && rxObj.freq > 0) html += '<div class="popup-row">RX <span class="font-mono">' + parseFloat(rxObj.freq).toFixed(4) + ' MHz</span></div>';
+            if (rxObj.siglev !== undefined) html += '<div class="popup-row"><i class="bi bi-reception-4 mr-1"></i>Siglev <span class="font-mono">' + rxObj.siglev + '</span></div>';
+            if (rxObj.sql_open) html += '<div class="popup-row" style="color:#3fb950"><i class="bi bi-unlock mr-1"></i>Squelch open</div>';
+          }
+          if (node.sysop) html += '<div class="popup-row"><i class="bi bi-person mr-1"></i><span>' + esc(node.sysop) + '</span></div>';
+          return html;
+        }
+
+        function placeReceiverMarkers(cs, node) {
+          if (!node.qth || node.qth.length < 2) return;
+          var source = node._external_type === 'trunk' ? 'trunk' : (node._external_type === 'svx' ? 'svx' : 'local');
+          for (var i = 1; i < node.qth.length; i++) {
+            var qth = node.qth[i];
+            if (!qth.pos || qth.tx) continue; // skip if no position or has a transmitter
+            var rlat = parseFloat(qth.pos.lat);
+            var rlng = parseFloat(qth.pos.long);
+            if (!isFinite(rlat) || !isFinite(rlng)) continue;
+            var rxId = cs + '/rx' + i;
+            var rxNode = { nodeClass: 'receiver', isTalker: false, tg: node.tg, _external: node._external, _external_type: node._external_type };
+            var marker = L.marker([rlat, rlng], { icon: createMarkerIcon(rxNode) });
+            marker.bindPopup(buildRxTooltipHtml(cs, qth, node), { maxWidth: 260, autoClose: false, closeOnClick: false });
+            marker.on('mouseover', function() { this.openPopup(); });
+            marker.on('mouseout', function() { this.closePopup(); });
+            markersByCs[rxId] = marker;
+            markerMeta[rxId] = { nodeClass: 'receiver', source: source };
+            bounds.push([rlat, rlng]);
+          }
+        }
 
         // Fit map to markers or default to Europe
         if (bounds.length > 0) {
@@ -562,7 +609,7 @@
           var locator = (pos && pos.loc) || '';
           var rxFreq  = qth.rx && Object.values(qth.rx)[0] && Object.values(qth.rx)[0].freq;
           var txFreq  = qth.tx && Object.values(qth.tx)[0] && Object.values(qth.tx)[0].freq;
-          var nodeIcon = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', zello: 'bi-phone', simplex: 'bi-broadcast' };
+          var nodeIcon = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', zello: 'bi-phone', simplex: 'bi-broadcast', receiver: 'bi-ear' };
           var iconCls  = nodeIcon[node.nodeClass] || 'bi-broadcast';
           var html = '<div class="popup-callsign">' + esc(cs) + '</div>' +
                      '<div class="popup-row" style="margin-top:.35rem">' + statusBadge(node) + '</div>';
@@ -637,6 +684,27 @@
           } else {
             markersByCs[cs].closePopup();
           }
+
+          // Update receiver markers
+          // Remove old receiver markers for this callsign
+          Object.keys(markersByCs).forEach(function(key) {
+            if (key.indexOf(cs + '/rx') === 0) {
+              markersByCs[key].remove(); delete markersByCs[key]; delete markerMeta[key];
+            }
+          });
+          placeReceiverMarkers(cs, node);
+          // Apply filters to newly placed receiver markers
+          Object.keys(markersByCs).forEach(function(key) {
+            if (key.indexOf(cs + '/rx') !== 0) return;
+            var m = markerMeta[key];
+            var tMatch = currentTypeFilter === 'all' || m.nodeClass === currentTypeFilter;
+            var sMatch = sourceMatches(m.source, currentSourceFilter);
+            if (tMatch && sMatch) {
+              if (!map.hasLayer(markersByCs[key])) markersByCs[key].addTo(map);
+            } else {
+              if (map.hasLayer(markersByCs[key])) markersByCs[key].remove();
+            }
+          });
         }
 
         // ── WebSocket indicator ────────────────────────────────────────────────────
@@ -671,6 +739,10 @@
             if (window.audioPlayerUpdateTgs) window.audioPlayerUpdateTgs(msg.nodes);
             (msg.removed || []).forEach(function (cs) {
               if (markersByCs[cs]) { markersByCs[cs].remove(); delete markersByCs[cs]; delete markerMeta[cs]; }
+              // Remove associated receiver markers
+              Object.keys(markersByCs).forEach(function(key) {
+                if (key.indexOf(cs + '/rx') === 0) { markersByCs[key].remove(); delete markersByCs[key]; delete markerMeta[key]; }
+              });
               delete nodes[cs];
             });
             (msg.changed || []).forEach(function (cs) {
