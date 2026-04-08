@@ -39,7 +39,7 @@ docker compose pull
 docker compose up -d
 ```
 
-This starts six services: `svxreflector`, `caddy`, `web`, `updater`, `audio_bridge`, and `redis`.
+This starts seven services: `svxreflector`, `caddy`, `web`, `updater`, `audio_bridge`, `mqtt`, and `redis`.
 
 To build images locally instead (e.g. for development or custom changes):
 

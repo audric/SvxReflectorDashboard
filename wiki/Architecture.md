@@ -13,9 +13,12 @@ dmr_bridge    → Go binary, DMR bridge (OPUS ↔ AMBE transcoding via MMDVM Hom
 ysf_bridge    → Go binary, YSF bridge (OPUS ↔ IMBE transcoding)
 allstar_bridge→ Go binary, AllStar bridge (OPUS ↔ µLaw via IAX2)
 zello_bridge  → Go binary, Zello channel bridge (OPUS 48kHz ↔ 16kHz via WebSocket)
+mqtt          → Eclipse Mosquitto 2 MQTT broker for GeuReflector event publishing
 redis         → ActionCable adapter + audio pub/sub + web node metadata cache
 db_data       → Named Docker volume persisting the SQLite database (storage/)
 caddy_data    → Named Docker volume persisting TLS certificates
+mqtt_data     → Named Docker volume persisting MQTT broker data
+mqtt_log      → Named Docker volume persisting MQTT broker logs
 ```
 
 ### caddy
@@ -50,6 +53,14 @@ Used for four purposes:
 2. **Audio pub/sub** — carries audio commands and Opus frames between Rails and the Go bridge
 3. **Metadata cache** — stores web listener node info and the latest reflector snapshot
 4. **GeuReflector state** — caches trunk link status, satellite status, cluster TGs, and reflector config/mode
+
+### mqtt
+
+An [Eclipse Mosquitto 2](https://mosquitto.org/) MQTT broker available to GeuReflector for publishing real-time events. The reflector connects to `mqtt:1883` inside the Docker network (configured via the `[MQTT]` section in `svxreflector.conf`). Published topics include talker start/stop, client connect/disconnect, trunk state changes, and a periodic retained `status` dump (same JSON as the HTTP `/status` endpoint).
+
+The broker is configured via `mosquitto.conf` in the project root (bind-mounted read-only). Persistence is stored in the `mqtt_data` volume.
+
+External MQTT consumers (home automation, logging pipelines, custom dashboards) can subscribe by exposing port 1883 in a `docker-compose.override.yml`.
 
 ## Data flow
 

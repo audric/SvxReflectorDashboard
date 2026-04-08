@@ -54,6 +54,7 @@ Users with the **reflector admin** role can configure the GeuReflector/SVXReflec
 - **Users** — callsign-to-password-group mappings
 - **Passwords** — password group definitions
 - **Talkgroup rules** — per-TG allow patterns (regex), allow monitor patterns, auto QSY timeout, and activity visibility
+- **MQTT** (GeuReflector) — optional event publishing to an MQTT broker. Connection settings (host, port, username, password), topic prefix, status interval, and TLS options
 
 All panels are collapsed by default. Each section includes inline help buttons linking to the official `svxreflector.conf(5)` documentation. Delete actions require confirmation via a styled modal dialog.
 
@@ -85,6 +86,74 @@ The Certificates panel on the reflector edit page is split into a separate **Cer
 The `reflector_pki` volume is mounted read-only into the web container at `/rails/reflector_pki` for detection purposes.
 
 When certificates exist, the certificate form fields are disabled in the UI. The controller preserves existing certificate config sections (ROOT_CA, ISSUING_CA, SERVER_CERT) when saving, so they are not silently dropped from the configuration file.
+
+## MQTT configuration
+
+GeuReflector can publish real-time events (talker start/stop, client connect/disconnect, trunk state) and periodic status to an MQTT broker. This is configured from the **MQTT** panel on the reflector admin page (`/admin/reflector`).
+
+A bundled [Eclipse Mosquitto 2](https://mosquitto.org/) broker runs as a Docker service and is reachable at `mqtt:1883` inside the Docker network. To use it, set:
+
+| Field | Value |
+|---|---|
+| HOST | `mqtt` |
+| PORT | `1883` |
+| TOPIC_PREFIX | `svxreflector/myreflector` (choose a unique identifier) |
+
+USERNAME and PASSWORD can be left empty when using the bundled broker (anonymous access is enabled by default).
+
+### MQTT settings reference
+
+| Setting | Required | Default | Description |
+|---|---|---|---|
+| HOST | Yes | — | Broker hostname or IP (`mqtt` for the bundled container) |
+| PORT | Yes | — | Broker port (`1883` plain, `8883` TLS) |
+| USERNAME | Yes | — | Broker auth username (leave empty for anonymous) |
+| PASSWORD | Yes | — | Broker auth password |
+| TOPIC_PREFIX | Yes | — | Base topic path (e.g. `svxreflector/myreflector`) |
+| STATUS_INTERVAL | No | `1000` | Full status publish interval in milliseconds |
+| TLS_ENABLED | No | `0` | Enable TLS (`0` or `1`) |
+| TLS_CA_CERT | If TLS | — | Path to CA certificate file |
+| TLS_CLIENT_CERT | No | — | Client certificate for mutual TLS |
+| TLS_CLIENT_KEY | No | — | Client private key for mutual TLS |
+
+### Topic structure
+
+All topics are published under `{TOPIC_PREFIX}/`:
+
+| Topic | Payload | Retain |
+|---|---|---|
+| `talker/{tg}/start` | `{"callsign": "...", "source": "local"\|"trunk"}` | No |
+| `talker/{tg}/stop` | `{"callsign": "...", "source": "local"\|"trunk"}` | No |
+| `client/{callsign}/connected` | `{"tg": 1234, "ip": "..."}` | No |
+| `client/{callsign}/disconnected` | `{}` | No |
+| `trunk/{section}/outbound/up` | — | No |
+| `trunk/{section}/outbound/down` | — | No |
+| `trunk/{section}/inbound/up` | — | No |
+| `trunk/{section}/inbound/down` | — | No |
+| `status` | Full `/status` JSON | Yes |
+
+All event topics use QoS 0. The `status` topic is retained so late-joining subscribers get the last known state.
+
+### Using an external broker
+
+To use an external MQTT broker instead of the bundled one, set HOST/PORT to your broker's address and provide USERNAME/PASSWORD credentials. Enable TLS for brokers that require it. The bundled `mqtt` service can be disabled in `docker-compose.override.yml`:
+
+```yaml
+services:
+  mqtt:
+    profiles: ["disabled"]
+```
+
+### Exposing the bundled broker
+
+To allow external subscribers to connect to the bundled Mosquitto broker, add port mapping in `docker-compose.override.yml`:
+
+```yaml
+services:
+  mqtt:
+    ports:
+      - "1883:1883"
+```
 
 ## Bridge configuration
 

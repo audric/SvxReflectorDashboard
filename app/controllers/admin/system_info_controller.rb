@@ -4,10 +4,11 @@ module Admin
     before_action :require_admin
 
     DOCKER_SOCKET = "/var/run/docker.sock"
-    BOOT_ORDER = %w[init-reflector-conf redis svxreflector web updater audio_bridge caddy].freeze
+    BOOT_ORDER = %w[init-reflector-conf redis mqtt svxreflector web updater audio_bridge caddy].freeze
     SERVICE_DEPS = {
       "init-reflector-conf" => [],
       "redis" => [],
+      "mqtt" => [],
       "svxreflector" => %w[init-reflector-conf],
       "web" => %w[init-reflector-conf redis svxreflector],
       "updater" => %w[web redis svxreflector],
