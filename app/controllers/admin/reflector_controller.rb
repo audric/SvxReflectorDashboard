@@ -345,6 +345,11 @@ module Admin
         end
       end
 
+      # MQTT
+      (params.dig(:config, :mqtt) || {}).each do |key, value|
+        config.mqtt[key] = value if value.present?
+      end
+
       config.save
       publish_trunk_status_urls(config)
       restart_svxreflector

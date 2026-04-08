@@ -1,6 +1,6 @@
 class ReflectorConfig
   attr_accessor :global, :root_ca, :issuing_ca, :server_cert, :users, :passwords,
-                :tg_rules, :trunks, :satellite
+                :tg_rules, :trunks, :satellite, :mqtt
 
   def initialize
     @global = {}
@@ -12,6 +12,7 @@ class ReflectorConfig
     @tg_rules = {}    # tg_number (Integer) => { "ALLOW" => ..., "AUTO_QSY_AFTER" => ..., "SHOW_ACTIVITY" => ..., "ALLOW_MONITOR" => ... }
     @trunks = {}      # trunk_name => { "HOST" => ..., "PORT" => ..., "SECRET" => ..., "REMOTE_PREFIX" => ... }
     @satellite = {}   # { "LISTEN_PORT" => ..., "SECRET" => ... }
+    @mqtt = {}        # { "HOST" => ..., "PORT" => ..., "USERNAME" => ..., ... }
   end
 
   def self.config_path
@@ -68,6 +69,8 @@ class ReflectorConfig
         config.trunks[current_section][key] = value
       when "SATELLITE"
         config.satellite[key] = value
+      when "MQTT"
+        config.mqtt[key] = value
       end
     end
 
@@ -129,6 +132,13 @@ class ReflectorConfig
       lines << ""
       lines << "[SATELLITE]"
       satellite.each { |k, v| lines << "#{k}=#{v}" }
+    end
+
+    # MQTT section
+    if mqtt.any?
+      lines << ""
+      lines << "[MQTT]"
+      mqtt.each { |k, v| lines << "#{k}=#{v}" }
     end
 
     # TG rules sorted numerically

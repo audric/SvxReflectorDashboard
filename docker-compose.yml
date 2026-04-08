@@ -134,6 +134,16 @@ services:
     build: ./sip_bridge
     profiles: ["build-only"]
 
+  mqtt:
+    image: eclipse-mosquitto:2
+    expose:
+      - "1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mqtt_data:/mosquitto/data
+      - mqtt_log:/mosquitto/log
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
     ports:
@@ -143,3 +153,5 @@ volumes:
   db_data:
   reflector_pki:
   caddy_data:
+  mqtt_data:
+  mqtt_log:

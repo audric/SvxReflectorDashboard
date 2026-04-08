@@ -68,6 +68,16 @@
   - help["ALLOW_MONITOR"] = "A regular expression that must match the callsign of nodes allowed to monitor this talkgroup. Uses the same regex format as ALLOW."
   - help["LOCAL_PREFIX"] = "GeuReflector: A comma-separated list of TG number prefixes that this reflector owns. Talkgroups whose number starts with one of these prefixes belong to this reflector. Example: LOCAL_PREFIX=1 means this reflector owns TGs 1, 10, 100, 1234, etc."
   - help["CLUSTER_TGS"] = "GeuReflector: A comma-separated list of TG numbers that should be broadcast to ALL trunk peers regardless of prefix ownership. These are network-wide channels (like BrandMeister nationwide). Must not overlap with any LOCAL_PREFIX or REMOTE_PREFIX. Example: CLUSTER_TGS=222,2221,91"
+  - help["MQTT_HOST"] = "MQTT broker hostname or IP address. The bundled Mosquitto container is reachable at 'mqtt' from within Docker."
+  - help["MQTT_PORT"] = "MQTT broker port. The bundled Mosquitto container listens on 1883. Use 8883 for external brokers with TLS."
+  - help["MQTT_USERNAME"] = "Username for MQTT broker authentication."
+  - help["MQTT_PASSWORD"] = "Password for MQTT broker authentication."
+  - help["MQTT_TOPIC_PREFIX"] = "Base topic path (e.g. svxreflector/myreflector). Must be set to a unique identifier for this reflector. All MQTT messages are published under this prefix."
+  - help["MQTT_STATUS_INTERVAL"] = "Periodic full status publish interval in milliseconds. The status topic receives the same JSON as the HTTP /status endpoint. Default: 1000."
+  - help["MQTT_TLS_ENABLED"] = "Enable TLS encryption for the MQTT connection. Set to 1 to enable, 0 to disable. Default: 0."
+  - help["MQTT_TLS_CA_CERT"] = "Path to the CA certificate file for verifying the broker's TLS certificate. Required when TLS is enabled."
+  - help["MQTT_TLS_CLIENT_CERT"] = "Path to the client certificate file for mutual TLS authentication. Optional — only needed if the broker requires client certificates."
+  - help["MQTT_TLS_CLIENT_KEY"] = "Path to the client private key file for mutual TLS authentication. Required if TLS_CLIENT_CERT is set."
 
   %body.text-ghtext
     = render 'shared/navbar', active: 'admin'
@@ -486,6 +496,75 @@
                           %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
                       %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[tg_allow_monitors][]", value: rules["ALLOW_MONITOR"], placeholder: "^.*$"}
 
+        -# ── 6. MQTT (collapsed) ──
+        .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+          .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('mqtt')"}
+            %h5.text-lg.font-semibold.text-gray-100
+              %i.bi.bi-cloud-arrow-up.mr-2
+              MQTT
+              %span.text-sm.font-normal.text-ghmuted.ml-2 GeuReflector
+            %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-mqtt"}
+          .accordion-body.px-4{id: "body-mqtt"}
+            .p-2.rounded.border.text-xs.mb-4{class: "border-blue-700/50 text-blue-400 bg-blue-900/20"}
+              %i.bi.bi-info-circle.mr-1
+              Publish reflector events (talker, client, trunk state) and periodic status to an MQTT broker. Leave the section empty to disable MQTT (zero overhead).
+
+            %h6.text-sm.font-semibold.text-gray-400.mb-3 Connection
+            .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
+              - { "HOST" => "mqtt.example.com", "PORT" => "1883", "USERNAME" => nil, "PASSWORD" => nil }.each do |key, ph|
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1
+                    = key
+                    - if help["MQTT_#{key}"]
+                      %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('MQTT_#{key}')", title: "Help"}
+                        %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[mqtt][#{key}]", value: @config.mqtt[key], placeholder: ph}
+
+            %h6.text-sm.font-semibold.text-gray-400.mb-3 Topics
+            .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1
+                  TOPIC_PREFIX
+                  %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('MQTT_TOPIC_PREFIX')", title: "Help"}
+                    %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[mqtt][TOPIC_PREFIX]", value: @config.mqtt['TOPIC_PREFIX'], placeholder: "svxreflector/myreflector"}
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1
+                  STATUS_INTERVAL (ms)
+                  %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('MQTT_STATUS_INTERVAL')", title: "Help"}
+                    %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "number", name: "config[mqtt][STATUS_INTERVAL]", value: @config.mqtt['STATUS_INTERVAL'], placeholder: "1000"}
+
+            %h6.text-sm.font-semibold.text-gray-400.mb-3 TLS
+            .grid.grid-cols-1.md:grid-cols-2.gap-4
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1
+                  TLS_ENABLED
+                  %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('MQTT_TLS_ENABLED')", title: "Help"}
+                    %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                %select.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", name: "config[mqtt][TLS_ENABLED]", id: "mqtt-tls-enabled", onchange: "toggleMqttTls()"}
+                  %option{value: "", selected: @config.mqtt['TLS_ENABLED'].blank?} (not set)
+                  %option{value: "0", selected: @config.mqtt['TLS_ENABLED'] == '0'} Disabled
+                  %option{value: "1", selected: @config.mqtt['TLS_ENABLED'] == '1'} Enabled
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1
+                  TLS_CA_CERT
+                  %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('MQTT_TLS_CA_CERT')", title: "Help"}
+                    %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm.mqtt-tls-field{class: "bg-[#0d1117]", type: "text", name: "config[mqtt][TLS_CA_CERT]", value: @config.mqtt['TLS_CA_CERT'], placeholder: "/etc/svxlink/mqtt-ca.crt"}
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1
+                  TLS_CLIENT_CERT
+                  %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('MQTT_TLS_CLIENT_CERT')", title: "Help"}
+                    %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm.mqtt-tls-field{class: "bg-[#0d1117]", type: "text", name: "config[mqtt][TLS_CLIENT_CERT]", value: @config.mqtt['TLS_CLIENT_CERT'], placeholder: "/etc/svxlink/mqtt-client.crt"}
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1
+                  TLS_CLIENT_KEY
+                  %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('MQTT_TLS_CLIENT_KEY')", title: "Help"}
+                    %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm.mqtt-tls-field{class: "bg-[#0d1117]", type: "text", name: "config[mqtt][TLS_CLIENT_KEY]", value: @config.mqtt['TLS_CLIENT_KEY'], placeholder: "/etc/svxlink/mqtt-client.key"}
+
         -# ── Save ──
         .flex.gap-2
           = f.submit "Save configuration & Restart SvxReflector", class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
@@ -672,6 +751,16 @@
           }
         }
       }
+
+      function toggleMqttTls() {
+        var sel = document.getElementById('mqtt-tls-enabled');
+        var enabled = sel && sel.value === '1';
+        document.querySelectorAll('.mqtt-tls-field').forEach(function(el) {
+          el.disabled = !enabled;
+          el.classList.toggle('opacity-50', !enabled);
+        });
+      }
+      toggleMqttTls();
 
       function getPasswordGroups() {
         var groups = [];
