@@ -175,6 +175,7 @@
               %th.text-left.px-4.py-3.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Name
               %th.text-left.px-4.py-3.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Description
               %th.text-left.px-4.py-3.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Nodes
+              %th.text-left.px-4.py-3.text-xs.uppercase.tracking-wider.text-ghdim.font-semibold Routing
           %tbody
             - all_tgs = @tgs_db.map { |t| { tg: t.tg.to_i, name: t.name, description: t.description.to_s, kind: t.respond_to?(:kind) ? t.kind : nil } }
             - cluster_defined = all_tgs.map { |t| t[:tg] }
@@ -183,11 +184,11 @@
               - all_tgs << { tg: ctg.to_i, name: "Cluster TG #{ctg}", description: "Network-wide cluster talkgroup", kind: 'cluster' }
             - if all_tgs.empty?
               %tr
-                %td.text-gray-500.text-sm.py-6.text-center{colspan: 4}
+                %td.text-gray-500.text-sm.py-6.text-center{colspan: 5}
                   %i.bi.bi-info-circle.mr-1
                   No talkgroups defined yet.
             - else
-              - all_tgs.sort_by { |t| t[:tg] }.each do |tg_rec|
+              - all_tgs.sort_by { |t| t[:tg].to_s }.each do |tg_rec|
                 - tg_num = tg_rec[:tg]
                 - nodes_on_tg = @tg_nodes[tg_num] || []
                 %tr.border-t.border-ghborder2.hover:bg-ghcard
@@ -226,6 +227,12 @@
                             %span.inline-block.px-2.py-0.5.text-xs.font-mono.rounded.border.border-ghborder2.text-gray-400{title: tip}= entry[:callsign]
                     - else
                       %span.text-ghdim —
+                  %td.px-4.py-3
+                    - route = @route_for.call(tg_num)
+                    - if route[:css]
+                      %span.text-xs.px-1.5.py-0.5.rounded-full.border.font-mono{class: route[:css]}= route[:label]
+                    - else
+                      %span.text-xs.text-ghmuted= route[:label]
 
     - nodes_json = @nodes.to_json.html_safe
     - db_tgs = @tgs_db.map { |t| { tg: t.tg.to_i, name: t.name, description: t.description.to_s } }

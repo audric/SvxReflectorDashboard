@@ -171,15 +171,19 @@
       - _redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://redis:6379/1'))
       - audio_nodes = JSON.parse(_redis.get('reflector:snapshot') || '{}')
       - @cluster_tgs ||= JSON.parse(_redis.get('reflector:cluster_tgs') || '[]')
-    - audio_tgs = (audio_nodes.select { |_, n| n['_external_type'] != 'svx' }.values.flat_map { |n| [n['tg'].to_i] + Array(n['monitoredTGs']).map(&:to_i) }.select { |t| t > 0 } + Tg.pluck(:tg).map(&:to_i) + Array(@cluster_tgs).map(&:to_i) + [999]).uniq.sort
+    - audio_tgs = (audio_nodes.select { |_, n| n['_external_type'] != 'svx' }.values.flat_map { |n| [n['tg'].to_i] + Array(n['monitoredTGs']).map(&:to_i) }.select { |t| t > 0 } + Tg.pluck(:tg).map(&:to_i) + Array(@cluster_tgs).map(&:to_i) + [999]).uniq.sort_by(&:to_s)
     - tg_names = Tg.pluck(:tg, :name).to_h
     .border-t.border-ghborder.px-3.py-3#audio-player-sidebar{"data-turbo-permanent" => "", "data-initial-tgs" => audio_tgs.join(','), "data-tg-names" => tg_names.to_json, "data-cluster-tgs" => Array(@cluster_tgs).map(&:to_i).join(','), "data-callsign" => "#{current_user.callsign.upcase}-WEB", "data-sysop" => current_user.name.to_s, "data-cw-roger-beep" => current_user.cw_roger_beep? ? "1" : "0"}
       .flex.items-center.gap-1.mb-2
         %i.bi.bi-headphones.text-ghdim.text-xs
         %span.text-xs.uppercase.tracking-wider.text-ghdim Tune In
       .space-y-2
-        %select#audio-tg-select.w-full.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-1.cursor-pointer{style: "outline:none;"}
-          %option{value: ""} Select TG...
+        .flex.items-center.gap-1
+          %select#audio-tg-select.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-1.cursor-pointer{style: "outline:none;flex:1 1 0;min-width:0;"}
+            %option{value: ""} Select TG...
+          %input#audio-tg-dial.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-1.text-center{type: "number", min: "1", placeholder: "TG#", title: "Dial a TG number", style: "width:50px;outline:none;-moz-appearance:textfield;"}
+          %button#audio-tg-dial-btn.flex.items-center.justify-center.rounded.bg-ghborder2.text-ghmuted.hover:text-green-400.transition-colors.cursor-pointer{type: "button", title: "Go to TG", style: "width:24px;height:24px;flex-shrink:0;"}
+            %i.bi.bi-arrow-right-short
         .flex.items-center.gap-2{style: "min-width:0;"}
           %button#audio-play-btn.flex.items-center.justify-center.rounded-full.bg-ghborder2.text-gray-300.hover:text-green-400.transition-colors.cursor-pointer{type: "button", title: "Play / Stop", style: "width:28px;height:28px;flex-shrink:0;"}
             %i.bi.bi-play-fill.text-xs
@@ -232,6 +236,9 @@
           %i.bi.bi-mic-fill
       %select#audio-tg-select-mobile.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-2.cursor-pointer{style: "outline:none;flex:0 0 auto;min-width:60px;"}
         %option{value: ""} TG...
+      %input#audio-tg-dial-mobile.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-2.text-center{type: "number", min: "1", placeholder: "TG#", title: "Dial a TG number", style: "width:46px;outline:none;-moz-appearance:textfield;flex-shrink:0;"}
+      %button#audio-tg-dial-btn-mobile.flex.items-center.justify-center.rounded.bg-ghborder2.text-ghmuted.hover:text-green-400.transition-colors.cursor-pointer{type: "button", title: "Go to TG", style: "width:28px;height:28px;flex-shrink:0;"}
+        %i.bi.bi-arrow-right-short
       %input#audio-volume-mobile.flex-1.min-w-0{type: "range", min: "0", max: "100", value: "70", style: "accent-color:#3fb950;height:4px;cursor:pointer;"}
     -# Row 2: s-meter + spectrum (only visible when playing)
     .flex.items-center.gap-3.mt-2
@@ -241,6 +248,8 @@
 
 
 :css
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
   @media (min-width: 1024px) {
     body { padding-left: 14rem; padding-top: 1rem; }
   }
@@ -652,7 +661,7 @@
       // Always include TGs from the database
       for (var k in tgNameMap) { var dt = parseInt(k); if (dt > 0) tgs[dt] = true; }
       tgs[999] = true;
-      var sorted = Object.keys(tgs).map(Number).sort(function(a,b){ return a-b; });
+      var sorted = Object.keys(tgs).map(Number).sort(function(a,b){ return String(a).localeCompare(String(b)); });
       setTgOptions(sorted);
     }
 
@@ -670,7 +679,7 @@
 
     function tgLabel(tg) {
       var name = tgNameMap[String(tg)];
-      return name ? 'TG ' + tg + ' — ' + name : 'TG ' + tg;
+      return name ? 'TG ' + tg + ' ' + name : 'TG ' + tg;
     }
 
     function populateInitialTgs() {
@@ -1335,6 +1344,41 @@
     }
     if (tgSelect) tgSelect.addEventListener('change', function() { switchTg(tgSelect); });
     if (tgSelectMobile) tgSelectMobile.addEventListener('change', function() { switchTg(tgSelectMobile); });
+
+    // TG dial — type a number and press Enter or click the arrow
+    function dialTg(input) {
+      var tg = parseInt(input.value);
+      if (!tg || tg <= 0) return;
+      input.value = '';
+      // Ensure the TG exists in both selects
+      [tgSelect, tgSelectMobile].forEach(function(sel) {
+        if (!sel) return;
+        var exists = false;
+        for (var i = 0; i < sel.options.length; i++) {
+          if (parseInt(sel.options[i].value) === tg) { exists = true; break; }
+        }
+        if (!exists) {
+          var opt = document.createElement('option');
+          opt.value = tg;
+          opt.textContent = tgLabel(tg);
+          sel.appendChild(opt);
+        }
+        sel.value = tg;
+      });
+      if (playing) {
+        switchTg(tgSelect || tgSelectMobile);
+      } else {
+        startAudio(tg);
+      }
+    }
+    var dialInput = document.getElementById('audio-tg-dial');
+    var dialBtn = document.getElementById('audio-tg-dial-btn');
+    var dialInputMobile = document.getElementById('audio-tg-dial-mobile');
+    var dialBtnMobile = document.getElementById('audio-tg-dial-btn-mobile');
+    if (dialInput) dialInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); dialTg(this); } });
+    if (dialBtn) dialBtn.addEventListener('click', function() { if (dialInput) dialTg(dialInput); });
+    if (dialInputMobile) dialInputMobile.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); dialTg(this); } });
+    if (dialBtnMobile) dialBtnMobile.addEventListener('click', function() { if (dialInputMobile) dialTg(dialInputMobile); });
 
     function setVolume(val) {
       if (gainNode) gainNode.gain.value = val / 100;

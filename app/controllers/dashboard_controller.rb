@@ -40,6 +40,25 @@ class DashboardController < ApplicationController
         (@tg_nodes[tg] ||= []) << { callsign: cs, selected: selected_tg == tg, node: node }
       end
     end
+
+    # Routing info: local prefix, trunk prefixes, cluster TGs
+    config = ReflectorConfig.load
+    local_prefix = config.global["LOCAL_PREFIX"].to_s.split(",").map(&:strip).reject(&:blank?)
+    trunk_routes = config.trunks.map { |name, cfg| { name: name, prefix: cfg["REMOTE_PREFIX"].to_s.split(",").map(&:strip).reject(&:blank?) } }
+    cluster_tgs = @cluster_tgs
+
+    @route_for = ->(tg_num) {
+      tg_s = tg_num.to_s
+      if cluster_tgs.include?(tg_num)
+        { label: "cluster", css: "bg-cyan-900/30 text-cyan-400 border-cyan-700" }
+      elsif (trunk = trunk_routes.find { |t| t[:prefix].any? { |p| tg_s.start_with?(p) } })
+        { label: trunk[:name].sub(/\ATRUNK_/, ""), css: "bg-purple-900/30 text-purple-400 border-purple-700" }
+      elsif local_prefix.any? { |p| tg_s.start_with?(p) }
+        { label: "local", css: "bg-green-900/30 text-green-400 border-green-700" }
+      else
+        { label: "\u2014", css: nil }
+      end
+    }
   end
 
   def radio
