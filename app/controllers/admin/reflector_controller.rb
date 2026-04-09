@@ -261,6 +261,7 @@ module Admin
         next if trunk_mode == 'reflector' && satellite_keys.include?(key)
         # In satellite mode, skip trunk/cluster global keys
         next if trunk_mode == 'satellite' && reflector_only_keys.include?(key)
+        value = value.split(",").map(&:strip).reject(&:blank?).map(&:to_i).sort.join(",") if key == "CLUSTER_TGS" && value.present?
         config.global[key] = value if value.present?
       end
 
