@@ -1,3 +1,9 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 x-rails-env: &rails-env
   RAILS_ENV: production
   REFLECTOR_STATUS_URL: ${REFLECTOR_STATUS_URL:-http://svxreflector:8080/status}
@@ -18,6 +24,7 @@ services:
   svxreflector:
     image: ghcr.io/audric/svxlink-docker
     build: https://github.com/audric/svxlink-docker.git
+    logging: *default-logging
     ports:
       - "5300:5300/tcp"
       - "5300:5300/udp"
@@ -41,6 +48,7 @@ services:
 
   caddy:
     image: caddy:2-alpine
+    logging: *default-logging
     ports:
       - "80:80"
       - "443:443"
@@ -57,6 +65,7 @@ services:
   web:
     image: ghcr.io/audric/svxreflectordashboard-web
     build: .
+    logging: *default-logging
     expose:
       - "3000"
     env_file: .env
@@ -79,6 +88,7 @@ services:
   updater:
     image: ghcr.io/audric/svxreflectordashboard-web
     build: .
+    logging: *default-logging
     command: bash -lc "bundle exec rails runner 'require Rails.root.join(\"lib\",\"reflector_listener\").to_s; ReflectorListener.start; sleep'"
     env_file: .env
     environment:
@@ -93,6 +103,7 @@ services:
   audio_bridge:
     image: ghcr.io/audric/svxreflectordashboard-audio-bridge
     build: ./audio_bridge
+    logging: *default-logging
     network_mode: host
     env_file: .env
     environment:
@@ -136,16 +147,17 @@ services:
 
   mqtt:
     image: eclipse-mosquitto:2
+    logging: *default-logging
     expose:
       - "1883"
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mqtt_data:/mosquitto/data
-      - mqtt_log:/mosquitto/log
     restart: unless-stopped
 
   redis:
     image: redis:7-alpine
+    logging: *default-logging
     ports:
       - "127.0.0.1:6379:6379"
 
@@ -154,4 +166,3 @@ volumes:
   reflector_pki:
   caddy_data:
   mqtt_data:
-  mqtt_log:
