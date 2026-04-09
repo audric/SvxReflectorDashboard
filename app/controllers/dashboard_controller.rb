@@ -51,7 +51,7 @@ class DashboardController < ApplicationController
       tg_s = tg_num.to_s
       if cluster_tgs.include?(tg_num)
         { label: "cluster", css: "bg-cyan-900/30 text-cyan-400 border-cyan-700" }
-      elsif (trunk = trunk_routes.find { |t| t[:prefix].any? { |p| tg_s.start_with?(p) } })
+      elsif (trunk = trunk_routes.filter_map { |t| match = t[:prefix].select { |p| tg_s.start_with?(p) }.max_by(&:length); match ? [t, match.length] : nil }.max_by(&:last)&.first)
         { label: trunk[:name].sub(/\ATRUNK_/, ""), css: "bg-purple-900/30 text-purple-400 border-purple-700" }
       elsif local_prefix.any? { |p| tg_s.start_with?(p) }
         { label: "local", css: "bg-green-900/30 text-green-400 border-green-700" }
