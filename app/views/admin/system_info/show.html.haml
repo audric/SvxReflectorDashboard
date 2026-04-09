@@ -357,6 +357,21 @@
                 %input.w-full.px-3.py-2.rounded-md.border.border-gray-600{class: "bg-[#0d1117]", type: "number", name: "settings[poll_interval]", value: @settings["poll_interval"], min: 1, max: 10, step: 1}
                 %small.text-gray-500 How often the updater polls the reflector (1–10 seconds).
 
+              %hr.border-ghborder.my-4
+              %h6.text-sm.font-semibold.text-gray-100.mb-3
+                %i.bi.bi-broadcast-pin.mr-1
+                MQTT Broker
+
+              .mb-4
+                %label.block.text-sm.text-gray-500.mb-1 Username
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600{class: "bg-[#0d1117]", type: "text", name: "settings[mqtt_username]", value: @settings["mqtt_username"], placeholder: "svxreflector", autocomplete: "off"}
+                %small.text-gray-500 Username for the bundled Mosquitto MQTT broker.
+
+              .mb-4
+                %label.block.text-sm.text-gray-500.mb-1 Password
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600{class: "bg-[#0d1117]", type: "text", name: "settings[mqtt_password]", value: @settings["mqtt_password"], placeholder: "changeme", autocomplete: "off"}
+                %small.text-gray-500 Password for the bundled Mosquitto MQTT broker.
+
               .flex.gap-2
                 = f.submit "Save Settings", class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
 

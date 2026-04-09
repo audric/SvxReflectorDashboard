@@ -21,7 +21,7 @@ module Admin
 
       # For Settings tab
       settings_keys = Admin::SettingsController::KEYS
-      settings_defaults = { "reflector_status_url" => ENV.fetch("REFLECTOR_STATUS_URL", ""), "brand_name" => ENV.fetch("BRAND_NAME", ""), "reflector_ext_host" => ENV.fetch("REFLECTOR_EXT_HOST", ""), "poll_interval" => "4" }
+      settings_defaults = { "reflector_status_url" => ENV.fetch("REFLECTOR_STATUS_URL", ""), "brand_name" => ENV.fetch("BRAND_NAME", ""), "reflector_ext_host" => ENV.fetch("REFLECTOR_EXT_HOST", ""), "poll_interval" => "4", "mqtt_username" => ENV.fetch("MQTT_USERNAME", ""), "mqtt_password" => ENV.fetch("MQTT_PASSWORD", "") }
       @settings = settings_keys.index_with { |key| Setting.get(key, settings_defaults[key]) }
 
       @info = {
