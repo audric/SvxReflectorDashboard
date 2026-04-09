@@ -131,6 +131,8 @@ GEM
       net-smtp
     marcel (1.1.0)
     mini_mime (1.1.5)
+    mqtt (0.7.0)
+      logger
     minitest (6.0.1)
       prism (~> 1.5)
     msgpack (1.8.0)
@@ -255,6 +257,7 @@ DEPENDENCIES
   haml-rails
   importmap-rails
   jbuilder
+  mqtt
   puma (>= 5.0)
   rails (~> 8.0)
   redis

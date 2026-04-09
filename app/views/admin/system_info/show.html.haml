@@ -64,6 +64,9 @@
         %button.tab-btn.pb-3.text-sm.font-medium.text-ghmuted.hover:text-gray-200.cursor-pointer.border-b-2.border-transparent{type: "button", onclick: "switchTab('audiopaths')", id: "tab-audiopaths", class: @active_tab == 'audiopaths' ? 'active' : ''}
           %i.bi.bi-soundwave.mr-1
           Audio Paths
+        %button.tab-btn.pb-3.text-sm.font-medium.text-ghmuted.hover:text-gray-200.cursor-pointer.border-b-2.border-transparent{type: "button", onclick: "switchTab('mqtt')", id: "tab-mqtt", class: @active_tab == 'mqtt' ? 'active' : ''}
+          %i.bi.bi-broadcast-pin.mr-1
+          MQTT
 
       -# ════════════════════════════════════════════════
       -# TAB: System Info
@@ -683,6 +686,73 @@
                 %span.w-3.h-3.rounded-full.bg-rose-400.inline-block
                 %span.text-gray-400 AGC + hard limiter
 
+      -# ════════════════════════════════════════════════
+      -# TAB: MQTT Explorer
+      -# ════════════════════════════════════════════════
+      #panel-mqtt.tab-panel{class: @active_tab == 'mqtt' ? 'active' : ''}
+
+        .flex.items-center.justify-between.mb-4
+          %h5.text-lg.font-semibold.text-gray-100
+            %i.bi.bi-broadcast-pin.mr-2
+            MQTT Explorer
+          .flex.items-center.gap-2
+            %span.text-xs.text-ghmuted#mqtt-status Idle
+            %span.inline-block.w-2.h-2.rounded-full.bg-gray-500#mqtt-dot
+            %button#mqtt-refresh.text-xs.px-2.py-1.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.cursor-pointer{type: "button", title: "Refresh"}
+              %i.bi.bi-arrow-clockwise
+            %label.flex.items-center.gap-1.text-xs.text-ghmuted.cursor-pointer
+              %input#mqtt-auto{type: "checkbox"}
+              Auto (3s)
+
+        #mqtt-error
+
+        -# Broker info
+        .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-6
+          .rounded-lg.border.border-ghborder.bg-ghcard
+            .px-4.py-3.border-b.border-ghborder
+              %h6.text-sm.font-semibold.text-gray-100
+                %i.bi.bi-server.mr-2
+                Broker
+            %table.w-full.debug-table
+              %tbody#mqtt-broker-tbody
+                %tr.border-b.border-ghborder2
+                  %td.px-4.py-2.text-ghmuted.font-medium{colspan: 2} Loading…
+
+          .rounded-lg.border.border-ghborder.bg-ghcard
+            .px-4.py-3.border-b.border-ghborder
+              %h6.text-sm.font-semibold.text-gray-100
+                %i.bi.bi-diagram-3.mr-2
+                $SYS Topics
+                %span.text-ghmuted.font-normal.ml-2#mqtt-sys-count
+            .overflow-x-auto{style: "max-height: 300px; overflow-y: auto;"}
+              %table.w-full.debug-table
+                %thead
+                  %tr.border-b.border-ghborder2
+                    %th.py-2.px-3 Topic
+                    %th.py-2 Value
+                %tbody#mqtt-sys-tbody
+
+        -# Live messages
+        .rounded-lg.border.border-ghborder.bg-ghcard
+          .px-4.py-3.border-b.border-ghborder.flex.items-center.justify-between
+            %h6.text-sm.font-semibold.text-gray-100
+              %i.bi.bi-chat-left-text.mr-2
+              Live Messages
+              %span.text-ghmuted.font-normal.ml-2#mqtt-msg-count
+            %button.text-xs.px-2.py-1.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.cursor-pointer{type: "button", id: "mqtt-clear", title: "Clear"}
+              %i.bi.bi-trash.mr-1
+              Clear
+          .overflow-x-auto{style: "max-height: calc(100vh - 400px); overflow-y: auto;", id: "mqtt-msg-scroll"}
+            %table.w-full.debug-table
+              %thead
+                %tr.border-b.border-ghborder2
+                  %th.py-2.px-3{style: "width: 140px;"} Time
+                  %th.py-2 Topic
+                  %th.py-2 Payload
+              %tbody#mqtt-msg-tbody
+                %tr
+                  %td.px-4.py-3.text-ghmuted{colspan: 3} Waiting for messages…
+
       #panel-changelog.tab-panel{class: @active_tab == 'changelog' ? 'active' : ''}
 
         .flex.items-center.justify-between.mb-4
@@ -703,6 +773,8 @@
         // Start/stop debug polling based on tab
         if (tab === 'debug' && !debugStarted) { startDebug(); }
         if (tab === 'changelog') { loadChangelog(); }
+        if (tab === 'mqtt' && !mqttStarted) { startMqtt(); }
+        if (tab !== 'mqtt') { stopMqttAuto(); }
         // Stop log auto-refresh when leaving logs tab
         if (tab !== 'logs') { stopLogAuto(); }
       }
@@ -923,6 +995,141 @@
       // Auto-start debug if that tab is active
       if (document.getElementById('panel-debug').classList.contains('active')) {
         startDebug();
+      }
+
+      // ── MQTT Explorer (lazy-loaded on tab switch) ──
+      var mqttStarted = false;
+      var mqttInterval = null;
+      var allMessages = [];
+      var MAX_MESSAGES = 500;
+
+      function stopMqttAuto() {
+        var cb = document.getElementById('mqtt-auto');
+        if (cb) cb.checked = false;
+        if (mqttInterval) { clearInterval(mqttInterval); mqttInterval = null; }
+      }
+
+      function startMqtt() {
+        mqttStarted = true;
+        var refreshBtn = document.getElementById('mqtt-refresh');
+        var autoCheck = document.getElementById('mqtt-auto');
+        var clearBtn = document.getElementById('mqtt-clear');
+
+        function fetchMqtt() {
+          document.getElementById('mqtt-status').textContent = 'Polling…';
+          document.getElementById('mqtt-dot').className = 'inline-block w-2 h-2 rounded-full bg-yellow-500 animate-pulse';
+          fetch('/admin/mqtt.json')
+            .then(function(r) {
+              if (!r.ok) throw new Error('HTTP ' + r.status);
+              return r.json();
+            })
+            .then(function(data) {
+              if (data.error) {
+                document.getElementById('mqtt-error').innerHTML =
+                  '<div class="p-2 rounded border border-red-700 text-red-400 text-sm mb-4 bg-red-900/30">' + esc(data.error) + '</div>';
+                document.getElementById('mqtt-dot').className = 'inline-block w-2 h-2 rounded-full bg-red-500';
+                document.getElementById('mqtt-status').textContent = 'Error';
+                return;
+              }
+              document.getElementById('mqtt-error').innerHTML = '';
+              document.getElementById('mqtt-dot').className = 'inline-block w-2 h-2 rounded-full bg-green-500';
+              document.getElementById('mqtt-status').textContent = 'Connected';
+
+              // Broker info
+              var brokerTbody = document.getElementById('mqtt-broker-tbody');
+              var cfg = data.config || {};
+              brokerTbody.innerHTML =
+                '<tr class="border-b border-ghborder2"><td class="px-4 py-2 text-ghmuted font-medium whitespace-nowrap">Host</td><td class="px-4 py-2 text-gray-200 font-mono">' + esc(cfg.host || '—') + '</td></tr>' +
+                '<tr class="border-b border-ghborder2"><td class="px-4 py-2 text-ghmuted font-medium whitespace-nowrap">Port</td><td class="px-4 py-2 text-gray-200 font-mono">' + esc(cfg.port || '—') + '</td></tr>' +
+                '<tr class="border-b border-ghborder2"><td class="px-4 py-2 text-ghmuted font-medium whitespace-nowrap">Topic prefix</td><td class="px-4 py-2 text-gray-200 font-mono">' + esc(cfg.topic_prefix || '—') + '</td></tr>';
+
+              // $SYS topics
+              var sys = data.sys || {};
+              var sysKeys = Object.keys(sys).sort();
+              document.getElementById('mqtt-sys-count').textContent = '(' + sysKeys.length + ')';
+              var sysTbody = document.getElementById('mqtt-sys-tbody');
+              if (sysKeys.length === 0) {
+                sysTbody.innerHTML = '<tr><td colspan="2" class="p-4 text-ghmuted text-sm">No $SYS topics received</td></tr>';
+              } else {
+                var sysHtml = '';
+                sysKeys.forEach(function(k) {
+                  sysHtml += '<tr class="border-b border-ghborder2 hover:bg-ghcard">' +
+                    '<td class="py-2 px-3 font-mono text-xs text-cyan-400 whitespace-nowrap">' + esc(k) + '</td>' +
+                    '<td class="py-2 font-mono text-xs text-gray-300">' + esc(sys[k]) + '</td></tr>';
+                });
+                sysTbody.innerHTML = sysHtml;
+              }
+
+              // Messages — deduplicate by topic+payload+ts
+              var seen = {};
+              allMessages.forEach(function(m) { seen[m.topic + '|' + m.payload + '|' + m.ts] = true; });
+              (data.messages || []).forEach(function(m) {
+                var key = m.topic + '|' + m.payload + '|' + m.ts;
+                if (!seen[key]) {
+                  allMessages.push(m);
+                  seen[key] = true;
+                }
+              });
+              if (allMessages.length > MAX_MESSAGES) {
+                allMessages = allMessages.slice(-MAX_MESSAGES);
+              }
+              renderMessages();
+            })
+            .catch(function(err) {
+              document.getElementById('mqtt-dot').className = 'inline-block w-2 h-2 rounded-full bg-red-500';
+              document.getElementById('mqtt-status').textContent = 'Error';
+              document.getElementById('mqtt-error').innerHTML =
+                '<div class="p-2 rounded border border-red-700 text-red-400 text-sm mb-4 bg-red-900/30">' + esc(err.message) + '</div>';
+            });
+        }
+
+        function renderMessages() {
+          var tbody = document.getElementById('mqtt-msg-tbody');
+          document.getElementById('mqtt-msg-count').textContent = '(' + allMessages.length + ')';
+          if (allMessages.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="px-4 py-3 text-ghmuted">No messages received yet</td></tr>';
+            return;
+          }
+          var html = '';
+          for (var i = allMessages.length - 1; i >= 0; i--) {
+            var m = allMessages[i];
+            var timeStr = m.ts ? m.ts.substring(11, 23) : '';
+            var payload = m.payload || '';
+            var payloadHtml;
+            try {
+              var parsed = JSON.parse(payload);
+              payloadHtml = '<pre class="whitespace-pre-wrap text-xs">' + esc(JSON.stringify(parsed, null, 2)) + '</pre>';
+            } catch(e) {
+              payloadHtml = esc(payload);
+            }
+            html += '<tr class="border-b border-ghborder2 hover:bg-ghcard">' +
+              '<td class="py-2 px-3 font-mono text-xs text-ghmuted whitespace-nowrap">' + esc(timeStr) + '</td>' +
+              '<td class="py-2 font-mono text-xs text-cyan-400 whitespace-nowrap">' + esc(m.topic) + '</td>' +
+              '<td class="py-2 font-mono text-xs text-gray-300 val-cell">' + payloadHtml + '</td></tr>';
+          }
+          tbody.innerHTML = html;
+        }
+
+        refreshBtn.addEventListener('click', fetchMqtt);
+        clearBtn.addEventListener('click', function() {
+          allMessages = [];
+          renderMessages();
+        });
+        autoCheck.addEventListener('change', function() {
+          if (this.checked) {
+            fetchMqtt();
+            mqttInterval = setInterval(fetchMqtt, 3000);
+          } else {
+            if (mqttInterval) { clearInterval(mqttInterval); mqttInterval = null; }
+          }
+        });
+
+        fetchMqtt();
+      }
+
+      // Auto-start MQTT if that tab is active
+      if (document.getElementById('panel-mqtt').classList.contains('active')) {
+        startMqtt();
       }
 
       // ── Changelog (lazy-loaded on tab switch) ──

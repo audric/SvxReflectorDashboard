@@ -62,3 +62,4 @@ end
 
 gem 'redis'
 gem 'haml-rails'
+gem 'mqtt'

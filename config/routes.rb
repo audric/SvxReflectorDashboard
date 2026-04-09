@@ -46,6 +46,7 @@ Rails.application.routes.draw do
     end
     resource :system_info, only: :show, controller: "system_info"
     resource :debug, only: :show, controller: "debug"
+    resource :mqtt, only: :show, controller: "mqtt"
     resource :logs, only: :show, controller: "logs" do
       get :fetch, on: :collection
     end
