@@ -64,6 +64,7 @@
         - local_prefix = @local_prefix || @reflector_config&.dig('local_prefix')
         - local_prefix_str = Array(local_prefix).flatten.flat_map { |x| x.to_s.split(',') }.map(&:strip).join(', ')
         - local_ext_host = Setting.get('reflector_ext_host', ENV.fetch('REFLECTOR_EXT_HOST', ''))
+        - sat_parent_host = @reflector_mode == 'satellite' ? (@reflector_config.dig('satellite', 'parent_host') || @reflector_config.dig('satellite', 'host')) : nil
         :javascript
           (function() {
             var localHost = #{local_ext_host.present? ? local_ext_host.to_json : local_host.to_json};
@@ -72,6 +73,9 @@
             var trunksData = #{@trunks.to_json};
             var localTrunks = #{@local_trunks.to_json};
             var remoteConfigs = #{@remote_configs.to_json};
+            var satelliteMode = #{(@reflector_mode == 'satellite').to_json};
+            var satelliteParentHost = #{sat_parent_host.to_json};
+            var satellitesData = #{@satellites.to_json};
 
             // Check if a hostname refers to our local reflector
             function isLocalHost(h) {
@@ -115,6 +119,20 @@
                 }
               });
 
+              // In satellite mode, add the parent as a peer
+              if (satelliteMode && satelliteParentHost) {
+                if (!allNodes.some(function(n) { return n.host === satelliteParentHost; })) {
+                  allNodes.push({
+                    id: satelliteParentHost,
+                    host: satelliteParentHost,
+                    prefix: '',
+                    isLocal: false,
+                    nodeCount: null,
+                    isParent: true
+                  });
+                }
+              }
+
               if (allNodes.length <= 1) {
                 container.innerHTML = '<div class="text-center text-ghmuted py-8"><i class="bi bi-diagram-3 block text-2xl mb-2"></i>No trunk peers configured.</div>';
                 return;
@@ -139,6 +157,39 @@
                   };
                 }
               });
+
+              // Satellite → parent edge
+              if (satelliteMode && satelliteParentHost) {
+                var key = edgeKey(localHost, satelliteParentHost);
+                if (!edgeMap[key]) {
+                  edgeMap[key] = {
+                    fromHost: localHost, toHost: satelliteParentHost, name: 'satellite',
+                    outFromA: true, outFromB: true, isSatellite: true
+                  };
+                }
+              }
+
+              // Parent: add connected satellites as nodes
+              if (!satelliteMode && satellitesData) {
+                Object.keys(satellitesData).forEach(function(satId) {
+                  var sat = satellitesData[satId] || {};
+                  allNodes.push({
+                    id: 'sat_' + satId,
+                    host: satId,
+                    prefix: '',
+                    isLocal: false,
+                    nodeCount: null,
+                    isSatellite: true
+                  });
+                  var key = edgeKey(localHost, satId);
+                  if (!edgeMap[key]) {
+                    edgeMap[key] = {
+                      fromHost: localHost, toHost: satId, name: 'satellite',
+                      outFromA: !!sat.authenticated, outFromB: !!sat.authenticated, isSatellite: true
+                    };
+                  }
+                });
+              }
 
               // From each remote peer's trunk list, find links between peers
               Object.keys(remoteConfigs).forEach(function(trunkName) {
@@ -311,9 +362,10 @@
                 var pos = positions[nd.host];
                 var bx = pos.x, by = pos.y;
                 var w = nd.w;
-                var stroke = nd.isLocal ? '#58a6ff' : '#6e7681';
-                var strokeW = nd.isLocal ? 2 : 1.5;
-                var hostColor = nd.isLocal ? '#58a6ff' : '#c9d1d9';
+                var isSatOrParent = nd.isSatellite || nd.isParent;
+                var stroke = nd.isLocal ? '#58a6ff' : (isSatOrParent ? '#a855f7' : '#6e7681');
+                var strokeW = nd.isLocal || isSatOrParent ? 2 : 1.5;
+                var hostColor = nd.isLocal ? '#58a6ff' : (isSatOrParent ? '#a855f7' : '#c9d1d9');
 
                 svg += '<rect x="' + (bx - w/2) + '" y="' + (by - nodeH/2) + '" width="' + w + '" height="' + nodeH + '" rx="8" fill="#161b22" stroke="' + stroke + '" stroke-width="' + strokeW + '"/>';
                 svg += '<a href="https://' + encodeURI(nd.host) + '" target="_blank" rel="noopener">';
@@ -323,7 +375,11 @@
                   svg += '<text x="' + bx + '" y="' + (by + 10) + '" text-anchor="middle" fill="#8b949e" font-size="10">prefix: ' + nd.prefix.replace(/</g, '&lt;') + '</text>';
                 }
                 if (nd.isLocal) {
-                  svg += '<text x="' + bx + '" y="' + (by + 25) + '" text-anchor="middle" fill="#6e7681" font-size="9" font-style="italic">LOCAL</text>';
+                  svg += '<text x="' + bx + '" y="' + (by + 25) + '" text-anchor="middle" fill="#6e7681" font-size="9" font-style="italic">' + (satelliteMode ? 'SATELLITE' : 'LOCAL') + '</text>';
+                } else if (nd.isParent) {
+                  svg += '<text x="' + bx + '" y="' + (by + 25) + '" text-anchor="middle" fill="#a855f7" font-size="9" font-style="italic">PARENT</text>';
+                } else if (nd.isSatellite) {
+                  svg += '<text x="' + bx + '" y="' + (by + 25) + '" text-anchor="middle" fill="#a855f7" font-size="9" font-style="italic">SATELLITE</text>';
                 } else if (nd.nodeCount !== null) {
                   svg += '<text x="' + bx + '" y="' + (by + 25) + '" text-anchor="middle" fill="#6e7681" font-size="9">' + nd.nodeCount + ' node' + (nd.nodeCount !== 1 ? 's' : '') + '</text>';
                 }
