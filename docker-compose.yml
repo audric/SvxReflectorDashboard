@@ -154,6 +154,8 @@ services:
       - |
         if [ -n "$$MQTT_USERNAME" ] && [ -n "$$MQTT_PASSWORD" ]; then
           mosquitto_passwd -c -b /mosquitto/data/passwd "$$MQTT_USERNAME" "$$MQTT_PASSWORD"
+        else
+          touch /mosquitto/data/passwd
         fi
         exec mosquitto -c /mosquitto/config/mosquitto.conf
     environment:
