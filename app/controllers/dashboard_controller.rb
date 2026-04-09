@@ -45,18 +45,23 @@ class DashboardController < ApplicationController
     config = ReflectorConfig.load
     local_prefix = config.global["LOCAL_PREFIX"].to_s.split(",").map(&:strip).reject(&:blank?)
     trunk_routes = config.trunks.map { |name, cfg|
-      url = cfg["STATUS_URL"].presence
-      host = url ? URI.parse(url).host&.delete("[]") : nil rescue nil
-      { name: name, prefix: cfg["REMOTE_PREFIX"].to_s.split(",").map(&:strip).reject(&:blank?), host: host }
+      status_url = cfg["STATUS_URL"].presence
+      parsed = status_url ? (URI.parse(status_url) rescue nil) : nil
+      portal_url = parsed ? "#{parsed.scheme}://#{parsed.host}" : nil
+      { name: name, prefix: cfg["REMOTE_PREFIX"].to_s.split(",").map(&:strip).reject(&:blank?), trunk_host: cfg["HOST"], portal_url: portal_url }
     }
     cluster_tgs = @cluster_tgs
+
+    parent_host = @reflector_config.dig('satellite', 'parent_host') || @reflector_config.dig('satellite', 'host') || config.global['SATELLITE_OF']
 
     @route_for = ->(tg_num) {
       tg_s = tg_num.to_s
       if cluster_tgs.include?(tg_num)
         { label: "cluster", css: "bg-cyan-900/30 text-cyan-400 border-cyan-700" }
+      elsif @reflector_mode == 'satellite' && parent_host.present?
+        { label: parent_host, css: "bg-purple-900/30 text-purple-400 border-purple-700", url: "https://#{parent_host}" }
       elsif (trunk = trunk_routes.filter_map { |t| match = t[:prefix].select { |p| tg_s.start_with?(p) }.max_by(&:length); match ? [t, match.length] : nil }.max_by(&:last)&.first)
-        { label: trunk[:name].sub(/\ATRUNK_/, ""), css: "bg-purple-900/30 text-purple-400 border-purple-700", url: trunk[:host] ? "https://#{trunk[:host]}" : nil }
+        { label: trunk[:trunk_host] || trunk[:name].sub(/\ATRUNK_/, ""), css: "bg-purple-900/30 text-purple-400 border-purple-700", url: trunk[:portal_url] }
       elsif local_prefix.any? { |p| tg_s.start_with?(p) }
         { label: "local", css: "bg-green-900/30 text-green-400 border-green-700" }
       else
