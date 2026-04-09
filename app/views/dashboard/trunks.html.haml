@@ -221,6 +221,25 @@
                     });
                   }
                 });
+
+                // Add satellites of this trunk peer
+                var remoteSats = remote.satellites || {};
+                Object.keys(remoteSats).forEach(function(satId) {
+                  var sat = remoteSats[satId] || {};
+                  if (!allNodes.some(function(n) { return n.host === satId; })) {
+                    allNodes.push({
+                      id: 'sat_' + satId, host: satId, prefix: '',
+                      isLocal: false, nodeCount: null, isSatellite: true
+                    });
+                  }
+                  var key = edgeKey(peerHost, satId);
+                  if (!edgeMap[key]) {
+                    edgeMap[key] = {
+                      fromHost: peerHost, toHost: satId, name: 'satellite',
+                      outFromA: !!sat.authenticated, outFromB: !!sat.authenticated, isSatellite: true
+                    };
+                  }
+                });
               });
 
               edges = Object.keys(edgeMap).map(function(k) { return edgeMap[k]; });
