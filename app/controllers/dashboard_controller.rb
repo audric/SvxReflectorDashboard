@@ -44,7 +44,11 @@ class DashboardController < ApplicationController
     # Routing info: local prefix, trunk prefixes, cluster TGs
     config = ReflectorConfig.load
     local_prefix = config.global["LOCAL_PREFIX"].to_s.split(",").map(&:strip).reject(&:blank?)
-    trunk_routes = config.trunks.map { |name, cfg| { name: name, prefix: cfg["REMOTE_PREFIX"].to_s.split(",").map(&:strip).reject(&:blank?) } }
+    trunk_routes = config.trunks.map { |name, cfg|
+      url = cfg["STATUS_URL"].presence
+      host = url ? URI.parse(url).host&.delete("[]") : nil rescue nil
+      { name: name, prefix: cfg["REMOTE_PREFIX"].to_s.split(",").map(&:strip).reject(&:blank?), host: host }
+    }
     cluster_tgs = @cluster_tgs
 
     @route_for = ->(tg_num) {
@@ -52,7 +56,7 @@ class DashboardController < ApplicationController
       if cluster_tgs.include?(tg_num)
         { label: "cluster", css: "bg-cyan-900/30 text-cyan-400 border-cyan-700" }
       elsif (trunk = trunk_routes.filter_map { |t| match = t[:prefix].select { |p| tg_s.start_with?(p) }.max_by(&:length); match ? [t, match.length] : nil }.max_by(&:last)&.first)
-        { label: trunk[:name].sub(/\ATRUNK_/, ""), css: "bg-purple-900/30 text-purple-400 border-purple-700" }
+        { label: trunk[:name].sub(/\ATRUNK_/, ""), css: "bg-purple-900/30 text-purple-400 border-purple-700", url: trunk[:host] ? "https://#{trunk[:host]}" : nil }
       elsif local_prefix.any? { |p| tg_s.start_with?(p) }
         { label: "local", css: "bg-green-900/30 text-green-400 border-green-700" }
       else

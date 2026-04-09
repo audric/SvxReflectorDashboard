@@ -230,7 +230,10 @@
                   %td.px-4.py-3
                     - route = @route_for.call(tg_num)
                     - if route[:css]
-                      %span.text-xs.px-1.5.py-0.5.rounded-full.border.font-mono{class: route[:css]}= route[:label]
+                      - if route[:url]
+                        %a.text-xs.px-1.5.py-0.5.rounded-full.border.font-mono.hover:brightness-125.transition{class: route[:css], href: route[:url], target: "_blank", rel: "noopener"}= route[:label]
+                      - else
+                        %span.text-xs.px-1.5.py-0.5.rounded-full.border.font-mono{class: route[:css]}= route[:label]
                     - else
                       %span.text-xs.text-ghmuted= route[:label]
 
