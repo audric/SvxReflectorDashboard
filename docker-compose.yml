@@ -148,6 +148,17 @@ services:
   mqtt:
     image: eclipse-mosquitto:2
     logging: *default-logging
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        if [ -n "$$MQTT_USERNAME" ] && [ -n "$$MQTT_PASSWORD" ]; then
+          mosquitto_passwd -c -b /mosquitto/data/passwd "$$MQTT_USERNAME" "$$MQTT_PASSWORD"
+        fi
+        exec mosquitto -c /mosquitto/config/mosquitto.conf
+    environment:
+      MQTT_USERNAME: ${MQTT_USERNAME:-}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}
     expose:
       - "1883"
     volumes:
