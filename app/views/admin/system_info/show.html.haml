@@ -1020,6 +1020,11 @@
           document.getElementById('mqtt-dot').className = 'inline-block w-2 h-2 rounded-full bg-yellow-500 animate-pulse';
           fetch('/admin/mqtt.json')
             .then(function(r) {
+              if (r.status === 422) {
+                return r.json().then(function(d) {
+                  throw new Error(d.error || 'MQTT not configured. Set it up in Admin \u2192 Reflector \u2192 Edit.');
+                });
+              }
               if (!r.ok) throw new Error('HTTP ' + r.status);
               return r.json();
             })
@@ -1076,10 +1081,15 @@
               renderMessages();
             })
             .catch(function(err) {
-              document.getElementById('mqtt-dot').className = 'inline-block w-2 h-2 rounded-full bg-red-500';
-              document.getElementById('mqtt-status').textContent = 'Error';
+              document.getElementById('mqtt-dot').className = 'inline-block w-2 h-2 rounded-full bg-gray-500';
+              document.getElementById('mqtt-status').textContent = 'Not configured';
               document.getElementById('mqtt-error').innerHTML =
-                '<div class="p-2 rounded border border-red-700 text-red-400 text-sm mb-4 bg-red-900/30">' + esc(err.message) + '</div>';
+                '<div class="p-3 rounded border border-yellow-700/50 text-yellow-400 text-sm mb-4 bg-yellow-900/20 flex items-center gap-2">' +
+                '<i class="bi bi-info-circle"></i> ' + esc(err.message) + '</div>';
+              // Stop auto-polling if not configured
+              if (mqttInterval) { clearInterval(mqttInterval); mqttInterval = null; }
+              var cb = document.getElementById('mqtt-auto');
+              if (cb) cb.checked = false;
             });
         }
 
