@@ -295,11 +295,30 @@
                 });
               });
 
+              // Save positions and viewport from previous instance
+              var savedPositions = {};
+              var savedZoom = null;
+              var savedPan = null;
               if (window._cyInstance) {
+                window._cyInstance.nodes().forEach(function(n) {
+                  savedPositions[n.id()] = n.position();
+                });
+                savedZoom = window._cyInstance.zoom();
+                savedPan = window._cyInstance.pan();
                 window._cyInstance.destroy();
                 window._cyInstance = null;
               }
               container.innerHTML = '';
+
+              // Apply saved positions to elements if available
+              var hasSaved = Object.keys(savedPositions).length > 0;
+              if (hasSaved) {
+                cyNodes.forEach(function(n) {
+                  if (savedPositions[n.data.id]) {
+                    n.position = savedPositions[n.data.id];
+                  }
+                });
+              }
 
               var cy = cytoscape({
                 container: container,
@@ -367,12 +386,9 @@
                     }
                   }
                 ],
-                layout: {
-                  name: 'circle',
-                  fit: true,
-                  padding: 40,
-                  animate: false
-                }
+                layout: hasSaved
+                  ? { name: 'preset' }
+                  : { name: 'circle', fit: true, padding: 40, animate: false }
               });
 
               cy.on('tap', 'node', function(evt) {
@@ -381,6 +397,11 @@
               });
               cy.on('mouseover', 'node', function() { container.style.cursor = 'pointer'; });
               cy.on('mouseout', 'node', function() { container.style.cursor = ''; });
+
+              // Restore viewport on redraw
+              if (hasSaved && savedZoom && savedPan) {
+                cy.viewport({ zoom: savedZoom, pan: savedPan });
+              }
 
               window._cyInstance = cy;
             }
@@ -395,11 +416,22 @@
 
           })();
 
-        #topology-canvas.w-full.rounded-lg.border.border-ghborder.bg-ghcard{style: "height: 500px"}
+        .relative.mb-4
+          %button.absolute.top-2.right-2.z-10.px-2.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.rounded.border.border-ghborder.bg-ghcard.transition-colors{type: "button", onclick: "if(window._cyInstance){window._cyInstance.layout({name:'circle',fit:true,padding:40,animate:true,animationDuration:300}).run()}",title: "Auto-layout"}
+            %i.bi.bi-diagram-3.mr-1
+            Layout
+          #topology-canvas.w-full.rounded-lg.border.border-ghborder.bg-ghcard{style: "height: 500px"}
 
       #trunk-tab-list
 
       - if @reflector_mode == 'satellite'
+        .text-center.text-ghmuted.text-sm.py-6.mb-4
+          %i.bi.bi-info-circle.mr-1
+          No trunks — this reflector is operating as a satellite.
+
+        .page-header.mb-3
+          %i.bi.bi-broadcast.mr-1
+          Satellite
         - parent_host = @reflector_config.dig('satellite', 'parent_host') || @reflector_config.dig('satellite', 'host') || 'parent reflector'
         - parent_port = @reflector_config.dig('satellite', 'parent_port') || '5303'
         - sat_id = @reflector_config.dig('satellite', 'id') || ''
@@ -415,9 +447,9 @@
               Connected to
               %span.font-mono.text-purple-300= parent_host
               %span.text-ghdim= ":#{parent_port}"
-            %p.text-purple-300.text-xs.mt-1 This reflector is operating as a satellite. Trunk management is handled by the parent reflector.
+            %p.text-purple-300.text-xs.mt-1 Trunk management is handled by the parent reflector.
 
-      - else
+      - if @reflector_mode != 'satellite'
         -# ── Local Trunk Configuration ────────────────────────────────────────
         .page-header.mb-3
           %i.bi.bi-gear.mr-1
@@ -836,8 +868,12 @@
           b.classList.toggle('active', b.dataset.tab === tab);
         });
         localStorage.setItem('trunks-tab', tab);
-        if (tab === 'topology' && window._drawTopology) {
-          setTimeout(window._drawTopology, 50);
+        if (tab === 'topology') {
+          if (window._cyInstance) {
+            setTimeout(function() { window._cyInstance.resize(); window._cyInstance.fit(undefined, 40); }, 50);
+          } else if (window._drawTopology) {
+            setTimeout(window._drawTopology, 50);
+          }
         }
       }
       (function() {
