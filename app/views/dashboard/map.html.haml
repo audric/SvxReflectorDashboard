@@ -406,8 +406,9 @@
             ? (isTrunk ? (node.isTalker ? '#22d3ee' : (node.tg ? '#22d3ee' : '#67e8f9'))
                        : (node.isTalker ? '#fbbf24' : (node.tg ? '#fbbf24' : '#fcd34d')))
             : markerColor(node);
-          var iconCls = markerIconMap[node.nodeClass] || 'bi-circle-fill';
-          var isRx = node.nodeClass === 'receiver';
+          var nc = (node.nodeClass || '').toLowerCase();
+          var iconCls = markerIconMap[nc] || 'bi-circle-fill';
+          var isRx = nc === 'receiver';
           var size = isRx ? 22 : 30;
           var cls = 'map-marker' + (isRx ? ' map-marker-rx' : '') + (isExt ? ' map-marker-ext' : '') + (node.isTalker ? ' map-marker-talking' : '');
           var iStyle = 'color:' + bg + ';-webkit-text-stroke:1px ' + bg + ';filter:drop-shadow(0 0 2px rgba(0,0,0,.8))';
@@ -422,10 +423,10 @@
         }
 
         // ── Tooltip HTML builder (compact — no tone table, no links) ──────────────
-        var tooltipIconMap = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', zello: 'bi-phone', simplex: 'bi-broadcast', receiver: 'bi-ear' };
+        var tooltipIconMap = { repeater: 'bi-broadcast', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', zello: 'bi-phone', simplex: 'bi-broadcast', receiver: 'bi-ear' };
 
         function buildTooltipHtml(cs, node) {
-          var iconCls = tooltipIconMap[node.nodeClass] || 'bi-broadcast';
+          var iconCls = tooltipIconMap[(node.nodeClass || '').toLowerCase()] || 'bi-broadcast';
           var html = '<div class="popup-callsign">' + esc(cs) + '</div>' +
                      '<div class="popup-row" style="margin-top:.35rem">' + statusBadge(node) + '</div>';
           if (node.nodeClass)    html += '<div class="popup-row"><i class="bi ' + iconCls + ' mr-1"></i><span>' + esc(node.nodeClass) + '</span></div>';
@@ -458,8 +459,8 @@
           var locator = pos.loc || '';
           var rxFreq  = qth.rx && Object.values(qth.rx)[0] && Object.values(qth.rx)[0].freq;
           var txFreq  = qth.tx && Object.values(qth.tx)[0] && Object.values(qth.tx)[0].freq;
-          var nodeIcon = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', zello: 'bi-phone', simplex: 'bi-broadcast', receiver: 'bi-ear' };
-          var iconCls  = nodeIcon[node.nodeClass] || 'bi-broadcast';
+          var nodeIcon = { repeater: 'bi-broadcast', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', zello: 'bi-phone', simplex: 'bi-broadcast', receiver: 'bi-ear' };
+          var iconCls  = nodeIcon[(node.nodeClass || '').toLowerCase()] || 'bi-broadcast';
 
           var html = '<div class="popup-callsign">' + esc(cs) + '</div>' +
                      '<div class="popup-row" style="margin-top:.35rem">' + statusBadge(node) + '</div>';
@@ -609,8 +610,8 @@
           var locator = (pos && pos.loc) || '';
           var rxFreq  = qth.rx && Object.values(qth.rx)[0] && Object.values(qth.rx)[0].freq;
           var txFreq  = qth.tx && Object.values(qth.tx)[0] && Object.values(qth.tx)[0].freq;
-          var nodeIcon = { repeater: 'bi-arrow-repeat', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', zello: 'bi-phone', simplex: 'bi-broadcast', receiver: 'bi-ear' };
-          var iconCls  = nodeIcon[node.nodeClass] || 'bi-broadcast';
+          var nodeIcon = { repeater: 'bi-broadcast', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', zello: 'bi-phone', simplex: 'bi-broadcast', receiver: 'bi-ear' };
+          var iconCls  = nodeIcon[(node.nodeClass || '').toLowerCase()] || 'bi-broadcast';
           var html = '<div class="popup-callsign">' + esc(cs) + '</div>' +
                      '<div class="popup-row" style="margin-top:.35rem">' + statusBadge(node) + '</div>';
           if (node.nodeClass)    html += '<div class="popup-row"><i class="bi ' + iconCls + ' mr-1"></i><span>' + esc(node.nodeClass) + '</span></div>';

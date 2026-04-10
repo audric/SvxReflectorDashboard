@@ -334,6 +334,8 @@ class ReflectorListener
       end
       # Update kind for any existing TGs that are now cluster
       Tg.where(tg: cluster_tgs).where.not(kind: 'cluster').update_all(kind: 'cluster')
+      # Clear cluster kind from TGs no longer in the cluster list
+      Tg.where(kind: 'cluster').where.not(tg: cluster_tgs).update_all(kind: 'local')
     end
   rescue => e
     STDERR.puts "[Poller] Cluster TG sync error: #{e.message}"

@@ -105,7 +105,7 @@ class DashboardController < ApplicationController
     @idle    = @total - @active
 
     @by_class = visible
-      .group_by { |_, n| n['nodeClass'].to_s.presence || 'unknown' }
+      .group_by { |_, n| n['nodeClass'].to_s.downcase.presence || 'unknown' }
       .sort_by   { |cls, _| cls }
       .map       { |cls, arr| [cls, arr.size] }
 

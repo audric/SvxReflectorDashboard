@@ -145,7 +145,7 @@
               - @by_class.each do |cls, count|
                 - pct     = @total > 0 ? (count.to_f / @total * 100).round : 0
                 - cls_col  = { 'repeater' => 'blue', 'bridge' => 'yellow', 'simplex' => 'green' }.fetch(cls, 'gray')
-                - cls_icon = { 'repeater' => 'bi-arrow-repeat', 'bridge' => 'bi-link-45deg', 'simplex' => 'bi-broadcast' }.fetch(cls, 'bi-broadcast')
+                - cls_icon = { 'repeater' => 'bi-broadcast', 'bridge' => 'bi-link-45deg', 'simplex' => 'bi-broadcast' }.fetch(cls, 'bi-broadcast')
                 .mb-3
                   .flex.justify-between.items-center.mb-1
                     %span.text-gray-500.text-sm.capitalize
