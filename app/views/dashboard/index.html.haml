@@ -1097,9 +1097,9 @@
 
             // Full snapshot
             if (msg.nodes && typeof msg.nodes === 'object') {
-              // Remove cards for nodes absent from the new snapshot
+              // Remove cards for nodes absent from the new snapshot (keep external SVX nodes — they're server-merged, not in the poller snapshot)
               Object.keys(nodes).forEach(function (cs) {
-                if (!Object.prototype.hasOwnProperty.call(msg.nodes, cs)) {
+                if (!Object.prototype.hasOwnProperty.call(msg.nodes, cs) && nodes[cs]._external_type !== 'svx') {
                   removeCard(cs);
                   delete nodes[cs];
                 }

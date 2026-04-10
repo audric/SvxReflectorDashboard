@@ -222,6 +222,34 @@ class DashboardController < ApplicationController
       end
     end
 
+    # In satellite mode, fetch parent's /status for topology prefix info
+    if @reflector_mode == 'satellite'
+      parent_host = @reflector_config.dig('satellite', 'parent_host') || @reflector_config.dig('satellite', 'host')
+      if parent_host.present?
+        cache_key = "reflector:parent_status"
+        data = redis.get(cache_key)
+        if data
+          @parent_status = JSON.parse(data)
+        else
+          begin
+            uri = URI.parse("https://#{parent_host}/status")
+            http = Net::HTTP.new(uri.host, uri.port)
+            http.use_ssl = true
+            http.open_timeout = 3
+            http.read_timeout = 3
+            res = http.get(uri.request_uri)
+            if res.is_a?(Net::HTTPSuccess)
+              @parent_status = JSON.parse(res.body)
+              redis.set(cache_key, @parent_status.to_json, ex: 60)
+            end
+          rescue => e
+            Rails.logger.debug "[Trunks] Parent status fetch failed: #{e.message}"
+          end
+        end
+      end
+    end
+    @parent_status ||= {}
+
     # Recent trunk and satellite events
     @recent_events = NodeEvent.where(event_type: [
       NodeEvent::TRUNK_CONNECTED, NodeEvent::TRUNK_DISCONNECTED,

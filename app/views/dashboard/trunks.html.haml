@@ -76,6 +76,7 @@
             var remoteConfigs = #{@remote_configs.to_json};
             var satelliteMode = #{(@reflector_mode == 'satellite').to_json};
             var satelliteParentHost = #{sat_parent_host.to_json};
+            var parentStatus = #{(@parent_status || {}).to_json};
             var satellitesData = #{@satellites.to_json};
 
             // Check if a hostname refers to our local reflector
@@ -122,12 +123,14 @@
               // In satellite mode, add the parent as a peer
               if (satelliteMode && satelliteParentHost) {
                 if (!allNodes.some(function(n) { return n.host === satelliteParentHost; })) {
+                  var parentPrefix = parentStatus.local_prefix || [];
+                  var parentNodeCount = parentStatus.nodes ? Object.keys(parentStatus.nodes).length : null;
                   allNodes.push({
                     id: satelliteParentHost,
                     host: satelliteParentHost,
-                    prefix: '',
+                    prefix: Array.isArray(parentPrefix) ? parentPrefix.join(', ') : String(parentPrefix),
                     isLocal: false,
-                    nodeCount: null,
+                    nodeCount: parentNodeCount,
                     isParent: true
                   });
                 }
@@ -247,7 +250,7 @@
 
               // ── Build Cytoscape elements ──
               var cyNodes = allNodes.map(function(nd) {
-                var lines = [nd.host];
+                var lines = [nd.host.toUpperCase()];
                 if (nd.prefix) lines.push('prefix: ' + nd.prefix);
                 if (nd.isLocal) lines.push(satelliteMode ? 'SATELLITE' : 'LOCAL');
                 else if (nd.isParent) lines.push('PARENT');
