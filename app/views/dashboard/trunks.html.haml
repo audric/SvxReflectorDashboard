@@ -25,7 +25,6 @@
       }
     %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
     %script{src: "/vendor/cytoscape/cytoscape.min.js"}
-    %script{src: "/vendor/cytoscape/cytoscape-fcose.js"}
     :css
       body { background: #0d1117; }
       .page-header {
@@ -366,19 +365,17 @@
                   }
                 ],
                 layout: {
-                  name: 'fcose',
+                  name: 'cose',
                   animate: true,
                   animationDuration: 400,
                   randomize: false,
                   fit: true,
                   padding: 40,
                   nodeDimensionsIncludeLabels: true,
-                  nodeRepulsion: function() { return 8000; },
-                  idealEdgeLength: function() { return 180; },
-                  edgeElasticity: function() { return 0.1; },
-                  gravity: 0.3,
-                  gravityRange: 1.5,
-                  initialEnergyOnIncremental: 0.3
+                  nodeRepulsion: 8000,
+                  idealEdgeLength: 180,
+                  edgeElasticity: 0.1,
+                  gravity: 0.3
                 }
               });
 
