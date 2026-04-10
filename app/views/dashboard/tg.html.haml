@@ -195,8 +195,6 @@
                   %td.px-4.py-3.font-mono.font-bold.text-gray-100= tg_num
                   %td.px-4.py-3.text-gray-300
                     = tg_rec[:name]
-                    - if tg_rec[:kind] == 'cluster' || @cluster_tgs.include?(tg_num)
-                      %span.text-xs.px-1.5.py-0.5.rounded-full.border.font-mono.ml-2{class: "bg-cyan-900/30 text-cyan-400 border-cyan-700"} cluster
                   %td.px-4.py-3.text-sm.text-gray-400= tg_rec[:description]
                   %td.px-4.py-3
                     - if nodes_on_tg.any?
