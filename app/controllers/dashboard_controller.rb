@@ -287,6 +287,7 @@ class DashboardController < ApplicationController
     return unless @external_reflectors.is_a?(Hash)
     @external_reflectors.each do |ref_name, ref_data|
       (ref_data[:nodes] || {}).each do |cs, node|
+        next unless node.is_a?(Hash)
         next if node['hidden']
         next if @nodes.key?(cs) # local node takes precedence
         @nodes[cs] = node.merge('_external' => ref_name, '_external_portal' => ref_data[:portal_url], '_external_type' => 'svx')
