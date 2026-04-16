@@ -45,6 +45,8 @@ services:
     depends_on:
       init-reflector-conf:
         condition: service_completed_successfully
+      mqtt:
+        condition: service_healthy
 
   caddy:
     image: caddy:2-alpine
@@ -97,9 +99,14 @@ services:
       - db_data:/rails/storage
       - ./reflector:/rails/reflector
     depends_on:
-      - web
-      - redis
-      - svxreflector
+      web:
+        condition: service_started
+      redis:
+        condition: service_started
+      svxreflector:
+        condition: service_started
+      mqtt:
+        condition: service_healthy
 
   audio_bridge:
     image: ghcr.io/audric/svxreflectordashboard-audio-bridge
@@ -171,6 +178,12 @@ services:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mqtt_data:/mosquitto/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -u \"$$MQTT_USERNAME\" -P \"$$MQTT_PASSWORD\" -t '$$SYS/broker/uptime' -C 1 -W 3"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
 
   redis:
     image: redis:7-alpine
