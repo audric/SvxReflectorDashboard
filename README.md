@@ -15,7 +15,7 @@ A Rails web application for monitoring amateur radio [SVXReflector](https://www.
 - CTCSS tone-to-talkgroup matrix with CHIRP CSV export
 - GeuReflector support — trunk link status, satellite monitoring, cluster TG indicators, and network-wide analytics
 - Web admin for SVXReflector/GeuReflector configuration (global settings, certificates, users, passwords, TG rules, trunk peers, satellites)
-- Multi-protocol bridge management — SVXLink reflector-to-reflector, EchoLink, XLX (DCS/DExtra), DMR, YSF, AllStar, and Zello bridges with auto-generated configs, snapshot backups, and 30-day archive on delete
+- Multi-protocol bridge management — SVXLink reflector-to-reflector, EchoLink, XLX (DCS/DExtra), DMR, YSF, AllStar, Zello, IAX (Asterisk/HOIP), and SIP (PJSIP) bridges with auto-generated configs, snapshot backups, and 30-day archive on delete
 - User management with callsign validation, admin approval, and role-based permissions
 
 ## Quick start
@@ -40,17 +40,21 @@ See the wiki for [configuration details](https://github.com/audric/SvxReflectorD
 ## Architecture
 
 ```
-svxreflector  → GeuReflector daemon (SVXReflector-compatible, with trunks/satellites)
-caddy         → Reverse proxy with automatic HTTPS (Let's Encrypt)
-web           → Rails app (Puma) on port 3000
-updater       → Background poller (ReflectorListener)
-audio_bridge  → Go binary, SVXReflector protocol V2 (browser audio)
-xlx_bridge    → Go binary, D-STAR XLX bridge (DCS + DExtra, OPUS ↔ AMBE)
-dmr_bridge    → Go binary, DMR bridge (OPUS ↔ AMBE via MMDVM)
-ysf_bridge    → Go binary, YSF bridge (OPUS ↔ IMBE)
-allstar_bridge→ Go binary, AllStar bridge (OPUS ↔ µLaw via IAX2)
-zello_bridge  → Go binary, Zello bridge (OPUS 48kHz ↔ 16kHz via WebSocket)
-redis         → ActionCable + audio pub/sub + sessions
+init-reflector-conf → One-shot init container that seeds svxreflector.conf
+svxreflector        → GeuReflector daemon (SVXReflector-compatible, with trunks/satellites)
+caddy               → Reverse proxy with automatic HTTPS (Let's Encrypt, optional)
+web                 → Rails app (Puma) on port 3000
+updater             → Background poller (ReflectorListener)
+audio_bridge        → Go binary, SVXReflector protocol V2 (browser audio)
+xlx_bridge          → Go binary, D-STAR XLX bridge (DCS + DExtra, OPUS ↔ AMBE)
+dmr_bridge          → Go binary, DMR bridge (OPUS ↔ AMBE via MMDVM Homebrew)
+ysf_bridge          → Go binary, YSF bridge (OPUS ↔ IMBE)
+allstar_bridge      → Go binary, AllStar bridge (OPUS ↔ µLaw via IAX2)
+iax_bridge          → Go binary, generic Asterisk/HOIP bridge via IAX2 (OPUS ↔ GSM/µLaw/A-law/G.726)
+sip_bridge          → Go + C (PJSIP) bridge to any SIP endpoint, UDP/TCP/TLS with DTMF/PIN gate
+zello_bridge        → Go binary, Zello bridge (OPUS 48kHz ↔ 16kHz via WebSocket)
+mqtt                → Mosquitto 2 broker for GeuReflector event publishing
+redis               → ActionCable + snapshot cache + RX metadata + audio pub/sub
 ```
 
 All Go bridges include configurable voice bandpass filtering (HPF/LPF), AGC, and hard limiting.
