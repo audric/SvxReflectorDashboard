@@ -39,7 +39,12 @@ module Admin
 
     def approve
       @user.update!(approved: true)
-      redirect_to admin_users_path, notice: "#{@user.callsign} approved"
+      if @user.email.present? && ENV['SMTP_ADDRESS'].present?
+        UserMailer.approved(@user).deliver_later
+        redirect_to admin_users_path, notice: "#{@user.callsign} approved — notification email sent."
+      else
+        redirect_to admin_users_path, notice: "#{@user.callsign} approved"
+      end
     end
 
     def destroy

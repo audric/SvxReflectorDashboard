@@ -1,0 +1,13 @@
+Hi #{@user.callsign},
+
+Your account on #{@brand} has been approved. You can now sign in and access the reflector dashboard.
+
+Sign in: #{@login_url}
+
+- if @user.oauth?
+  You registered with Google — just click "Sign in with Google" on the login page.
+- else
+  Sign in with your callsign #{@user.callsign} and the password you chose during registration.
+
+\--
+This is an automated message from #{@brand}. Do not reply to this email.

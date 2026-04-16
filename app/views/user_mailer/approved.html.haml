@@ -1,0 +1,29 @@
+%div{style: "font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 20px; color: #c9d1d9; background: #0d1117;"}
+  %div{style: "text-align: center; padding: 20px 0; border-bottom: 1px solid #30363d; margin-bottom: 20px;"}
+    %h1{style: "font-size: 20px; color: #58a6ff; margin: 0;"}= @brand
+
+  %p{style: "font-size: 15px; line-height: 1.6;"}
+    Hi
+    %strong= @user.callsign
+    \,
+
+  %p{style: "font-size: 15px; line-height: 1.6;"}
+    Your account on
+    %strong= @brand
+    has been approved. You can now sign in and access the reflector dashboard.
+
+  %div{style: "text-align: center; margin: 30px 0;"}
+    %a{href: @login_url, style: "display: inline-block; padding: 10px 24px; background: #238636; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;"} Sign in to #{@brand}
+
+  - if @user.oauth?
+    %p{style: "font-size: 13px; color: #8b949e; line-height: 1.5;"}
+      You registered with Google — just click "Sign in with Google" on the login page.
+  - else
+    %p{style: "font-size: 13px; color: #8b949e; line-height: 1.5;"}
+      Sign in with your callsign
+      %strong= @user.callsign
+      and the password you chose during registration.
+
+  %div{style: "border-top: 1px solid #30363d; margin-top: 30px; padding-top: 15px;"}
+    %p{style: "font-size: 12px; color: #6e7681; margin: 0;"}
+      This is an automated message from #{@brand}. Do not reply to this email.
