@@ -134,20 +134,19 @@
       /* ── Icon markers ─────────────────────────────────────────────────────── */
       .map-marker {
         display: flex; align-items: center; justify-content: center;
-        width: 30px; height: 30px; border-radius: 50%;
-        border: 3px solid rgba(255,255,255,.25);
+        width: 22px; height: 22px; border-radius: 50%;
+        border: 2px solid rgba(255,255,255,.25);
         background: #0d1117;
-        font-size: 16px;
-        box-shadow: 0 1px 4px rgba(0,0,0,.4);
+        font-size: 11px;
+        box-shadow: 0 1px 3px rgba(0,0,0,.4);
         transition: transform .15s;
       }
-      .map-marker:hover { transform: scale(1.2); }
+      .map-marker:hover { transform: scale(1.25); }
       .map-marker-ext {
         border-style: dashed; opacity: .9;
       }
       .map-marker-rx {
-        width: 22px; height: 22px; font-size: 11px;
-        border-width: 2px; opacity: .8;
+        opacity: .8;
       }
       .map-marker-talking { animation: marker-pulse .8s ease-in-out infinite; }
       @keyframes marker-pulse { 0%,100% { box-shadow: 0 0 4px 0 rgba(74,222,128,.7); transform: scale(1); } 50% { box-shadow: 0 0 8px 12px rgba(74,222,128,0); transform: scale(1.15); } }
@@ -409,7 +408,7 @@
           var nc = (node.nodeClass || '').toLowerCase();
           var iconCls = markerIconMap[nc] || 'bi-circle-fill';
           var isRx = nc === 'receiver';
-          var size = isRx ? 22 : 30;
+          var size = 22;
           var cls = 'map-marker' + (isRx ? ' map-marker-rx' : '') + (isExt ? ' map-marker-ext' : '') + (node.isTalker ? ' map-marker-talking' : '');
           var iStyle = 'color:' + bg + ';-webkit-text-stroke:1px ' + bg + ';filter:drop-shadow(0 0 2px rgba(0,0,0,.8))';
           if (iconCls === 'bi-circle-fill') iStyle += ';font-size:8px';
