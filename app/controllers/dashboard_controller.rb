@@ -225,16 +225,18 @@ class DashboardController < ApplicationController
     # In satellite mode, fetch parent's /status for topology prefix info
     if @reflector_mode == 'satellite'
       parent_host = @reflector_config.dig('satellite', 'parent_host') || @reflector_config.dig('satellite', 'host')
-      if parent_host.present?
+      parent_status_url = @local_config.global['SATELLITE_STATUS_URL'].presence
+      parent_status_url ||= "https://#{parent_host}/status" if parent_host.present?
+      if parent_status_url.present?
         cache_key = "reflector:parent_status"
         data = redis.get(cache_key)
         if data
           @parent_status = JSON.parse(data)
         else
           begin
-            uri = URI.parse("https://#{parent_host}/status")
-            http = Net::HTTP.new(uri.host, uri.port)
-            http.use_ssl = true
+            uri = URI.parse(parent_status_url)
+            http = Net::HTTP.new(uri.host.delete('[]'), uri.port)
+            http.use_ssl = uri.scheme == 'https'
             http.open_timeout = 3
             http.read_timeout = 3
             res = http.get(uri.request_uri)

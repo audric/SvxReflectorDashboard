@@ -78,6 +78,7 @@
             var satelliteParentHost = #{sat_parent_host.to_json};
             var parentStatus = #{(@parent_status || {}).to_json};
             var satellitesData = #{@satellites.to_json};
+            var twinData = #{(@reflector_config['twin'] || {}).to_json};
 
             // Check if a hostname refers to our local reflector
             function isLocalHost(h) {
@@ -167,6 +168,24 @@
                 }
               }
 
+              // Twin partner
+              if (twinData && twinData.host && !satelliteMode) {
+                var twinHost = twinData.host;
+                if (!isLocalHost(twinHost) && !allNodes.some(function(n) { return n.host === twinHost; })) {
+                  allNodes.push({
+                    id: twinHost, host: twinHost, prefix: localPrefix,
+                    isLocal: false, nodeCount: null, isTwin: true
+                  });
+                }
+                var key = edgeKey(localHost, twinHost);
+                if (!edgeMap[key]) {
+                  edgeMap[key] = {
+                    fromHost: localHost, toHost: twinHost, name: 'twin',
+                    outFromA: !!twinData.connected, outFromB: !!twinData.connected, isTwin: true
+                  };
+                }
+              }
+
               // Parent: add connected satellites as nodes
               if (!satelliteMode && satellitesData) {
                 Object.keys(satellitesData).forEach(function(satId) {
@@ -238,6 +257,26 @@
                     };
                   }
                 });
+
+                // Add twin of this trunk peer
+                var remoteTwin = remote.twin || {};
+                if (remoteTwin.host && !isLocalHost(remoteTwin.host)) {
+                  var twinHost = remoteTwin.host;
+                  if (!allNodes.some(function(n) { return n.host === twinHost; })) {
+                    allNodes.push({
+                      id: twinHost, host: twinHost,
+                      prefix: Array.isArray(remote.local_prefix) ? remote.local_prefix.join(', ') : String(remote.local_prefix || ''),
+                      isLocal: false, nodeCount: null, isTwin: true
+                    });
+                  }
+                  var key = edgeKey(peerHost, twinHost);
+                  if (!edgeMap[key]) {
+                    edgeMap[key] = {
+                      fromHost: peerHost, toHost: twinHost, name: 'twin',
+                      outFromA: !!remoteTwin.connected, outFromB: !!remoteTwin.connected, isTwin: true
+                    };
+                  }
+                }
               });
 
               edges = Object.keys(edgeMap).map(function(k) { return edgeMap[k]; });
@@ -254,8 +293,10 @@
                 if (nd.prefix) lines.push('prefix: ' + nd.prefix);
                 if (nd.isLocal) lines.push(satelliteMode ? 'SATELLITE' : 'LOCAL');
                 else if (nd.isParent) lines.push('PARENT');
+                else if (nd.isTwin) lines.push('TWIN');
                 else if (nd.isSatellite) lines.push('SATELLITE');
                 else if (nd.nodeCount !== null) lines.push(nd.nodeCount + ' node' + (nd.nodeCount !== 1 ? 's' : ''));
+                var nType = nd.isLocal ? 'local' : (nd.isTwin ? 'twin' : (nd.isSatellite ? 'satellite' : (nd.isParent ? 'parent' : 'peer')));
                 return {
                   data: {
                     id: nd.host,
@@ -264,7 +305,8 @@
                     isLocal: nd.isLocal,
                     isSatellite: nd.isSatellite || false,
                     isParent: nd.isParent || false,
-                    nodeType: nd.isLocal ? 'local' : (nd.isSatellite ? 'satellite' : (nd.isParent ? 'parent' : 'peer'))
+                    isTwin: nd.isTwin || false,
+                    nodeType: nType
                   }
                 };
               });
@@ -366,6 +408,14 @@
                     }
                   },
                   {
+                    selector: 'node[nodeType="twin"]',
+                    style: {
+                      'border-color': '#f59e0b',
+                      'border-width': 2,
+                      'color': '#f59e0b'
+                    }
+                  },
+                  {
                     selector: 'edge',
                     style: {
                       'width': 1.5,
@@ -445,9 +495,35 @@
                 %span.text-xs.px-1.5.py-0.5.rounded.border.font-mono{class: "bg-purple-900/50 text-purple-400 border-purple-700"}= sat_id
             .text-xs.text-ghmuted.mt-0.5
               Connected to
-              %span.font-mono.text-purple-300= parent_host
+              %a.font-mono.text-purple-300.hover:text-purple-200.underline{href: "https://#{parent_host}", target: "_blank", rel: "noopener"}= parent_host
               %span.text-ghdim= ":#{parent_port}"
             %p.text-purple-300.text-xs.mt-1 Trunk management is handled by the parent reflector.
+          - if @reflector_config['version'].present? || @parent_status['version'].present?
+            .text-xs.text-ghmuted.mt-1
+              - if @reflector_config['version'].present?
+                %div
+                  Version:
+                  %span.font-mono.text-gray-300.ml-1= @reflector_config['version']
+              - if @parent_status['version'].present?
+                %div
+                  Parent version:
+                  %span.font-mono.text-gray-300.ml-1= @parent_status['version']
+        - if @reflector_config['twin'].is_a?(Hash) && @reflector_config['twin'].any?
+          - twin = @reflector_config['twin']
+          .flex.items-center.gap-3.px-4.py-2.5.rounded-lg.border.mb-4{class: "bg-amber-900/20 border-amber-700/50"}
+            .flex.items-center.justify-center.w-8.h-8.rounded-full.shrink-0{class: "bg-amber-800/50"}
+              %i.bi.bi-arrow-left-right.text-amber-400
+            .flex-1.min-w-0
+              .flex.items-center.gap-2.flex-wrap
+                %span.text-amber-300.font-semibold.text-sm Twin (HA Pair)
+                - if twin['connected']
+                  %span.text-xs.px-1.5.py-0.5.rounded.font-semibold{class: "bg-green-700 text-white"} Connected
+                - else
+                  %span.text-xs.px-1.5.py-0.5.rounded.font-semibold{class: "bg-red-700 text-white"} Disconnected
+              .text-xs.text-ghmuted.mt-0.5
+                Parent is paired with twin
+                - if twin['host'].present?
+                  %span.font-mono.text-amber-300.ml-1= twin['host']
 
       - if @reflector_mode != 'satellite'
         -# ── Local Trunk Configuration ────────────────────────────────────────
@@ -466,6 +542,23 @@
             - if @cluster_tgs.any?
               %span.text-xs.text-ghmuted.ml-3 CLUSTER_TGS:
               %span.text-xs.font-mono.text-cyan-400.ml-1= @cluster_tgs.join(', ')
+
+        - if @reflector_config['twin'].is_a?(Hash) && @reflector_config['twin'].any?
+          - twin = @reflector_config['twin']
+          .flex.items-center.gap-3.px-4.py-2.5.rounded-lg.border.mb-4{class: "bg-amber-900/20 border-amber-700/50"}
+            .flex.items-center.justify-center.w-8.h-8.rounded-full.shrink-0{class: "bg-amber-800/50"}
+              %i.bi.bi-arrow-left-right.text-amber-400
+            .flex-1.min-w-0
+              .flex.items-center.gap-2.flex-wrap
+                %span.text-amber-300.font-semibold.text-sm Twin (HA Pair)
+                - if twin['connected']
+                  %span.text-xs.px-1.5.py-0.5.rounded.font-semibold{class: "bg-green-700 text-white"} Connected
+                - else
+                  %span.text-xs.px-1.5.py-0.5.rounded.font-semibold{class: "bg-red-700 text-white"} Disconnected
+              .text-xs.text-ghmuted.mt-0.5
+                Paired with
+                - if twin['host'].present?
+                  %span.font-mono.text-amber-300.ml-1= twin['host']
 
         - if @local_trunks.any?
           .grid.grid-cols-1.md:grid-cols-2.xl:grid-cols-3.gap-3.mb-4
