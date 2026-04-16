@@ -6,6 +6,7 @@ Rails.application.routes.draw do
   get 'radio_programming', to: 'dashboard#radio', as: :radio
   get 'events', to: 'dashboard#events', as: :events
   get 'trunks', to: 'dashboard#trunks', as: :trunks
+  get 'status', to: 'status#show'
 
   get    "login",    to: "sessions#new"
   post   "login",    to: "sessions#create"
