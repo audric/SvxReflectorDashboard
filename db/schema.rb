@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_31_121135) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_16_121458) do
   create_table "bridge_tg_mappings", force: :cascade do |t|
     t.string "activate_on_activity"
     t.integer "bridge_id", null: false
@@ -291,13 +291,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_31_121135) do
     t.datetime "last_sign_in_at"
     t.string "mobile"
     t.string "name"
-    t.string "password_digest", null: false
+    t.string "password_digest"
+    t.string "provider"
     t.boolean "reflector_admin", default: false, null: false
     t.string "reflector_auth_key"
     t.string "role", default: "user", null: false
     t.string "telegram"
+    t.string "uid"
     t.datetime "updated_at", null: false
     t.index ["callsign"], name: "index_users_on_callsign", unique: true
+    t.index ["provider", "uid"], name: "index_users_on_provider_and_uid", unique: true
   end
 
   add_foreign_key "bridge_tg_mappings", "bridges"

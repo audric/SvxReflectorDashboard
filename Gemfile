@@ -63,3 +63,5 @@ end
 gem 'redis'
 gem 'haml-rails'
 gem 'mqtt'
+gem 'omniauth-google-oauth2'
+gem 'omniauth-rails_csrf_protection'

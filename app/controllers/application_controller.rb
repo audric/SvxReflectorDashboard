@@ -1,5 +1,5 @@
 class ApplicationController < ActionController::Base
-  helper_method :current_user, :logged_in?, :reflector_mode
+  helper_method :current_user, :logged_in?, :reflector_mode, :google_oauth_enabled?
   before_action :set_brand_name
 
   private
@@ -30,6 +30,10 @@ class ApplicationController < ActionController::Base
     rescue
       'reflector'
     end
+  end
+
+  def google_oauth_enabled?
+    ENV['GOOGLE_CLIENT_ID'].present? && ENV['GOOGLE_CLIENT_SECRET'].present?
   end
 
   def require_admin

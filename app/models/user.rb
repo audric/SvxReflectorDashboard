@@ -1,7 +1,12 @@
 class User < ApplicationRecord
-  has_secure_password
+  has_secure_password validations: false
 
-  validates :password, length: { minimum: 8 }, if: -> { new_record? || password.present? }
+  validates :password, presence: true, length: { minimum: 8 }, if: :password_required?
+  validates :password, length: { minimum: 8 }, allow_blank: true, if: -> { password.present? }
+
+  def oauth?
+    provider.present?
+  end
 
   before_validation { self.callsign = callsign.upcase.strip if callsign.present? }
   after_save :sync_reflector_web_users, if: :reflector_auth_key_or_monitor_changed?
@@ -49,6 +54,10 @@ class User < ApplicationRecord
     ReflectorConfig.sync_web_users
   rescue => e
     Rails.logger.error "[User] Failed to sync reflector web users: #{e.message}"
+  end
+
+  def password_required?
+    !oauth? && (new_record? || password.present?)
   end
 
   def must_have_at_least_one_reflector_admin

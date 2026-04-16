@@ -91,6 +91,17 @@
         -# Submit
         = f.submit "Create account", class: "w-full px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold cursor-pointer transition text-sm"
 
+      - if google_oauth_enabled?
+        .flex.items-center.gap-3.my-4
+          .flex-1.border-t.border-ghborder
+          %span.text-xs.text-ghdim or
+          .flex-1.border-t.border-ghborder
+
+        = form_tag("/auth/google_oauth2", method: :post) do
+          %button.w-full.px-4.py-2.rounded-md.border.border-ghborder.bg-ghcard.hover:bg-ghborder2.text-sm.font-medium.text-gray-200.cursor-pointer.transition.flex.items-center.justify-center.gap-2{type: "submit"}
+            %i.bi.bi-google
+            Sign up with Google
+
       -# Footer link
       .text-center.mt-4.text-sm.text-ghdim
         Already have an account?

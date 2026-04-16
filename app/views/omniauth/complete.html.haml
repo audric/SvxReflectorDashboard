@@ -1,0 +1,85 @@
+!!!
+%html{lang: "en"}
+  :javascript
+    (function(){var t=localStorage.getItem('theme')||'auto';var r=(t==='auto'?(window.matchMedia('(prefers-color-scheme:light)').matches?'light':'auto'):t);document.documentElement.setAttribute('data-theme',r);})();
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title= "SVXReflector #{@reflector_host} · Complete Registration"
+    %script{src: "/vendor/tailwind/tailwind.js"}
+    :javascript
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ghbg: '#0d1117',
+              ghcard: '#161b22',
+              ghborder: '#30363d',
+              ghborder2: '#21262d',
+              ghtext: '#c9d1d9',
+              ghmuted: '#8b949e',
+              ghdim: '#6e7681',
+            }
+          }
+        }
+      }
+    %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
+    :css
+      body { background: var(--bg, #0d1117); }
+      input:-webkit-autofill,
+      input:-webkit-autofill:hover,
+      input:-webkit-autofill:focus {
+        -webkit-text-fill-color: var(--text, #c9d1d9);
+        -webkit-box-shadow: 0 0 0 1000px var(--bg, #0d1117) inset;
+        transition: background-color 5000s ease-in-out 0s;
+      }
+
+  %body.text-ghtext
+    = render 'shared/navbar', active: 'register'
+
+    .max-w-md.mx-auto.mt-10.md:mt-14.px-4.pb-8
+
+      -# Header
+      .text-center.mb-6
+        .inline-flex.items-center.justify-center.w-12.h-12.rounded-full.border.border-ghborder.bg-ghcard.mb-3
+          %i.bi.bi-person-check.text-green-400.text-xl
+        %h1.text-xl.font-semibold.text-gray-100 Complete your registration
+        %p.text-sm.text-ghmuted.mt-1 One more step — enter your ham radio callsign.
+
+      -# Google info
+      .rounded-md.border.border-ghborder.bg-ghcard.px-4.py-3.mb-4.flex.items-center.gap-3
+        .w-8.h-8.rounded-full.flex.items-center.justify-center.shrink-0{class: "bg-blue-500/15"}
+          %i.bi.bi-google.text-blue-400
+        .text-sm
+          - if @oauth['name'].present?
+            %span.text-gray-200= @oauth['name']
+            %span.text-ghmuted.ml-1= "(#{@oauth['email']})"
+          - else
+            %span.text-gray-200= @oauth['email']
+
+      -# Errors
+      - if @user&.errors&.any?
+        .rounded-md.border.border-red-800.text-sm.mb-5.px-4.py-3{class: "bg-red-900/20 text-red-400"}
+          %p.font-medium.mb-1
+            %i.bi.bi-exclamation-triangle.mr-1
+            = "#{@user.errors.count} #{@user.errors.count == 1 ? 'error' : 'errors'}:"
+          %ul.list-disc.pl-5.text-red-300
+            - @user.errors.full_messages.each do |msg|
+              %li= msg
+
+      = form_with url: auth_complete_path, method: :post, local: true do |f|
+        .rounded-md.border.border-ghborder.bg-ghcard.mb-4
+          .p-4.md:p-5
+            %label.block.text-sm.text-gray-400.mb-1{for: "callsign"}
+              Callsign
+              %span.text-red-400 *
+            = f.text_field :callsign, value: params[:callsign], class: "w-full md:w-48 px-3 py-2 rounded-md border border-ghborder bg-ghbg text-gray-100 placeholder-ghdim focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition", autofocus: true, autocapitalize: "characters", placeholder: "e.g. KA1ABC", maxlength: 8
+            %p.text-xs.text-ghdim.mt-2
+              %i.bi.bi-info-circle.mr-1
+              Registration requires manual approval by the administrator.
+
+        = f.submit "Create account", class: "w-full px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold cursor-pointer transition text-sm"
+
+      .text-center.mt-4.text-sm.text-ghdim
+        Changed your mind?
+        %a.text-blue-400.hover:text-blue-300.ml-1{href: login_path} Back to sign in
