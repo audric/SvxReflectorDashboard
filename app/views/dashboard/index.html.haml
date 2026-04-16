@@ -76,7 +76,7 @@
       .sql-bar-fill {
         height: 100%;
         background: #3fb950;
-        transition: width .25s linear;
+        transition: width .5s linear;
       }
       .sql-bar-fill.sql-warn { background: #d29922; }
       .sql-bar-fill.sql-danger { background: #f85149; }
@@ -462,15 +462,15 @@
                 - node_icon = { 'repeater' => 'bi-broadcast', 'bridge' => 'bi-link-45deg', 'xlx' => 'bi-globe', 'dmr' => 'bi-broadcast-pin', 'ysf' => 'bi-soundwave', 'allstar' => 'bi-telephone', 'iax' => 'bi-phone-vibrate', 'sip' => 'bi-headset-vr', 'echolink' => 'bi-headset', 'simplex' => 'bi-broadcast' }.fetch(node_cls, 'bi-broadcast')
                 - rx_ports = (node['qth'] || []).flat_map { |q| (q['rx'] || {}).select { |_, r| r.is_a?(Hash) }.map { |p, r| [p, r] } }
                 - best_sig = rx_ports.map { |_, r| r['siglev'] }.compact.max
-                %tr.border-b.border-ghborder2.hover:bg-ghcard{"data-node-class" => node_cls, "data-source" => (node['_external_type'] || 'local')}
+                %tr.border-b.border-ghborder2.hover:bg-ghcard{id: "node-row-#{callsign}", "data-callsign" => callsign, "data-node-class" => node_cls, "data-source" => (node['_external_type'] || 'local')}
                   %td.px-3.py-2.truncate{style: "width:120px;max-width:120px"}
                     %i.bi.mr-1{class: node_icon}
                     %span.capitalize= node_cls.presence || '—'
-                  %td.px-3.py-2
+                  %td.px-3.py-2{id: "node-row-#{callsign}-cs"}
                     - if is_talker
                       %i.bi.bi-mic-fill.text-green-500.mr-1{style: "font-size:.7rem"}
                     %strong.font-mono.text-gray-100= callsign
-                  %td.px-3.py-2
+                  %td.px-3.py-2{id: "node-row-#{callsign}-sig"}
                     - if rx_ports.any? { |_, r| r['siglev'] }
                       .flex.flex-col.gap-1
                         - rx_ports.each do |port_name, rx_data|
@@ -486,9 +486,9 @@
                               %span.text-gray-500{style: "font-size:.65rem"}= "#{port_name}#{rx_data['name'].present? ? ' ' + rx_data['name'] : ''}"
                     - else
                       %span.text-gray-500 —
-                  %td.px-3.py-2
+                  %td.px-3.py-2{id: "node-row-#{callsign}-status"}
                     %span.inline-block.px-2.py-0.5.text-xs.rounded.font-semibold{class: "bg-#{st_col}-600 text-white"}= st_txt
-                  %td.px-3.py-2
+                  %td.px-3.py-2{id: "node-row-#{callsign}-tg"}
                     - if tg != 0
                       %span.font-mono.text-yellow-500.font-semibold= tg
                     - else
@@ -586,6 +586,8 @@
         var satellites = #{satellites_json};
         var tableSortCol = null;
         var tableSortAsc = true;
+        var currentFilter = localStorage.getItem('nodes-filter') || 'all';
+        var currentSource = #{(@nodes_source || 'network').to_json.html_safe};
 
         // ── Utilities ──────────────────────────────────────────────────────────────
         function setText(id, val) {
@@ -618,7 +620,7 @@
             }
           }
           tick();
-          talkTimers[callsign] = { start: start, interval: setInterval(tick, 250) };
+          talkTimers[callsign] = { start: start, interval: setInterval(tick, 500) };
         }
 
         function stopCountdown(callsign) {
@@ -1046,12 +1048,9 @@
             // Remove the "no nodes connected" placeholder if present
             var empty = grid.querySelector('.text-center.py-5');
             if (empty) empty.remove();
-            // Apply current filters
-            var f = localStorage.getItem('nodes-filter') || 'all';
-            var s = localStorage.getItem('nodes-source') || 'network';
-            var classMatch = f === 'all' || colEl.dataset.nodeClass === f;
-            var sourceMatch = matchesSource(s, colEl.dataset.source);
-            if (!classMatch || !sourceMatch) colEl.style.display = 'none';
+            // Apply current class filter (source filter is server-side via cookie)
+            var classMatch = currentFilter === 'all' || colEl.dataset.nodeClass === currentFilter;
+            if (!classMatch) colEl.style.display = 'none';
             grid.appendChild(colEl);
           }
         }
@@ -1095,24 +1094,54 @@
             updateCount++;
             setText('stat-updates', updateCount);
 
-            // Full snapshot
+            // Full snapshot — only update changed/removed nodes, not all
             if (msg.nodes && typeof msg.nodes === 'object') {
-              // Remove cards for nodes absent from the new snapshot (keep external SVX nodes — they're server-merged, not in the poller snapshot)
-              Object.keys(nodes).forEach(function (cs) {
-                if (!Object.prototype.hasOwnProperty.call(msg.nodes, cs) && nodes[cs]._external_type !== 'svx') {
-                  removeCard(cs);
-                  delete nodes[cs];
-                }
+              var changedList = msg.changed || [];
+              var removedList = msg.removed || [];
+
+              // Always update the data model (lightweight). Skip entries that don't match
+              // the current source filter so stats/sort/post-PTT don't iterate dead weight.
+              removedList.forEach(function(cs) {
+                if (nodes[cs] && nodes[cs]._external_type !== 'svx') delete nodes[cs];
               });
-              Object.keys(msg.nodes).forEach(function (cs) {
-                if (document.getElementById('node-' + cs)) {
-                  updateCard(cs, msg.nodes[cs]);
-                } else {
-                  createCard(cs, msg.nodes[cs]);
-                }
+              function acceptSrc(n) {
+                return matchesSource(currentSource, (n && n._external_type) || 'local');
+              }
+              changedList.forEach(function(cs) {
+                if (!msg.nodes[cs]) return;
+                if (acceptSrc(msg.nodes[cs])) nodes[cs] = msg.nodes[cs];
+                else delete nodes[cs];
               });
-              refreshStats();
-              rebuildTable();
+              if (!changedList.length) {
+                Object.keys(msg.nodes).forEach(function(cs) {
+                  if (acceptSrc(msg.nodes[cs])) nodes[cs] = msg.nodes[cs];
+                  else delete nodes[cs];
+                });
+              }
+
+              // Skip DOM updates while PTT is active (protect audio thread)
+              if (window._pttActive) {
+                _pttDirty = true;
+              } else {
+                // DOM updates for changed nodes only
+                removedList.forEach(function(cs) { removeCard(cs); });
+                var toUpdate = changedList.length > 0 ? changedList : Object.keys(msg.nodes);
+                toUpdate.forEach(function(cs) {
+                  if (!nodes[cs]) return;
+                  var src = nodes[cs]._external_type || 'local';
+                  if (!matchesSource(currentSource, src)) {
+                    if (document.getElementById('node-' + cs)) removeCard(cs);
+                    return;
+                  }
+                  if (document.getElementById('node-' + cs)) {
+                    updateCard(cs, nodes[cs]);
+                  } else {
+                    createCard(cs, nodes[cs]);
+                  }
+                });
+                refreshStats();
+                updateTableIncremental(toUpdate, removedList);
+              }
               if (window.audioPlayerUpdateTgs) window.audioPlayerUpdateTgs(msg.nodes);
             }
 
@@ -1124,9 +1153,11 @@
             if (msg.nodes) return;
 
             // Single-node update
-            if (msg.callsign) updateCard(msg.callsign, msg);
+            if (msg.callsign) {
+              updateCard(msg.callsign, msg);
+              updateTableIncremental([msg.callsign], []);
+            }
             refreshStats();
-            rebuildTable();
           };
 
           ws.onclose = function () { setWs('disconnected'); setTimeout(connect, 5000); };
@@ -1172,77 +1203,214 @@
           rebuildTable();
         };
 
+        // When PTT ends, catch up on skipped DOM updates
+        var _pttDirty = false;
+        (function() {
+          var wasPtt = false;
+          setInterval(function() {
+            var isPtt = !!window._pttActive;
+            if (wasPtt && !isPtt && _pttDirty) {
+              _pttDirty = false;
+              Object.keys(nodes).forEach(function(cs) {
+                var src = nodes[cs]._external_type || 'local';
+                if (!matchesSource(currentSource, src)) {
+                  if (document.getElementById('node-' + cs)) removeCard(cs);
+                  return;
+                }
+                if (document.getElementById('node-' + cs)) {
+                  updateCard(cs, nodes[cs]);
+                } else {
+                  createCard(cs, nodes[cs]);
+                }
+              });
+              refreshStats();
+              rebuildTable();
+            }
+            wasPtt = isPtt;
+          }, 200);
+        })();
+
+        var iconMap = { repeater: 'bi-broadcast', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', simplex: 'bi-broadcast' };
+        var reflectorHostLabel = 'SVX #{@reflector_host}';
+
+        function buildSigCellHtml(n) {
+          if (!n.qth) return '<span class="text-gray-500">—</span>';
+          var rxPorts = [];
+          n.qth.forEach(function(q) {
+            if (q.rx) Object.keys(q.rx).forEach(function(p) {
+              var r = q.rx[p];
+              var s = r.siglev;
+              if (s !== undefined && s !== null) rxPorts.push({port: p, label: r.name || '', sig: s});
+            });
+          });
+          if (!rxPorts.length) return '<span class="text-gray-500">—</span>';
+          var multi = rxPorts.length > 1;
+          var sig = '<div class="flex flex-col gap-1">';
+          rxPorts.forEach(function(rp) {
+            var pct = rp.sig < 0 ? Math.max(0, Math.min(100, Math.round((rp.sig + 120) / 100 * 100))) : Math.max(0, Math.min(100, rp.sig));
+            var bc = pct > 66 ? 'green' : (pct > 33 ? 'yellow' : 'red');
+            sig += '<div class="flex items-center gap-2">';
+            sig += '<div class="h-1.5 rounded-full bg-ghborder2" style="width:150px"><div class="h-full rounded-full bg-' + bc + '-500" style="width:' + pct + '%"></div></div>';
+            sig += '<span class="font-mono text-gray-500" style="font-size:.7rem">' + Math.round(rp.sig) + (rp.sig < 0 ? ' dBm' : '%') + '</span>';
+            if (multi) sig += '<span class="text-gray-500" style="font-size:.65rem">' + esc(rp.port) + (rp.label ? ' ' + esc(rp.label) : '') + '</span>';
+            sig += '</div>';
+          });
+          sig += '</div>';
+          return sig;
+        }
+
+        function buildCsCellHtml(cs, isTalker) {
+          return (isTalker ? '<i class="bi bi-mic-fill text-green-500 mr-1" style="font-size:.7rem"></i>' : '') +
+                 '<strong class="font-mono text-gray-100">' + esc(cs) + '</strong>';
+        }
+
+        function buildStatusCellHtml(isTalker, tg) {
+          var stCol = isTalker ? 'green' : (tg ? 'blue' : 'gray');
+          var stTxt = isTalker ? 'Talking' : (tg ? 'Active' : 'Idle');
+          return '<span class="inline-block px-2 py-0.5 text-xs rounded font-semibold bg-' + stCol + '-600 text-white">' + stTxt + '</span>';
+        }
+
+        function buildTgCellHtml(tg) {
+          return tg ? '<span class="font-mono text-yellow-500 font-semibold">' + tg + '</span>' : '<span class="text-gray-500">—</span>';
+        }
+
+        function buildSourceCellInner(n) {
+          var ext = n._external;
+          if (ext && n._external_type === 'trunk') {
+            return '<span class="text-cyan-500"><i class="bi bi-diagram-3 mr-1"></i>' + esc(ext) + '</span>';
+          } else if (ext) {
+            var extPortal = n._external_portal || '';
+            return '<span class="text-amber-600 cursor-pointer hover:text-amber-400" onclick="openExtModal(\'' + esc(ext).replace(/'/g,'&#39;') + '\',\'' + esc(extPortal).replace(/'/g,'&#39;') + '\')"><i class="bi bi-globe2 mr-1"></i>' + esc(ext) + '</span>';
+          } else {
+            return '<span class="text-gray-500"><i class="bi bi-broadcast mr-1"></i>' + esc(reflectorHostLabel) + '</span>';
+          }
+        }
+
+        function buildRowInnerHtml(cs, n) {
+          var tg = n.tg || 0;
+          var isTalker = n.isTalker;
+          var nc = (n.nodeClass || '').toLowerCase();
+          var icon = iconMap[nc] || 'bi-broadcast';
+          var h = '';
+          h += '<td class="px-3 py-2 truncate" style="width:120px;max-width:120px"><i class="bi ' + icon + ' mr-1"></i><span class="capitalize">' + (nc || '—') + '</span></td>';
+          h += '<td class="px-3 py-2" id="node-row-' + cs + '-cs">' + buildCsCellHtml(cs, isTalker) + '</td>';
+          h += '<td class="px-3 py-2" id="node-row-' + cs + '-sig">' + buildSigCellHtml(n) + '</td>';
+          h += '<td class="px-3 py-2" id="node-row-' + cs + '-status">' + buildStatusCellHtml(isTalker, tg) + '</td>';
+          h += '<td class="px-3 py-2" id="node-row-' + cs + '-tg">' + buildTgCellHtml(tg) + '</td>';
+          h += '<td class="px-3 py-2 text-gray-400">' + esc(n.nodeLocation || '—') + '</td>';
+          h += '<td class="px-3 py-2 text-gray-500" style="font-size:.75rem">' + esc([n.sw, n.swVer].filter(Boolean).join(' ') || '—') + '</td>';
+          h += '<td class="px-3 py-2">' + buildSourceCellInner(n) + '</td>';
+          return h;
+        }
+
+        function newTableRow(cs, n) {
+          var tr = document.createElement('tr');
+          tr.id = 'node-row-' + cs;
+          tr.className = 'border-b border-ghborder2 hover:bg-ghcard';
+          tr.setAttribute('data-callsign', cs);
+          tr.setAttribute('data-node-class', (n.nodeClass || '').toLowerCase());
+          tr.setAttribute('data-source', n._external_type || 'local');
+          tr.innerHTML = buildRowInnerHtml(cs, n);
+          return tr;
+        }
+
+        function updateTableRowCells(cs, n) {
+          var tg = n.tg || 0;
+          var isTalker = !!n.isTalker;
+          var csCell = document.getElementById('node-row-' + cs + '-cs');
+          if (csCell) csCell.innerHTML = buildCsCellHtml(cs, isTalker);
+          var sigCell = document.getElementById('node-row-' + cs + '-sig');
+          if (sigCell) sigCell.innerHTML = buildSigCellHtml(n);
+          var statusCell = document.getElementById('node-row-' + cs + '-status');
+          if (statusCell) statusCell.innerHTML = buildStatusCellHtml(isTalker, tg);
+          var tgCell = document.getElementById('node-row-' + cs + '-tg');
+          if (tgCell) tgCell.innerHTML = buildTgCellHtml(tg);
+        }
+
+        function defaultTalkerRank(n) {
+          return n.isTalker ? 0 : (n.tg ? 1 : 2);
+        }
+
+        function insertRowInOrder(tbody, tr, cs) {
+          var rank = defaultTalkerRank(nodes[cs]);
+          var rows = tbody.children;
+          for (var i = 0; i < rows.length; i++) {
+            if (rows[i] === tr) continue;
+            var otherCs = rows[i].getAttribute('data-callsign');
+            if (!otherCs) continue;
+            var other = nodes[otherCs];
+            if (!other) continue;
+            var otherRank = defaultTalkerRank(other);
+            if (rank < otherRank || (rank === otherRank && cs.localeCompare(otherCs) < 0)) {
+              if (tr !== rows[i] && tr.nextSibling !== rows[i]) tbody.insertBefore(tr, rows[i]);
+              return;
+            }
+          }
+          if (tr !== tbody.lastElementChild) tbody.appendChild(tr);
+        }
+
+        function applyRowFilter(row) {
+          var classMatch = currentFilter === 'all' || row.dataset.nodeClass === currentFilter;
+          var sourceMatch = matchesSource(currentSource, row.dataset.source);
+          row.style.display = (classMatch && sourceMatch) ? '' : 'none';
+        }
+
+        function updateTableIncremental(changedList, removedList) {
+          if (!nodesTable) return;
+          var tbody = nodesTable.querySelector('tbody');
+          if (!tbody) return;
+
+          (removedList || []).forEach(function(cs) {
+            var row = document.getElementById('node-row-' + cs);
+            if (row) row.remove();
+          });
+
+          (changedList || []).forEach(function(cs) {
+            var n = nodes[cs];
+            var row = document.getElementById('node-row-' + cs);
+            if (!n || n.hidden) {
+              if (row) row.remove();
+              return;
+            }
+            var src = n._external_type || 'local';
+            if (!matchesSource(currentSource, src)) {
+              if (row) row.remove();
+              return;
+            }
+            if (row) {
+              row.setAttribute('data-node-class', (n.nodeClass || '').toLowerCase());
+              row.setAttribute('data-source', src);
+              updateTableRowCells(cs, n);
+            } else {
+              row = newTableRow(cs, n);
+              tbody.appendChild(row);
+            }
+            if (!tableSortCol) insertRowInOrder(tbody, row, cs);
+            applyRowFilter(row);
+          });
+        }
+
         function rebuildTable() {
           if (!nodesTable) return;
           var tbody = nodesTable.querySelector('tbody');
           if (!tbody) return;
-          var iconMap = { repeater: 'bi-broadcast', bridge: 'bi-link-45deg', xlx: 'bi-globe', dmr: 'bi-broadcast-pin', ysf: 'bi-soundwave', allstar: 'bi-telephone', iax: 'bi-phone-vibrate', sip: 'bi-headset-vr', echolink: 'bi-headset', simplex: 'bi-broadcast' };
-          var sorted = Object.keys(nodes).filter(function(cs) { return !nodes[cs].hidden; }).sort(function(a, b) {
+          var sorted = Object.keys(nodes).filter(function(cs) {
+            if (nodes[cs].hidden) return false;
+            return matchesSource(currentSource, nodes[cs]._external_type || 'local');
+          }).sort(function(a, b) {
             if (!tableSortCol) {
-              var na = nodes[a], nb = nodes[b];
-              var ra = na.isTalker ? 0 : (na.tg ? 1 : 2);
-              var rb = nb.isTalker ? 0 : (nb.tg ? 1 : 2);
+              var ra = defaultTalkerRank(nodes[a]);
+              var rb = defaultTalkerRank(nodes[b]);
               return ra !== rb ? ra - rb : a.localeCompare(b);
             }
             var va = tableSortVal(a, tableSortCol), vb = tableSortVal(b, tableSortCol);
             var cmp = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb));
             return tableSortAsc ? cmp : -cmp;
           });
-          var h = '';
-          sorted.forEach(function(cs) {
-            var n = nodes[cs];
-            var tg = n.tg || 0;
-            var isTalker = n.isTalker;
-            var stCol = isTalker ? 'green' : (tg ? 'blue' : 'gray');
-            var stTxt = isTalker ? 'Talking' : (tg ? 'Active' : 'Idle');
-            var nc = (n.nodeClass || '').toLowerCase();
-            var icon = iconMap[nc] || 'bi-broadcast';
-            var sig = '';
-            if (n.qth) {
-              var rxPorts = [];
-              n.qth.forEach(function(q) {
-                if (q.rx) Object.keys(q.rx).forEach(function(p) {
-                  var r = q.rx[p];
-                  var s = r.siglev;
-                  if (s !== undefined && s !== null) rxPorts.push({port: p, label: r.name || '', sig: s});
-                });
-              });
-              if (rxPorts.length > 0) {
-                var multi = rxPorts.length > 1;
-                sig = '<div class="flex flex-col gap-1">';
-                rxPorts.forEach(function(rp) {
-                  var pct = rp.sig < 0 ? Math.max(0, Math.min(100, Math.round((rp.sig + 120) / 100 * 100))) : Math.max(0, Math.min(100, rp.sig));
-                  var bc = pct > 66 ? 'green' : (pct > 33 ? 'yellow' : 'red');
-                  sig += '<div class="flex items-center gap-2">';
-                  sig += '<div class="h-1.5 rounded-full bg-ghborder2" style="width:150px"><div class="h-full rounded-full bg-' + bc + '-500" style="width:' + pct + '%"></div></div>';
-                  sig += '<span class="font-mono text-gray-500" style="font-size:.7rem">' + Math.round(rp.sig) + (rp.sig < 0 ? ' dBm' : '%') + '</span>';
-                  if (multi) sig += '<span class="text-gray-500" style="font-size:.65rem">' + esc(rp.port) + (rp.label ? ' ' + esc(rp.label) : '') + '</span>';
-                  sig += '</div>';
-                });
-                sig += '</div>';
-              }
-            }
-            h += '<tr class="border-b border-ghborder2 hover:bg-ghcard" data-node-class="' + esc(nc) + '" data-source="' + (n._external_type || 'local') + '">';
-            h += '<td class="px-3 py-2 truncate" style="width:120px;max-width:120px"><i class="bi ' + icon + ' mr-1"></i><span class="capitalize">' + (nc || '—') + '</span></td>';
-            h += '<td class="px-3 py-2">' + (isTalker ? '<i class="bi bi-mic-fill text-green-500 mr-1" style="font-size:.7rem"></i>' : '') + '<strong class="font-mono text-gray-100">' + esc(cs) + '</strong></td>';
-            h += '<td class="px-3 py-2">' + (sig || '<span class="text-gray-500">—</span>') + '</td>';
-            h += '<td class="px-3 py-2"><span class="inline-block px-2 py-0.5 text-xs rounded font-semibold bg-' + stCol + '-600 text-white">' + stTxt + '</span></td>';
-            h += '<td class="px-3 py-2">' + (tg ? '<span class="font-mono text-yellow-500 font-semibold">' + tg + '</span>' : '<span class="text-gray-500">—</span>') + '</td>';
-            h += '<td class="px-3 py-2 text-gray-400">' + esc(n.nodeLocation || '—') + '</td>';
-            h += '<td class="px-3 py-2 text-gray-500" style="font-size:.75rem">' + esc([n.sw, n.swVer].filter(Boolean).join(' ') || '—') + '</td>';
-            var ext = n._external;
-            var extType = n._external_type;
-            if (ext && extType === 'trunk') {
-              h += '<td class="px-3 py-2"><span class="text-cyan-500"><i class="bi bi-diagram-3 mr-1"></i>' + esc(ext) + '</span></td>';
-            } else if (ext) {
-              var extPortal = n._external_portal || '';
-              h += '<td class="px-3 py-2"><span class="text-amber-600 cursor-pointer hover:text-amber-400" onclick="openExtModal(\'' + esc(ext).replace(/'/g,'&#39;') + '\',\'' + esc(extPortal).replace(/'/g,'&#39;') + '\')"><i class="bi bi-globe2 mr-1"></i>' + esc(ext) + '</span></td>';
-            } else {
-              h += '<td class="px-3 py-2 text-gray-500"><i class="bi bi-broadcast mr-1"></i>SVX #{@reflector_host}</td>';
-            }
-            h += '</tr>';
-          });
-          tbody.innerHTML = h;
+          var frag = document.createDocumentFragment();
+          sorted.forEach(function(cs) { frag.appendChild(newTableRow(cs, nodes[cs])); });
+          tbody.innerHTML = '';
+          tbody.appendChild(frag);
           applyFilter();
         }
 
@@ -1285,7 +1453,6 @@
         });
 
         // ── Node class filter ──
-        var currentFilter = localStorage.getItem('nodes-filter') || 'all';
         var filterBtns = document.querySelectorAll('.filter-btn');
         var nodesTable = document.getElementById('nodes-table');
         function updateFilterVisibility() {
@@ -1308,7 +1475,7 @@
             localStorage.setItem('nodes-filter', currentFilter);
           }
         }
-        var currentSource = localStorage.getItem('nodes-source') || 'network';
+        // Source filter is server-side (cookie-backed) — only class filter runs client-side.
         var sourceBtns = document.querySelectorAll('.source-btn');
 
         function matchesSource(src, nodeSource) {
@@ -1323,14 +1490,12 @@
           sourceBtns.forEach(function(b) { b.classList.toggle('active', b.dataset.source === currentSource); });
           grid.querySelectorAll('[data-node-class]').forEach(function(col) {
             var classMatch = currentFilter === 'all' || col.dataset.nodeClass === currentFilter;
-            var sourceMatch = matchesSource(currentSource, col.dataset.source);
-            col.style.display = (classMatch && sourceMatch) ? '' : 'none';
+            col.style.display = classMatch ? '' : 'none';
           });
           if (nodesTable) {
             nodesTable.querySelectorAll('tbody tr[data-node-class]').forEach(function(row) {
               var classMatch = currentFilter === 'all' || row.dataset.nodeClass === currentFilter;
-              var sourceMatch = matchesSource(currentSource, row.dataset.source);
-              row.style.display = (classMatch && sourceMatch) ? '' : 'none';
+              row.style.display = classMatch ? '' : 'none';
             });
           }
         }
@@ -1344,9 +1509,10 @@
         });
         sourceBtns.forEach(function(btn) {
           btn.addEventListener('click', function() {
-            currentSource = btn.dataset.source;
-            localStorage.setItem('nodes-source', currentSource);
-            applyFilter();
+            var src = btn.dataset.source;
+            if (src === currentSource) return;
+            document.cookie = 'nodes_source=' + src + '; path=/; max-age=31536000; samesite=lax';
+            location.reload();
           });
         });
 

@@ -1,11 +1,19 @@
 class DashboardController < ApplicationController
   layout false
 
+  SOURCE_FILTERS = %w[all network local trunk svx].freeze
+
   def index
     fetch_nodes
     fetch_extended
-    fetch_external_reflectors
-    merge_external_nodes
+    @nodes_source = cookies[:nodes_source].presence_in(SOURCE_FILTERS) || 'network'
+    if %w[all svx].include?(@nodes_source)
+      fetch_external_reflectors
+      merge_external_nodes
+    else
+      @external_reflectors = {}
+    end
+    apply_source_filter(@nodes_source)
     load_sql_timeout
   end
 
@@ -278,6 +286,19 @@ class DashboardController < ApplicationController
   end
 
   private
+
+  def apply_source_filter(source)
+    case source
+    when 'local'
+      @nodes = @nodes.reject { |_, n| n['_external_type'] }
+    when 'trunk'
+      @nodes = @nodes.select { |_, n| n['_external_type'] == 'trunk' }
+    when 'svx'
+      @nodes = @nodes.select { |_, n| n['_external_type'] == 'svx' }
+    when 'network'
+      @nodes = @nodes.reject { |_, n| n['_external_type'] == 'svx' }
+    end
+  end
 
   def load_sql_timeout
     config = ReflectorConfig.load
