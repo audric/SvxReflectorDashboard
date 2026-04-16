@@ -208,7 +208,7 @@
                     - if tx_freq.to_f > 0
                       .node-freq
                         TX
-                        %span.freq-val= "%.4f" % tx_freq
+                        %span.freq-val= "%.4f" % tx_freq.to_f
                         MHz
                         - if offset && offset != 0
                           %span.freq-offset= "(#{offset > 0 ? '+' : ''}#{offset} kHz)"

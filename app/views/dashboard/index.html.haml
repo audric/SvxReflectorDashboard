@@ -363,12 +363,12 @@
                     - if rx_freq.to_f > 0
                       %span.freq-label
                         %span.text-gray-500 RX
-                        %span.text-gray-100.ml-1= "%.4f" % rx_freq
+                        %span.text-gray-100.ml-1= "%.4f" % rx_freq.to_f
                         MHz
                     - if tx_freq.to_f > 0
                       %span.freq-label
                         %span.text-gray-500 TX
-                        %span.text-gray-100.ml-1= "%.4f" % tx_freq
+                        %span.text-gray-100.ml-1= "%.4f" % tx_freq.to_f
                         MHz
 
                 -# Signal strength (one bar per RX port)

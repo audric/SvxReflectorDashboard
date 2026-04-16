@@ -211,9 +211,9 @@
                           - tip_parts << rx_name if rx_name
                           - tip_parts << node['nodeLocation'] if node['nodeLocation'].present? && node['nodeLocation'] != rx_name
                           - if tx_freq.to_f > 0
-                            - tip_parts << "TX #{"%.4f" % tx_freq} MHz"
+                            - tip_parts << "TX #{"%.4f" % tx_freq.to_f} MHz"
                             - if rx_freq.to_f > 0
-                              - offset_khz = ((rx_freq - tx_freq) * 1000).round
+                              - offset_khz = ((rx_freq.to_f - tx_freq.to_f) * 1000).round
                               - tip_parts << "Shift #{offset_khz > 0 ? '+' : ''}#{offset_khz} kHz" if offset_khz != 0
                           - ttg = node['toneToTalkgroup'] || {}
                           - tone_for_tg = ttg.find { |_, tg| tg == tg_num }&.first
