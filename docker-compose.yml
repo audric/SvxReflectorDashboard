@@ -95,7 +95,7 @@ services:
       <<: *rails-env
     volumes:
       - db_data:/rails/storage
-      - ./reflector:/rails/reflector:ro
+      - ./reflector:/rails/reflector
     depends_on:
       - web
       - redis
