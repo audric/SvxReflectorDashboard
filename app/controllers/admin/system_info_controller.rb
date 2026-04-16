@@ -36,6 +36,7 @@ module Admin
         "Node events" => NodeEvent.count,
         "Registered users" => User.count,
         "Server time" => Time.current.strftime("%Y-%m-%d %H:%M:%S %Z"),
+        "Listener source" => (ReflectorListener.active_source || :http).to_s.upcase,
       }
       @host = fetch_host_info
       @memory = fetch_memory_info
