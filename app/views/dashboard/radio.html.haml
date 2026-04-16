@@ -197,8 +197,8 @@
             - else
               - @node_rows.each do |cs, node, tg_tone|
                 - qth     = node.dig('qth', 0) || {}
-                - tx_freq = qth['tx']&.values&.first&.dig('freq')
-                - rx_freq = qth['rx']&.values&.first&.dig('freq')
+                - tx_freq = qth['tx']&.values&.select { |v| v.is_a?(Hash) }&.first&.dig('freq')
+                - rx_freq = qth['rx']&.values&.select { |v| v.is_a?(Hash) }&.first&.dig('freq')
                 - offset  = (tx_freq && rx_freq && tx_freq.to_f > 0 && rx_freq.to_f > 0) ? ((rx_freq.to_f - tx_freq.to_f) * 1000).round : nil
                 %tr{"data-source" => (node['_external_type'] || 'local')}
                   %td.col-node

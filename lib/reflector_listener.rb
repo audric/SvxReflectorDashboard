@@ -122,10 +122,57 @@ class ReflectorListener
     :http
   end
 
+  # ── Sanitize foreign JSON ─────────────────────────────────────────────────
+  # Normalizes a /status hash so the rest of the pipeline never hits
+  # unexpected types. Call once at entry — protects listener, views, cache.
+  def self.sanitize_status(data)
+    return {} unless data.is_a?(Hash)
+
+    # Top-level: ensure correct types
+    data['nodes']       = {} unless data['nodes'].is_a?(Hash)
+    data['trunks']      = {} unless data['trunks'].is_a?(Hash)
+    data['satellites']  = {} unless data['satellites'].is_a?(Hash)
+    data['cluster_tgs'] = [] unless data['cluster_tgs'].is_a?(Array)
+
+    # Nodes: drop non-Hash entries, sanitize qth
+    data['nodes'].reject! { |_, v| !v.is_a?(Hash) }
+    data['nodes'].each do |_cs, node|
+      # qth must be an array of hashes
+      if node['qth'].is_a?(Array)
+        node['qth'].select! { |q| q.is_a?(Hash) }
+        node['qth'].each do |q|
+          # rx/tx must be hashes of hashes
+          %w[rx tx].each do |dir|
+            if q[dir].is_a?(Hash)
+              q[dir].reject! { |_, v| !v.is_a?(Hash) }
+            else
+              q.delete(dir)
+            end
+          end
+        end
+      else
+        node.delete('qth')
+      end
+    end
+
+    # Trunks: drop non-Hash entries
+    data['trunks'].reject! { |_, v| !v.is_a?(Hash) }
+
+    # Satellites: drop non-Hash entries
+    data['satellites'].reject! { |_, v| !v.is_a?(Hash) }
+
+    # cluster_tgs: keep only integers/numeric strings
+    data['cluster_tgs'] = data['cluster_tgs'].select { |v| v.is_a?(Integer) || v.to_s =~ /\A\d+\z/ }.map(&:to_i)
+
+    data
+  end
+
   # ── Shared processing pipeline ───────────────────────────────────────────
   # Takes a full status hash (from any source) and runs:
   # enrich → diff → broadcast → log events → cache
   def self.process_snapshot(status_data)
+    status_data = sanitize_status(status_data)
+
     @pipeline_mutex.synchronize do
       curr             = status_data.fetch('nodes', {})
       curr_trunks      = status_data.fetch('trunks', {})
@@ -204,7 +251,7 @@ class ReflectorListener
       # Also trigger when any RX squelch opens/closes (gives fresh siglev data)
       node_rx = node.dig('qth', 0, 'rx') || {}
       prev_rx = p.dig('qth', 0, 'rx') || {}
-      node_rx.any? { |port, rx| rx['sql_open'] != prev_rx.dig(port, 'sql_open') }
+      node_rx.any? { |port, rx| rx.is_a?(Hash) && rx['sql_open'] != prev_rx.dig(port, 'sql_open') }
     end
 
     removed = prev.keys - curr.keys
@@ -280,7 +327,7 @@ class ReflectorListener
             http.read_timeout = 10
             res = http.get(uri.request_uri)
             if res.is_a?(Net::HTTPSuccess)
-              data = JSON.parse(res.body)
+              data = sanitize_status(JSON.parse(res.body))
               @trunk_status_mutex.synchronize { @trunk_status_cache[tname] = data }
             end
           rescue => e

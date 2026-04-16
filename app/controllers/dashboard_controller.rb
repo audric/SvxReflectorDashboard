@@ -358,7 +358,21 @@ class DashboardController < ApplicationController
     response = http_for_uri(uri).get(uri.request_uri)
     return nil unless response.is_a?(Net::HTTPSuccess)
     data = JSON.parse(response.body)
-    data["nodes"] || {}
+    nodes = data["nodes"]
+    return {} unless nodes.is_a?(Hash)
+    # Drop non-Hash node entries and sanitize qth
+    nodes.reject! { |_, v| !v.is_a?(Hash) }
+    nodes.each_value do |node|
+      if node['qth'].is_a?(Array)
+        node['qth'].select! { |q| q.is_a?(Hash) }
+        node['qth'].each do |q|
+          %w[rx tx].each { |d| q[d].is_a?(Hash) ? q[d].reject! { |_, v| !v.is_a?(Hash) } : q.delete(d) }
+        end
+      else
+        node.delete('qth')
+      end
+    end
+    nodes
   rescue => e
     Rails.logger.warn "[ExternalReflectors] Failed to fetch #{url}: #{e.message}"
     nil

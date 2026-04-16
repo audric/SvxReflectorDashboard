@@ -249,11 +249,11 @@
           - st_txt    = is_talker ? "TALKING \u00B7 TG #{tg}" : (tg != 0 ? "TG #{tg}" : 'IDLE')
           - st_col    = is_talker ? 'green' : (tg != 0 ? 'blue' : 'gray')
           - qth       = node.dig('qth', 0) || {}
-          - rx_freq   = qth['rx']&.values&.first&.dig('freq')
-          - tx_freq   = qth['tx']&.values&.first&.dig('freq')
+          - rx_freq   = qth['rx']&.values&.select { |v| v.is_a?(Hash) }&.first&.dig('freq')
+          - tx_freq   = qth['tx']&.values&.select { |v| v.is_a?(Hash) }&.first&.dig('freq')
           - locator   = qth.dig('pos', 'loc')
           - node_icon = { 'repeater' => 'bi-broadcast', 'bridge' => 'bi-link-45deg', 'xlx' => 'bi-globe', 'dmr' => 'bi-broadcast-pin', 'ysf' => 'bi-soundwave', 'allstar' => 'bi-telephone', 'iax' => 'bi-phone-vibrate', 'sip' => 'bi-headset-vr', 'echolink' => 'bi-headset', 'simplex' => 'bi-broadcast' }.fetch(node['nodeClass'].to_s.downcase, 'bi-broadcast')
-          - rx_ports  = (node['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }
+          - rx_ports  = (node['qth'] || []).flat_map { |q| (q['rx'] || {}).select { |_, r| r.is_a?(Hash) }.map { |p, r| [p, r] } }
 
           - is_external = node['_external'].present?
           - ext_type = node['_external_type']
@@ -460,7 +460,7 @@
                 - st_txt = is_talker ? "Talking" : (tg != 0 ? "Active" : 'Idle')
                 - node_cls = node['nodeClass'].to_s.downcase
                 - node_icon = { 'repeater' => 'bi-broadcast', 'bridge' => 'bi-link-45deg', 'xlx' => 'bi-globe', 'dmr' => 'bi-broadcast-pin', 'ysf' => 'bi-soundwave', 'allstar' => 'bi-telephone', 'iax' => 'bi-phone-vibrate', 'sip' => 'bi-headset-vr', 'echolink' => 'bi-headset', 'simplex' => 'bi-broadcast' }.fetch(node_cls, 'bi-broadcast')
-                - rx_ports = (node['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }
+                - rx_ports = (node['qth'] || []).flat_map { |q| (q['rx'] || {}).select { |_, r| r.is_a?(Hash) }.map { |p, r| [p, r] } }
                 - best_sig = rx_ports.map { |_, r| r['siglev'] }.compact.max
                 %tr.border-b.border-ghborder2.hover:bg-ghcard{"data-node-class" => node_cls, "data-source" => (node['_external_type'] || 'local')}
                   %td.px-3.py-2.truncate{style: "width:120px;max-width:120px"}

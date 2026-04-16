@@ -202,8 +202,8 @@
                         - nodes_on_tg.sort_by { |n| n[:callsign] }.each do |entry|
                           - node = entry[:node]
                           - qth = node.dig('qth', 0) || {}
-                          - rx_info = qth['rx']&.values&.first || {}
-                          - tx_info = qth['tx']&.values&.first || {}
+                          - rx_info = qth['rx']&.values&.select { |v| v.is_a?(Hash) }&.first || {}
+                          - tx_info = qth['tx']&.values&.select { |v| v.is_a?(Hash) }&.first || {}
                           - rx_freq = rx_info['freq']
                           - tx_freq = tx_info['freq']
                           - rx_name = rx_info['name'].presence || tx_info['name'].presence

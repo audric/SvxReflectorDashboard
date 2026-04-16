@@ -188,7 +188,7 @@
               %i.bi.bi-reception-4.mr-1
               Signal Levels
             - if @nodes.reject { |_, n| n['hidden'] }.sort_by { |cs, _| cs }.any?
-              - node_sigs = @nodes.reject { |_, n| n['hidden'] }.sort_by { |cs, _| cs }.map { |cs, n| [cs, n, (n['qth'] || []).flat_map { |q| (q['rx'] || {}).map { |p, r| [p, r] } }.map { |_, r| r['siglev'] }.compact.max] }
+              - node_sigs = @nodes.reject { |_, n| n['hidden'] }.sort_by { |cs, _| cs }.map { |cs, n| [cs, n, (n['qth'] || []).flat_map { |q| (q['rx'] || {}).select { |_, r| r.is_a?(Hash) }.map { |p, r| [p, r] } }.map { |_, r| r['siglev'] }.compact.max] }
               - node_sigs = node_sigs.sort_by { |_, _, sig| -(sig || -999) }
               %div{style: "max-height:320px;overflow-y:auto;scrollbar-width:thin"}
                 - node_sigs.each do |cs, n, best_sig|
