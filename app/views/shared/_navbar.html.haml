@@ -900,6 +900,7 @@
     function pttStart() {
       if (pttActive || !playing || !audioWs) return;
       pttActive = true;
+      window._pttActive = true;
 
       // Visual feedback — red
       [pttBtn, pttBtnMobile].forEach(function(btn) {
@@ -1001,6 +1002,7 @@
     function pttStop() {
       if (!pttActive) return;
       pttActive = false;
+      window._pttActive = false;
 
       // Restore button appearance
       [pttBtn, pttBtnMobile].forEach(function(btn) {
@@ -1054,15 +1056,13 @@
       var theme = document.documentElement.getAttribute('data-theme');
       if (theme === 'light') {
         ctx.fillStyle = '#1e293b';
-        ctx.beginPath();
-        ctx.roundRect(0, 0, w, h, 4);
-        ctx.fill();
+        ctx.fillRect(0, 0, w, h);
       }
 
-      // Voice range: 500 Hz – 5 kHz (bin = freq / (sampleRate / fftSize))
-      var binHz = sampleRate / (freqData.length * 2); // 187.5 Hz per bin at 48k/256
-      var minBin = Math.round(500 / binHz);   // ~3
-      var maxBin = Math.round(5000 / binHz);  // ~27
+      // Voice range: 500 Hz – 5 kHz
+      var binHz = sampleRate / (freqData.length * 2);
+      var minBin = Math.round(500 / binHz);
+      var maxBin = Math.round(5000 / binHz);
       var barCount = Math.min(maxBin - minBin, Math.floor(w / 3));
       var barW = w / barCount;
       var gap = Math.max(1, barW * 0.2);
@@ -1084,30 +1084,21 @@
         var barH = val * h;
         if (barH < 1) continue;
 
-        var x = i * barW;
-        var y = h - barH;
-        var col = barColor(val);
-
-        // Glow
-        ctx.shadowColor = col;
-        ctx.shadowBlur = 4;
-        ctx.fillStyle = col;
-
-        // Rounded top
-        var r = Math.min(bw / 2, 2);
-        ctx.beginPath();
-        ctx.moveTo(x, h);
-        ctx.lineTo(x, y + r);
-        ctx.quadraticCurveTo(x, y, x + r, y);
-        ctx.lineTo(x + bw - r, y);
-        ctx.quadraticCurveTo(x + bw, y, x + bw, y + r);
-        ctx.lineTo(x + bw, h);
-        ctx.fill();
+        ctx.fillStyle = barColor(val);
+        ctx.fillRect(Math.round(i * barW), h - barH, Math.round(bw), barH);
       }
-      ctx.shadowBlur = 0;
     }
 
+    var _lastMeterDraw = 0;
     function updateMeter(src) {
+      var now = performance.now();
+      // Throttle to ~30fps (33ms interval)
+      if (now - _lastMeterDraw < 33) {
+        meterRaf = requestAnimationFrame(function() { updateMeter(src); });
+        return;
+      }
+      _lastMeterDraw = now;
+
       // S-meter (RMS)
       src.getByteTimeDomainData(meterData);
       var sum = 0;
@@ -1121,9 +1112,10 @@
       if (sMeterFill) sMeterFill.style.transform = tx;
       if (sMeterFillMobile) sMeterFillMobile.style.transform = tx;
 
-      // Spectrum
-      if (specCtx && spectrumCanvas) drawSpectrum(specCtx, spectrumCanvas, src);
-      if (specMobileCtx && spectrumMobile) drawSpectrum(specMobileCtx, spectrumMobile, src);
+      // Spectrum — only draw the visible canvas
+      var isMobile = window.innerWidth < 768;
+      if (!isMobile && specCtx && spectrumCanvas) drawSpectrum(specCtx, spectrumCanvas, src);
+      else if (isMobile && specMobileCtx && spectrumMobile) drawSpectrum(specMobileCtx, spectrumMobile, src);
 
       meterRaf = requestAnimationFrame(function() { updateMeter(src); });
     }
@@ -1136,14 +1128,15 @@
       // Unhide first so clientWidth/clientHeight are valid for sizing
       [sMeter, sMeterMobile, spectrumCanvas, spectrumMobile].forEach(function(el) { if (el) el.classList.remove('hidden'); });
 
-      // Size canvases to actual pixel width for crisp rendering
+      // Size canvases — cap at 1.5x DPR for performance
+      var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       if (spectrumCanvas) {
-        spectrumCanvas.width = spectrumCanvas.clientWidth * (window.devicePixelRatio || 1);
-        spectrumCanvas.height = spectrumCanvas.clientHeight * (window.devicePixelRatio || 1);
+        spectrumCanvas.width = spectrumCanvas.clientWidth * dpr;
+        spectrumCanvas.height = spectrumCanvas.clientHeight * dpr;
       }
       if (spectrumMobile) {
-        spectrumMobile.width = spectrumMobile.clientWidth * (window.devicePixelRatio || 1);
-        spectrumMobile.height = spectrumMobile.clientHeight * (window.devicePixelRatio || 1);
+        spectrumMobile.width = spectrumMobile.clientWidth * dpr;
+        spectrumMobile.height = spectrumMobile.clientHeight * dpr;
       }
 
       meterRaf = requestAnimationFrame(function() { updateMeter(src); });
