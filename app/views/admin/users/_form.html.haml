@@ -5,85 +5,91 @@
         - user.errors.full_messages.each do |msg|
           %li= msg
 
-  .mb-4
-    = f.label :callsign, "Callsign", class: "block text-sm text-gray-500 mb-1"
-    - if user.persisted? && user == current_user
-      = f.text_field :callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-500 focus:outline-none", disabled: true
-      %small.text-gray-500 You cannot change your own callsign.
-    - else
-      = f.text_field :callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", autocapitalize: "characters"
+  .grid.grid-cols-1.md:grid-cols-2.gap-x-6.gap-y-4.mb-6
 
-  .mb-4
-    = f.label :name, "Name", class: "block text-sm text-gray-500 mb-1"
-    = f.text_field :name, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+    -# ── Left column: identity ──
+    .space-y-4
+      %h6.text-xs.font-semibold.text-ghmuted.uppercase.tracking-wide.border-b.border-gray-700.pb-1 Identity
+      %div
+        = f.label :callsign, "Callsign", class: "block text-sm text-gray-500 mb-1"
+        - if user.persisted? && user == current_user
+          = f.text_field :callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-500 focus:outline-none", disabled: true
+          %small.text-gray-500 You cannot change your own callsign.
+        - else
+          = f.text_field :callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", autocapitalize: "characters"
+      %div
+        = f.label :name, "Name", class: "block text-sm text-gray-500 mb-1"
+        = f.text_field :name, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+      %div
+        = f.label :email, "Email", class: "block text-sm text-gray-500 mb-1"
+        = f.email_field :email, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+      %div
+        = f.label :mobile, "Mobile", class: "block text-sm text-gray-500 mb-1"
+        = f.telephone_field :mobile, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+      %div
+        = f.label :telegram, "Telegram", class: "block text-sm text-gray-500 mb-1"
+        = f.text_field :telegram, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", placeholder: "@handle"
 
-  .mb-4
-    = f.label :email, "Email", class: "block text-sm text-gray-500 mb-1"
-    = f.email_field :email, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+    -# ── Right column: access & auth ──
+    .space-y-4
+      %h6.text-xs.font-semibold.text-ghmuted.uppercase.tracking-wide.border-b.border-gray-700.pb-1 Access
+      %div
+        .flex.items-center.gap-1.mb-1
+          = f.label :role, "Role", class: "text-sm text-gray-500"
+          %button.text-gray-500.hover:text-gray-300.cursor-pointer{type: "button", onclick: "showHelp('Role', '<b>User</b> — public pages only (dashboard, stats, TG list, events, map).<br><br><b>Admin</b> — full web admin panel access: manage users, talkgroups, external reflectors, settings, system info, logs.')", title: "Help"}
+            %i.bi.bi-question-circle.text-xs
+        - if user.persisted? && user == current_user
+          = f.select :role, [["Admin", "admin"]], {}, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100", disabled: true
+          %small.text-gray-500 You cannot change your own role.
+        - else
+          = f.select :role, [["User", "user"], ["Admin", "admin"]], {}, id: "role-select", class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100", onchange: "toggleReflectorAdmin()"
 
-  .mb-4
-    = f.label :mobile, "Mobile", class: "block text-sm text-gray-500 mb-1"
-    = f.telephone_field :mobile, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500"
+      %div
+        %label.flex.items-center.gap-2.cursor-pointer
+          - if user.persisted? && user == current_user
+            = f.check_box :reflector_admin, class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500", disabled: true
+          - else
+            = f.check_box :reflector_admin, id: "reflector-admin-cb", class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500 cursor-pointer"
+          %span.text-sm.text-gray-300 Reflector admin
+          %button.text-gray-500.hover:text-gray-300.cursor-pointer{type: "button", onclick: "event.preventDefault(); showHelp('Reflector Admin', 'Requires Admin role. Grants access to reflector-specific operations:<br><br>- Edit reflector configuration (PKI, config, restart)<br>- Manage bridges (create/edit/start/stop)<br>- Block/unblock nodes from the dashboard')", title: "Help"}
+            %i.bi.bi-question-circle.text-xs
+        - if user.persisted? && user == current_user
+          %small.text-gray-500.block.mt-1 You cannot change your own reflector admin status.
 
-  .mb-4
-    = f.label :telegram, "Telegram", class: "block text-sm text-gray-500 mb-1"
-    = f.text_field :telegram, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", placeholder: "@handle"
+      %div
+        = f.label :reflector_auth_key, "Auth Key (#{user.callsign.to_s.upcase}-WEB)", class: "block text-sm text-gray-500 mb-1"
+        = f.text_field :reflector_auth_key, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 font-mono focus:outline-none focus:border-blue-500"
+        %small.text-gray-500.block.mt-1 Required to connect. Tune In is hidden until set.
 
-  .mb-4
-    = f.label :password, "Password#{' (leave blank to keep current)' if user.persisted?}", class: "block text-sm text-gray-500 mb-1"
-    = f.password_field :password, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", autocomplete: "new-password"
+      .flex.flex-col.gap-2
+        %label.flex.items-center.gap-2.cursor-pointer
+          = f.check_box :can_monitor, class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500 cursor-pointer"
+          %span.text-sm.text-gray-300 Can monitor audio
+        %label.flex.items-center.gap-2.cursor-pointer
+          = f.check_box :can_transmit, class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500 cursor-pointer"
+          %span.text-sm.text-gray-300 Can transmit audio
+        %label.flex.items-center.gap-2.cursor-pointer
+          = f.check_box :cw_roger_beep, class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500 cursor-pointer"
+          %span.text-sm.text-gray-300 CW roger beep
 
-  .mb-4
-    = f.label :password_confirmation, "Confirm password", class: "block text-sm text-gray-500 mb-1"
-    = f.password_field :password_confirmation, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", autocomplete: "new-password"
+      - if user.oauth?
+        %h6.text-xs.font-semibold.text-ghmuted.uppercase.tracking-wide.border-b.border-gray-700.pb-1.mt-2 Auth Provider
+        .flex.items-center.gap-2.py-2
+          %span.inline-block.px-2.py-0.5.text-xs.rounded-full{class: "bg-blue-900/50 text-blue-300 border border-blue-700/50"}
+            %i.bi.bi-google.mr-1{style: "font-size: 0.6rem"}
+            Google
+          %span.text-xs.text-ghmuted= user.email
 
-  .mb-4
-    .flex.items-center.gap-1.mb-1
-      = f.label :role, "Role", class: "text-sm text-gray-500"
-      %button.text-gray-500.hover:text-gray-300.cursor-pointer{type: "button", onclick: "showHelp('Role', '<b>User</b> — public pages only (dashboard, stats, TG list, events, map).<br><br><b>Admin</b> — full web admin panel access: manage users, talkgroups, external reflectors, settings, system info, logs.')", title: "Help"}
-        %i.bi.bi-question-circle.text-xs
-    - if user.persisted? && user == current_user
-      = f.select :role, [["Admin", "admin"]], {}, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100", disabled: true
-      %small.text-gray-500 You cannot change your own role.
-    - else
-      = f.select :role, [["User", "user"], ["Admin", "admin"]], {}, id: "role-select", class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100", onchange: "toggleReflectorAdmin()"
-
-  .mb-4
-    = f.label :reflector_auth_key, "Reflector Auth Key for #{user.callsign.to_s.upcase}-WEB", class: "block text-sm text-gray-500 mb-1"
-    = f.text_field :reflector_auth_key, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 font-mono focus:outline-none focus:border-blue-500"
-    %small.text-gray-500.block.mt-1 Required to connect to the SVXReflector. Tune In is hidden until this is set.
-
-  .mb-4
-    %label.flex.items-center.gap-2.cursor-pointer
-      - if user.persisted? && user == current_user
-        = f.check_box :reflector_admin, class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500", disabled: true
-      - else
-        = f.check_box :reflector_admin, id: "reflector-admin-cb", class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500 cursor-pointer"
-      %span.text-sm.text-gray-300 Reflector admin
-      %button.text-gray-500.hover:text-gray-300.cursor-pointer{type: "button", onclick: "event.preventDefault(); showHelp('Reflector Admin', 'Requires Admin role. Grants access to reflector-specific operations:<br><br>- Edit reflector configuration (PKI, config, restart)<br>- Manage bridges (create/edit/start/stop)<br>- Block/unblock nodes from the dashboard')", title: "Help"}
-        %i.bi.bi-question-circle.text-xs
-    - if user.persisted? && user == current_user
-      %small.text-gray-500.block.mt-1 You cannot change your own reflector admin status.
-    - else
-      %small.text-gray-500.block.mt-1 Allow this user to manage the SVXReflector configuration.
-
-  .mb-4
-    %label.flex.items-center.gap-2.cursor-pointer
-      = f.check_box :can_monitor, class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500 cursor-pointer"
-      %span.text-sm.text-gray-300 Can monitor audio
-    %small.text-gray-500.block.mt-1 Allow this user to listen to live talkgroup audio via the Tune In player. Needs {CALLSIGN}-WEB user conf in SvxReflector.
-
-  .mb-4
-    %label.flex.items-center.gap-2.cursor-pointer
-      = f.check_box :can_transmit, class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500 cursor-pointer"
-      %span.text-sm.text-gray-300 Can transmit audio
-    %small.text-gray-500.block.mt-1 Allow this user to transmit audio via Push-to-Talk (PTT). Needs {CALLSIGN}-WEB user conf in SvxReflector.
-
-  .mb-4
-    %label.flex.items-center.gap-2.cursor-pointer
-      = f.check_box :cw_roger_beep, class: "rounded border-gray-600 bg-[#0d1117] text-blue-500 focus:ring-blue-500 cursor-pointer"
-      %span.text-sm.text-gray-300 CW roger beep
-    %small.text-gray-500.block.mt-1 Send callsign in CW (800 Hz, 30 WPM) as roger beep after each PTT transmission.
+      %h6.text-xs.font-semibold.text-ghmuted.uppercase.tracking-wide.border-b.border-gray-700.pb-1.mt-2
+        = user.oauth? ? "Password (optional)" : "Password"
+      - if user.oauth? && user.persisted?
+        %p.text-xs.text-ghmuted.mb-2 This user signs in with Google. Set a password to also allow callsign + password login.
+      %div
+        = f.label :password, "Password#{' (leave blank to keep)' if user.persisted?}", class: "block text-sm text-gray-500 mb-1"
+        = f.password_field :password, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", autocomplete: "new-password"
+      %div
+        = f.label :password_confirmation, "Confirm password", class: "block text-sm text-gray-500 mb-1"
+        = f.password_field :password_confirmation, class: "w-full px-3 py-2 rounded-md border border-gray-600 bg-[#0d1117] text-gray-100 focus:outline-none focus:border-blue-500", autocomplete: "new-password"
 
   .flex.gap-2
     = f.submit (user.persisted? ? "Update User" : "Create User"), class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
