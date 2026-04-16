@@ -3,7 +3,7 @@ module Admin
     layout false
     before_action :require_admin
 
-    KEYS = %w[reflector_status_url brand_name reflector_ext_host poll_interval mqtt_username mqtt_password].freeze
+    KEYS = %w[reflector_status_url brand_name reflector_ext_host poll_interval mqtt_username mqtt_password rate_limit_trusted_ips rate_limit_trusted_rate rate_limit_public_rate rate_limit_blacklist].freeze
 
     def update
       KEYS.each do |key|
