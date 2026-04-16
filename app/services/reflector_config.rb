@@ -1,6 +1,6 @@
 class ReflectorConfig
   attr_accessor :global, :root_ca, :issuing_ca, :server_cert, :users, :passwords,
-                :tg_rules, :trunks, :satellite, :mqtt
+                :tg_rules, :trunks, :satellite, :mqtt, :twin, :redis_section
 
   def initialize
     @global = {}
@@ -13,10 +13,48 @@ class ReflectorConfig
     @trunks = {}      # trunk_name => { "HOST" => ..., "PORT" => ..., "SECRET" => ..., "REMOTE_PREFIX" => ... }
     @satellite = {}   # { "LISTEN_PORT" => ..., "SECRET" => ... }
     @mqtt = {}        # { "HOST" => ..., "PORT" => ..., "USERNAME" => ..., ... }
+    @twin = {}        # { "HOST" => ..., "PORT" => ..., "SECRET" => ... }
+    @redis_section = {} # { "HOST" => ..., "PORT" => ..., "PASSWORD" => ..., "DB" => ..., ... }
   end
 
   def self.config_path
     Rails.root.join("reflector", "svxreflector.conf")
+  end
+
+  # Returns true if the [REDIS] section is configured with at least a HOST or UNIX_SOCKET.
+  def redis_mode?
+    redis_section['HOST'].present? || redis_section['UNIX_SOCKET'].present?
+  end
+
+  def self.redis_mode?
+    load.redis_mode?
+  end
+
+  # Builds a Redis connection to the reflector's config store Redis (NOT the dashboard Redis).
+  # Returns nil if [REDIS] is not configured.
+  def reflector_redis
+    return nil unless redis_mode?
+    url = if redis_section['UNIX_SOCKET'].present?
+            "unix://#{redis_section['UNIX_SOCKET']}"
+          else
+            host = redis_section['HOST'] || '127.0.0.1'
+            port = redis_section['PORT'] || '6379'
+            password = redis_section['PASSWORD']
+            db = redis_section['DB'] || '0'
+            auth = password.present? ? ":#{password}@" : ""
+            "redis://#{auth}#{host}:#{port}/#{db}"
+          end
+    Redis.new(url: url)
+  end
+
+  # Returns the key prefix for the reflector's config Redis keys.
+  def redis_key_prefix
+    redis_section['KEY_PREFIX'].to_s
+  end
+
+  # Builds a prefixed Redis key.
+  def redis_key(suffix)
+    redis_key_prefix.present? ? "#{redis_key_prefix}:#{suffix}" : suffix
   end
 
   def self.load(path = config_path)
@@ -69,6 +107,10 @@ class ReflectorConfig
         config.trunks[current_section][key] = value
       when "SATELLITE"
         config.satellite[key] = value
+      when "TWIN"
+        config.twin[key] = value
+      when "REDIS"
+        config.redis_section[key] = value
       when "MQTT"
         config.mqtt[key] = value
       end
@@ -76,6 +118,33 @@ class ReflectorConfig
 
     config.users = config.users.sort.to_h
     config.passwords = config.passwords.sort.to_h
+
+    # When [REDIS] is active, load users and passwords from Redis instead
+    if config.redis_mode?
+      begin
+        r = config.reflector_redis
+        if r
+          redis_users = {}
+          r.scan_each(match: config.redis_key("user:*")) do |key|
+            callsign = key.split(":").last
+            data = r.hgetall(key)
+            redis_users[callsign] = data["group"] || callsign if data["enabled"] != "0"
+          end
+          config.users = redis_users.sort.to_h
+
+          redis_passwords = {}
+          r.scan_each(match: config.redis_key("group:*")) do |key|
+            name = key.split(":").last
+            data = r.hgetall(key)
+            redis_passwords[name] = data["password"] if data["password"].present?
+          end
+          config.passwords = redis_passwords.sort.to_h
+        end
+      rescue => e
+        Rails.logger.warn "[ReflectorConfig] Failed to load users from Redis, falling back to conf file: #{e.message}"
+      end
+    end
+
     config
   end
 
@@ -134,6 +203,20 @@ class ReflectorConfig
       satellite.each { |k, v| lines << "#{k}=#{v}" }
     end
 
+    # TWIN section
+    if twin.any?
+      lines << ""
+      lines << "[TWIN]"
+      twin.each { |k, v| lines << "#{k}=#{v}" }
+    end
+
+    # REDIS section
+    if redis_section.any?
+      lines << ""
+      lines << "[REDIS]"
+      redis_section.each { |k, v| lines << "#{k}=#{v}" }
+    end
+
     # MQTT section
     if mqtt.any?
       lines << ""
@@ -152,13 +235,12 @@ class ReflectorConfig
     File.write(path, lines.join("\n"))
   end
 
-  # Syncs all users with a reflector_auth_key into the [USERS] and [PASSWORDS]
-  # sections of svxreflector.conf. Adds CALLSIGN-WEB entries, removes stale ones.
-  # Writes to disk for persistence AND sends CFG commands via the control pipe
-  # for immediate effect without restarting the reflector.
+  # Syncs all users with a reflector_auth_key into the reflector's user store.
+  # When [REDIS] is configured, writes to the reflector's config Redis.
+  # Otherwise, writes to the [USERS]/[PASSWORDS] sections of svxreflector.conf.
+  # Also sends CFG commands via the control pipe for immediate in-memory effect.
   def self.sync_web_users
     config = load
-    existing_web_callsigns = config.users.keys.select { |k| k.end_with?("-WEB") }
 
     # Build the desired state from the database
     desired = {}
@@ -167,12 +249,72 @@ class ReflectorConfig
       desired[web_cs] = user.reflector_auth_key
     end
 
+    if config.redis_mode?
+      sync_web_users_redis(config, desired)
+    else
+      sync_web_users_conf(config, desired)
+    end
+  end
+
+  # Sync web users to the reflector's config Redis store.
+  def self.sync_web_users_redis(config, desired)
+    r = config.reflector_redis
+    return unless r
+
+    changed = false
+    cfg_commands = []
+
+    # Scan existing -WEB user keys in Redis
+    pattern = config.redis_key("user:*-WEB")
+    existing_web = []
+    r.scan_each(match: pattern) { |key| existing_web << key }
+
+    # Add or update entries
+    desired.each do |web_cs, auth_key|
+      group = web_cs
+      user_key = config.redis_key("user:#{web_cs}")
+      group_key = config.redis_key("group:#{group}")
+      current_group = r.hget(user_key, "group")
+      current_password = r.hget(group_key, "password")
+      unless current_group == group && current_password == auth_key
+        r.hset(user_key, "group", group, "enabled", "1")
+        r.hset(group_key, "password", auth_key)
+        cfg_commands << "CFG USERS #{web_cs} #{group}"
+        cfg_commands << "CFG PASSWORDS #{group} #{auth_key}"
+        changed = true
+      end
+    end
+
+    # Remove stale -WEB entries
+    existing_web.each do |user_key|
+      web_cs = user_key.split(":").last
+      unless desired.key?(web_cs)
+        group_key = config.redis_key("group:#{web_cs}")
+        r.del(user_key)
+        r.del(group_key)
+        cfg_commands << "CFG USERS #{web_cs}"
+        cfg_commands << "CFG PASSWORDS #{web_cs}"
+        changed = true
+      end
+    end
+
+    if changed
+      send_cfg_commands(cfg_commands)
+      Rails.logger.info "[ReflectorConfig] Synced #{desired.size} web user(s) to Redis (#{cfg_commands.size} CFG commands)"
+    end
+
+    changed
+  end
+
+  # Sync web users to the conf file (original behavior).
+  def self.sync_web_users_conf(config, desired)
+    existing_web_callsigns = config.users.keys.select { |k| k.end_with?("-WEB") }
+
     changed = false
     cfg_commands = []
 
     # Add or update entries
     desired.each do |web_cs, auth_key|
-      # Use the callsign (without -WEB) as the password group name
       group = web_cs
       unless config.users[web_cs] == group && config.passwords[group] == auth_key
         config.users[web_cs] = group

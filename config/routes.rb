@@ -13,6 +13,13 @@ Rails.application.routes.draw do
   get    "register", to: "registrations#new"
   post   "register", to: "registrations#create"
 
+  # Google OAuth
+  get  "auth/google_oauth2/callback", to: "omniauth#google"
+  post "auth/google_oauth2/callback", to: "omniauth#google"
+  get  "auth/failure",                to: "omniauth#failure"
+  get  "auth/complete",               to: "omniauth#complete", as: :auth_complete
+  post "auth/complete",               to: "omniauth#finalize"
+
   namespace :admin do
     resources :users do
       member do
@@ -30,6 +37,8 @@ Rails.application.routes.draw do
       post :sign_csr, on: :collection
       post :reject_csr, on: :collection
       post :reset_pki, on: :collection
+      post :redis_import, on: :collection
+      post :redis_export, on: :collection
       post :block_node, on: :collection
       post :revoke_cert, on: :collection
     end

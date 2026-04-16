@@ -78,6 +78,26 @@
   - help["MQTT_TLS_CA_CERT"] = "Path to the CA certificate file for verifying the broker's TLS certificate. Required when TLS is enabled."
   - help["MQTT_TLS_CLIENT_CERT"] = "Path to the client certificate file for mutual TLS authentication. Optional — only needed if the broker requires client certificates."
   - help["MQTT_TLS_CLIENT_KEY"] = "Path to the client private key file for mutual TLS authentication. Required if TLS_CLIENT_CERT is set."
+  - help["MQTT_NAME"] = "Appended as path component to topics: <TOPIC_PREFIX>/<NAME>/... Useful when multiple reflectors share one TOPIC_PREFIX."
+  - help["TWIN_HOST"] = "Hostname or IP address of the twin partner reflector."
+  - help["TWIN_PORT"] = "TCP port for the twin link. Default: 5304."
+  - help["TWIN_SECRET"] = "Shared HMAC secret between twin partners. Must be identical on both sides."
+  - help["TWIN_LISTEN_PORT"] = "TCP listen port for inbound twin connections. Default: 5304."
+  - help["TRUNK_PAIRED"] = "Set to 1 when the remote peer is a twin pair. Enables multi-host HOST (comma-separated) and dual inbound connections with sticky per-frame failover."
+  - help["TRUNK_PEER_ID"] = "Name advertised to the peer in trunk hello. Defaults to the section name."
+  - help["TRUNK_BLACKLIST_TGS"] = "Comma-separated TG filter patterns (exact: 666, prefix: 777*, range: 100-199). These TGs are never carried on this link."
+  - help["TRUNK_ALLOW_TGS"] = "If set, ONLY these TGs are exchanged. Same syntax as BLACKLIST_TGS."
+  - help["TRUNK_TG_MAP"] = "Bidirectional TG remap: peer_tg:local_tg (comma-separated). Mapped TGs bypass prefix routing."
+  - help["REDIS_HOST"] = "Redis server hostname or IP address. Default: 127.0.0.1."
+  - help["REDIS_PORT"] = "Redis TCP port. Default: 6379."
+  - help["REDIS_PASSWORD"] = "AUTH password for the Redis connection."
+  - help["REDIS_DB"] = "Redis logical database index. Default: 0."
+  - help["REDIS_KEY_PREFIX"] = "Namespace prefix for all keys (<prefix>:<key>). Required when multiple reflectors share the same Redis instance — use a unique prefix per reflector (e.g. ref1, ref2) to avoid key collisions. Leave empty if this is the only reflector using this Redis."
+  - help["REDIS_UNIX_SOCKET"] = "Path to Redis UNIX socket. Takes precedence over HOST/PORT when set."
+  - help["REDIS_TLS_ENABLED"] = "Enable TLS for the Redis connection. Set to 1 to enable, 0 to disable. Default: 0."
+  - help["REDIS_TLS_CA_CERT"] = "CA certificate file path for verifying the Redis server's TLS certificate."
+  - help["REDIS_TLS_CLIENT_CERT"] = "Client certificate file for mutual TLS authentication."
+  - help["REDIS_TLS_CLIENT_KEY"] = "Client private key file for mutual TLS authentication."
 
   %body.text-ghtext
     = render 'shared/navbar', active: 'admin'
@@ -176,7 +196,7 @@
           Certificate Files
 
       <div id="panel-config">
-      = form_with url: admin_reflector_path, method: :patch, local: true do |f|
+      = form_with url: admin_reflector_path, method: :patch, local: true, html: { id: "reflector-config-form" } do |f|
 
         -# ── 1. Global Settings ──
         .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
@@ -323,6 +343,73 @@
                         %label.block.text-sm.text-gray-500.mb-1
                           Remote status URL
                         %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "url", name: "config[trunk_status_urls][]", value: trunk['STATUS_URL'], placeholder: "http://reflector-b.example.com:8080/status"}
+                      .col-span-2
+                        %details.text-xs
+                          %summary.text-gray-500.cursor-pointer.hover:text-gray-300 Advanced trunk options
+                          .grid.grid-cols-1.md:grid-cols-2.gap-3.mt-3
+                            .col-span-1
+                              %label.block.text-sm.text-gray-500.mb-1
+                                PEER_ID
+                                %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('TRUNK_PEER_ID')", title: "Help"}
+                                  %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                              %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_peer_ids][]", value: trunk['PEER_ID']}
+                            .col-span-1
+                              %label.block.text-sm.text-gray-500.mb-1
+                                PAIRED (twin peer)
+                                %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('TRUNK_PAIRED')", title: "Help"}
+                                  %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                              %select.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", name: "config[trunk_paireds][]"}
+                                %option{value: "0", selected: trunk['PAIRED'] != '1'} No
+                                %option{value: "1", selected: trunk['PAIRED'] == '1'} Yes
+                            .col-span-1
+                              %label.block.text-sm.text-gray-500.mb-1
+                                BLACKLIST_TGS
+                                %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('TRUNK_BLACKLIST_TGS')", title: "Help"}
+                                  %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                              %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_blacklist_tgs][]", value: trunk['BLACKLIST_TGS'], placeholder: "666,777*,100-199"}
+                            .col-span-1
+                              %label.block.text-sm.text-gray-500.mb-1
+                                ALLOW_TGS
+                                %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('TRUNK_ALLOW_TGS')", title: "Help"}
+                                  %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                              %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_allow_tgs][]", value: trunk['ALLOW_TGS']}
+                            .col-span-2
+                              %label.block.text-sm.text-gray-500.mb-1
+                                TG_MAP
+                                %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('TRUNK_TG_MAP')", title: "Help"}
+                                  %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                              %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_tg_maps][]", value: trunk['TG_MAP'], placeholder: "100:200,101:201"}
+
+              %h6.text-sm.font-semibold.text-gray-400.mb-3.mt-4 Twin (HA Pair)
+              .p-2.rounded.border.text-xs.mb-3{class: "border-gray-700 text-ghmuted bg-ghbg"}
+                %i.bi.bi-info-circle.mr-1
+                Optional. Pair this reflector with a twin partner for high-availability. Both twins share the same LOCAL_PREFIX and mirror all state symmetrically.
+              .grid.grid-cols-1.md:grid-cols-3.gap-4.mb-4
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1
+                    HOST
+                    %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('TWIN_HOST')", title: "Help"}
+                      %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[twin][HOST]", value: @config.twin['HOST'], placeholder: "twin-partner.example.com"}
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1
+                    PORT
+                    %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('TWIN_PORT')", title: "Help"}
+                      %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[twin][PORT]", value: @config.twin['PORT'], placeholder: "5304"}
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1
+                    SECRET
+                    %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('TWIN_SECRET')", title: "Help"}
+                      %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[twin][SECRET]", value: @config.twin['SECRET']}
+              .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1
+                    TWIN_LISTEN_PORT
+                    %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('TWIN_LISTEN_PORT')", title: "Help"}
+                      %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][TWIN_LISTEN_PORT]", value: @config.global['TWIN_LISTEN_PORT'], placeholder: "5304"}
 
               %h6.text-sm.font-semibold.text-gray-400.mb-3.mt-4 Accept Satellite Connections
               .p-2.rounded.border.text-xs.mb-3{class: "border-gray-700 text-ghmuted bg-ghbg"}
@@ -358,6 +445,13 @@
                 .mb-1
                   %label.block.text-sm.text-gray-500.mb-1 SATELLITE_ID
                   %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][SATELLITE_ID]", value: @config.global['SATELLITE_ID']}
+              .grid.grid-cols-1.gap-4.mb-4
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1
+                    Parent status URL
+                    %span.text-xs.text-ghdim.ml-1 (dashboard only)
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "url", name: "config[global][SATELLITE_STATUS_URL]", value: @config.global['SATELLITE_STATUS_URL'], placeholder: "https://parent-reflector.example.com/status", id: "satellite-status-url-input"}
+                  %small.text-gray-500.block.mt-1 Polled by the dashboard to show parent node count and status on /trunks. Not sent to the reflector.
 
         -# ── 2. Certificates (collapsed) ──
         .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
@@ -394,6 +488,10 @@
             %h5.text-lg.font-semibold.text-gray-100
               %i.bi.bi-people.mr-2
               Users
+              - if @config.redis_mode?
+                %span.text-xs.font-normal.ml-2.px-1.5.py-0.5.rounded{class: "bg-red-900/40 text-red-400 border border-red-700/50"}
+                  %i.bi.bi-database.mr-1{style: "font-size: 0.65rem"}
+                  Redis
             .flex.items-center.gap-2
               %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-600.cursor-not-allowed.opacity-50{type: "button", id: "btn-users", disabled: true, onclick: "event.stopPropagation(); addUserRow()"}
                 %i.bi.bi-plus.mr-1
@@ -423,6 +521,10 @@
             %h5.text-lg.font-semibold.text-gray-100
               %i.bi.bi-key.mr-2
               Passwords
+              - if @config.redis_mode?
+                %span.text-xs.font-normal.ml-2.px-1.5.py-0.5.rounded{class: "bg-red-900/40 text-red-400 border border-red-700/50"}
+                  %i.bi.bi-database.mr-1{style: "font-size: 0.65rem"}
+                  Redis
             .flex.items-center.gap-2
               %button.text-sm.px-3.py-1.rounded-md.border.border-gray-600.text-gray-600.cursor-not-allowed.opacity-50{type: "button", id: "btn-passwords", disabled: true, onclick: "event.stopPropagation(); addPasswordRow()"}
                 %i.bi.bi-plus.mr-1
@@ -521,13 +623,19 @@
                   %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[mqtt][#{key}]", value: @config.mqtt[key], placeholder: ph}
 
             %h6.text-sm.font-semibold.text-gray-400.mb-3 Topics
-            .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
+            .grid.grid-cols-1.md:grid-cols-3.gap-4.mb-4
               .mb-1
                 %label.block.text-sm.text-gray-500.mb-1
                   TOPIC_PREFIX
                   %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('MQTT_TOPIC_PREFIX')", title: "Help"}
                     %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
                 %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[mqtt][TOPIC_PREFIX]", value: @config.mqtt['TOPIC_PREFIX'], placeholder: "svxreflector/myreflector"}
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1
+                  NAME
+                  %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('MQTT_NAME')", title: "Help"}
+                    %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[mqtt][NAME]", value: @config.mqtt['NAME']}
               .mb-1
                 %label.block.text-sm.text-gray-500.mb-1
                   STATUS_INTERVAL (ms)
@@ -565,9 +673,97 @@
                     %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
                 %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm.mqtt-tls-field{class: "bg-[#0d1117]", type: "text", name: "config[mqtt][TLS_CLIENT_KEY]", value: @config.mqtt['TLS_CLIENT_KEY'], placeholder: "/etc/svxlink/mqtt-client.key"}
 
+        -# ── 7. Redis (collapsed) ──
+        .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+          .px-4.py-3.border-b.border-gray-600.flex.items-center.justify-between.cursor-pointer{onclick: "toggleSection('redis')"}
+            %h5.text-lg.font-semibold.text-gray-100
+              %i.bi.bi-database.mr-2
+              Redis Config Store
+              %span.text-sm.font-normal.text-ghmuted.ml-2 GeuReflector
+            %i.bi.bi-chevron-down.accordion-chevron.text-gray-400{id: "chevron-redis"}
+          .accordion-body.px-4{id: "body-redis"}
+            .p-2.rounded.border.text-xs.mb-4{class: "border-blue-700/50 text-blue-400 bg-blue-900/20"}
+              %i.bi.bi-info-circle.mr-1
+              When configured, [USERS], [PASSWORDS], CLUSTER_TGS, and per-trunk filters are read from Redis instead of the conf file. Leave empty to disable.
+
+            %h6.text-sm.font-semibold.text-gray-400.mb-3 Connection
+            .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
+              - { "HOST" => "127.0.0.1", "PORT" => "6379", "PASSWORD" => nil, "DB" => "0" }.each do |key, ph|
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1
+                    = key
+                    %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('REDIS_#{key}')", title: "Help"}
+                      %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[redis_section][#{key}]", value: @config.redis_section[key], placeholder: ph}
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1
+                  KEY_PREFIX
+                  %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('REDIS_KEY_PREFIX')", title: "Help"}
+                    %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[redis_section][KEY_PREFIX]", value: @config.redis_section['KEY_PREFIX']}
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1
+                  UNIX_SOCKET
+                  %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('REDIS_UNIX_SOCKET')", title: "Help"}
+                    %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[redis_section][UNIX_SOCKET]", value: @config.redis_section['UNIX_SOCKET'], placeholder: "/var/run/redis/redis.sock"}
+
+            %h6.text-sm.font-semibold.text-gray-400.mb-3 TLS
+            .grid.grid-cols-1.md:grid-cols-2.gap-4
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1
+                  TLS_ENABLED
+                  %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('REDIS_TLS_ENABLED')", title: "Help"}
+                    %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                %select.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", name: "config[redis_section][TLS_ENABLED]"}
+                  %option{value: "", selected: @config.redis_section['TLS_ENABLED'].blank?} (not set)
+                  %option{value: "0", selected: @config.redis_section['TLS_ENABLED'] == '0'} Disabled
+                  %option{value: "1", selected: @config.redis_section['TLS_ENABLED'] == '1'} Enabled
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1
+                  TLS_CA_CERT
+                  %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('REDIS_TLS_CA_CERT')", title: "Help"}
+                    %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[redis_section][TLS_CA_CERT]", value: @config.redis_section['TLS_CA_CERT']}
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1
+                  TLS_CLIENT_CERT
+                  %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('REDIS_TLS_CLIENT_CERT')", title: "Help"}
+                    %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[redis_section][TLS_CLIENT_CERT]", value: @config.redis_section['TLS_CLIENT_CERT']}
+              .mb-1
+                %label.block.text-sm.text-gray-500.mb-1
+                  TLS_CLIENT_KEY
+                  %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('REDIS_TLS_CLIENT_KEY')", title: "Help"}
+                    %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[redis_section][TLS_CLIENT_KEY]", value: @config.redis_section['TLS_CLIENT_KEY']}
+
+            %h6.text-sm.font-semibold.text-gray-400.mb-3.mt-4 Sync Config File / Redis
+            .p-2.rounded.border.text-xs.mb-3{class: "border-gray-700 text-ghmuted bg-ghbg"}
+              %i.bi.bi-info-circle.mr-1
+              Sync [USERS], [PASSWORDS], CLUSTER_TGS, and per-trunk filters between the conf file and Redis. Safe to run multiple times (idempotent). Save your config first if you made changes.
+            .flex.items-center.flex-wrap.gap-3
+              %button.px-3.py-1.5.rounded-md.border.border-gray-600.text-sm.text-gray-300.hover:text-gray-100.cursor-pointer{type: "button", id: "redis-dry-run-btn", onclick: "redisSync('import', true)"}
+                %i.bi.bi-eye.mr-1
+                Dry Run
+              %button.px-3.py-1.5.rounded-md.border.text-sm.font-semibold.cursor-pointer{class: "border-amber-600 text-amber-400 hover:bg-amber-600 hover:text-white", type: "button", id: "redis-import-btn", onclick: "redisSync('import', false)"}
+                %i.bi.bi-database-add.mr-1
+                File to Redis
+              %button.px-3.py-1.5.rounded-md.border.text-sm.font-semibold.cursor-pointer{class: "border-cyan-600 text-cyan-400 hover:bg-cyan-600 hover:text-white", type: "button", id: "redis-export-btn", onclick: "redisSync('export', false)"}
+                %i.bi.bi-file-earmark-arrow-down.mr-1
+                Redis to File
+            #redis-import-output.mt-3.hidden
+              %pre.text-xs.p-3.rounded-lg.border.border-gray-700.overflow-x-auto.max-h-64.overflow-y-auto{class: "bg-[#0d1117] text-gray-300"}
+
         -# ── Save ──
+        %input{type: "hidden", name: "restart", value: "0", id: "restart-input"}
         .flex.gap-2
-          = f.submit "Save configuration & Restart SvxReflector", class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
+          %button.px-4.py-2.rounded-md.border.font-semibold.cursor-pointer.transition-colors{class: "border-green-600 text-green-400", type: "submit", id: "btn-save", onclick: "document.getElementById('restart-input').value='0'"}
+            %i.bi.bi-floppy.mr-1
+            Save
+          %button.px-4.py-2.rounded-md.border.font-semibold.cursor-pointer.transition-colors{class: "border-blue-600 text-blue-400", type: "submit", id: "btn-save-restart", onclick: "document.getElementById('restart-input').value='1'"}
+            %i.bi.bi-arrow-clockwise.mr-1
+            Save & Restart
           %button.px-4.py-2.rounded-md.border.border-gray-600.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "openBackups()"}
             %i.bi.bi-clock-history.mr-1
             Backups
@@ -762,6 +958,118 @@
       }
       toggleMqttTls();
 
+      function redisSync(direction, dryRun) {
+        var btnId = dryRun ? 'redis-dry-run-btn' : (direction === 'import' ? 'redis-import-btn' : 'redis-export-btn');
+        var btn = document.getElementById(btnId);
+        var outputWrap = document.getElementById('redis-import-output');
+        var outputPre = outputWrap.querySelector('pre');
+        btn.disabled = true;
+        btn.classList.add('opacity-50');
+        var label = dryRun ? 'Running dry run...' : (direction === 'import' ? 'Importing to Redis...' : 'Exporting to file...');
+        outputPre.textContent = label;
+        outputWrap.classList.remove('hidden');
+        var url = direction === 'export' ? '/admin/reflector/redis_export' : '/admin/reflector/redis_import';
+        fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': document.querySelector('meta[name=csrf-token]').content },
+          body: JSON.stringify({ dry_run: dryRun })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.error) {
+            outputPre.textContent = 'Error: ' + data.error;
+            outputPre.classList.add('text-red-400');
+            outputPre.classList.remove('text-gray-300');
+          } else {
+            outputPre.textContent = data.output || '(no output)';
+            outputPre.classList.remove('text-red-400');
+            outputPre.classList.add('text-gray-300');
+          }
+        })
+        .catch(function(e) {
+          outputPre.textContent = 'Request failed: ' + e.message;
+          outputPre.classList.add('text-red-400');
+        })
+        .finally(function() {
+          btn.disabled = false;
+          btn.classList.remove('opacity-50');
+        });
+      }
+
+      // ── Save button change tracking ──
+      // HOT fields: take effect via CFG pipe without restart
+      var HOT_NAMES = [
+        'config[user_callsigns][]', 'config[user_groups][]',
+        'config[password_names][]', 'config[password_values][]',
+        'config[tg_numbers][]', 'config[tg_allows][]',
+        'config[tg_auto_qsys][]', 'config[tg_show_activities][]',
+        'config[tg_allow_monitors][]'
+      ];
+      var HOT_GLOBALS = ['SQL_TIMEOUT', 'SQL_TIMEOUT_BLOCKTIME', 'ACCEPT_CALLSIGN', 'REJECT_CALLSIGN', 'CODECS'];
+
+      function isHotField(input) {
+        var name = input.name || '';
+        if (HOT_NAMES.indexOf(name) !== -1) return true;
+        for (var i = 0; i < HOT_GLOBALS.length; i++) {
+          if (name === 'config[global][' + HOT_GLOBALS[i] + ']') return true;
+        }
+        return false;
+      }
+
+      // Snapshot initial form values after all init JS has run
+      var _form = document.getElementById('reflector-config-form');
+      var _snapshot = {};
+      var _snapshotCount = 0;
+
+      function snapshotForm() {
+        _snapshot = {};
+        if (!_form) return;
+        _form.querySelectorAll('input:not([type=hidden]), select, textarea').forEach(function(el, i) {
+          _snapshot[i + '|' + (el.name || '')] = el.value;
+        });
+        _snapshotCount = Object.keys(_snapshot).length;
+      }
+
+      function checkFormChanges() {
+        if (!_form) return;
+        var inputs = _form.querySelectorAll('input:not([type=hidden]), select, textarea');
+        var hasHot = false, hasCold = false;
+
+        inputs.forEach(function(el, i) {
+          if (!el.name) return;
+          var key = i + '|' + el.name;
+          var orig = _snapshot[key];
+          if (orig !== undefined && el.value !== orig) {
+            if (isHotField(el)) hasHot = true;
+            else hasCold = true;
+          }
+        });
+
+        // Detect added/removed rows (new trunk peer, user, TG rule, etc.)
+        if (inputs.length !== _snapshotCount) hasCold = true;
+
+        var btnSave = document.getElementById('btn-save');
+        var btnRestart = document.getElementById('btn-save-restart');
+        if (hasCold) {
+          btnSave.className = 'px-4 py-2 rounded-md border font-semibold cursor-pointer transition-colors border-green-600 text-green-400';
+          btnRestart.className = 'px-4 py-2 rounded-md border font-semibold cursor-pointer transition-colors border-blue-600 bg-blue-600 text-white';
+        } else if (hasHot) {
+          btnSave.className = 'px-4 py-2 rounded-md border font-semibold cursor-pointer transition-colors border-green-600 bg-green-600 text-white';
+          btnRestart.className = 'px-4 py-2 rounded-md border font-semibold cursor-pointer transition-colors border-blue-600 text-blue-400';
+        } else {
+          btnSave.className = 'px-4 py-2 rounded-md border font-semibold cursor-pointer transition-colors border-green-600 text-green-400';
+          btnRestart.className = 'px-4 py-2 rounded-md border font-semibold cursor-pointer transition-colors border-blue-600 text-blue-400';
+        }
+      }
+
+      if (_form) {
+        _form.addEventListener('input', checkFormChanges);
+        _form.addEventListener('change', checkFormChanges);
+        // Watch for dynamic row add/remove
+        var _observer = new MutationObserver(checkFormChanges);
+        _observer.observe(_form, { childList: true, subtree: true });
+      }
+
       function getPasswordGroups() {
         var groups = [];
         document.querySelectorAll('#passwords-tbody input[name="config[password_names][]"]').forEach(function(el) {
@@ -792,6 +1100,8 @@
       });
 
       syncGroupSelects();
+      // Snapshot AFTER all init JS (syncGroupSelects, toggleMqttTls, etc.)
+      snapshotForm();
 
       function addUserRow() {
         var tbody = document.getElementById('users-tbody');
@@ -854,11 +1164,34 @@
             '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">SECRET</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_secrets][]"></div>' +
             '<div class="col-span-2"><label class="block text-sm text-gray-500 mb-1">REMOTE_PREFIX (comma-separated)</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_remote_prefixes][]" placeholder="2,3"></div>' +
             '<div class="col-span-2"><label class="block text-sm text-gray-500 mb-1">Remote status URL</label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="url" name="config[trunk_status_urls][]" placeholder="http://reflector-b.example.com:8080/status"></div>' +
+            '<div class="col-span-2"><details class="text-xs"><summary class="text-gray-500 cursor-pointer hover:text-gray-300">Advanced trunk options</summary><div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">' +
+              '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">PEER_ID <button type="button" class="ml-1 text-gray-500 hover:text-blue-400 cursor-pointer" onclick="showHelp(\'TRUNK_PEER_ID\')" title="Help"><i class="bi bi-question-circle" style="font-size:0.75rem"></i></button></label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_peer_ids][]"></div>' +
+              '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">PAIRED (twin peer) <button type="button" class="ml-1 text-gray-500 hover:text-blue-400 cursor-pointer" onclick="showHelp(\'TRUNK_PAIRED\')" title="Help"><i class="bi bi-question-circle" style="font-size:0.75rem"></i></button></label><select class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" name="config[trunk_paireds][]"><option value="0">No</option><option value="1">Yes</option></select></div>' +
+              '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">BLACKLIST_TGS <button type="button" class="ml-1 text-gray-500 hover:text-blue-400 cursor-pointer" onclick="showHelp(\'TRUNK_BLACKLIST_TGS\')" title="Help"><i class="bi bi-question-circle" style="font-size:0.75rem"></i></button></label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_blacklist_tgs][]" placeholder="666,777*,100-199"></div>' +
+              '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">ALLOW_TGS <button type="button" class="ml-1 text-gray-500 hover:text-blue-400 cursor-pointer" onclick="showHelp(\'TRUNK_ALLOW_TGS\')" title="Help"><i class="bi bi-question-circle" style="font-size:0.75rem"></i></button></label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_allow_tgs][]"></div>' +
+              '<div class="col-span-2"><label class="block text-sm text-gray-500 mb-1">TG_MAP <button type="button" class="ml-1 text-gray-500 hover:text-blue-400 cursor-pointer" onclick="showHelp(\'TRUNK_TG_MAP\')" title="Help"><i class="bi bi-question-circle" style="font-size:0.75rem"></i></button></label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_tg_maps][]" placeholder="100:200,101:201"></div>' +
+            '</div></details></div>' +
           '</div>';
         container.appendChild(div);
         var body = document.getElementById('body-trunking');
         if (!body.classList.contains('open')) toggleSection('trunking');
       }
+
+      // Auto-prefill satellite parent status URL from SATELLITE_OF
+      (function() {
+        var satHost = document.getElementById('satellite-of-input');
+        var satUrl = document.getElementById('satellite-status-url-input');
+        if (satHost && satUrl) {
+          satHost.addEventListener('input', function() {
+            if (satUrl.dataset.userEdited) return;
+            var host = satHost.value.trim();
+            satUrl.value = host ? 'https://' + host + '/status' : '';
+          });
+          satUrl.addEventListener('input', function() {
+            satUrl.dataset.userEdited = 'true';
+          });
+        }
+      })();
 
       // Auto-prefill Remote status URL from HOST
       document.getElementById('trunk-peers').addEventListener('input', function(e) {

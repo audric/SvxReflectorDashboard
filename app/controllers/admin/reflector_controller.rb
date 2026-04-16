@@ -231,6 +231,87 @@ module Admin
       render json: { error: e.message }, status: :internal_server_error
     end
 
+    def redis_import
+      container = find_reflector_container
+      unless container
+        render json: { error: "Reflector container not found" }, status: :not_found
+        return
+      end
+
+      dry_run = params[:dry_run].present? && params[:dry_run] != false
+      cmd = ["svxreflector", "--import-conf-to-redis", "--config", "/mnt/reflector/svxreflector.conf"]
+      cmd << "--dry-run" if dry_run
+
+      output = docker_exec(container["Id"], cmd)
+      render json: { ok: true, output: output.strip, dry_run: dry_run }
+    rescue => e
+      Rails.logger.error "[ReflectorConfig] Redis import failed: #{e.class} #{e.message}"
+      render json: { error: e.message }, status: :internal_server_error
+    end
+
+    def redis_export
+      config = ReflectorConfig.load
+      unless config.redis_mode?
+        render json: { error: "[REDIS] section not configured" }, status: :unprocessable_entity
+        return
+      end
+
+      r = config.reflector_redis
+      lines = []
+
+      # Read users
+      users = {}
+      r.scan_each(match: config.redis_key("user:*")) do |key|
+        callsign = key.split(":").last
+        data = r.hgetall(key)
+        users[callsign] = data["group"] || callsign if data["enabled"] != "0"
+      end
+      lines << "[USERS] #{users.size} entries"
+      config.users = users.sort.to_h
+
+      # Read passwords
+      passwords = {}
+      r.scan_each(match: config.redis_key("group:*")) do |key|
+        name = key.split(":").last
+        data = r.hgetall(key)
+        passwords[name] = data["password"] if data["password"].present?
+      end
+      lines << "[PASSWORDS] #{passwords.size} entries"
+      config.passwords = passwords.sort.to_h
+
+      # Read cluster TGs
+      cluster_key = config.redis_key("cluster:tgs")
+      cluster_tgs = r.smembers(cluster_key).map(&:to_i).sort
+      if cluster_tgs.any?
+        config.global["CLUSTER_TGS"] = cluster_tgs.join(",")
+        lines << "CLUSTER_TGS: #{cluster_tgs.join(', ')}"
+      end
+
+      # Read per-trunk filters
+      config.trunks.each do |section_name, trunk|
+        label = section_name.delete_prefix("TRUNK_").downcase
+
+        bl = r.smembers(config.redis_key("trunk:#{label}:blacklist"))
+        trunk["BLACKLIST_TGS"] = bl.join(",") if bl.any?
+
+        al = r.smembers(config.redis_key("trunk:#{label}:allow"))
+        trunk["ALLOW_TGS"] = al.join(",") if al.any?
+
+        tm = r.hgetall(config.redis_key("trunk:#{label}:tgmap"))
+        trunk["TG_MAP"] = tm.map { |k, v| "#{k}:#{v}" }.join(",") if tm.any?
+
+        lines << "[#{section_name}] filters synced" if bl.any? || al.any? || tm.any?
+      end
+
+      config.save
+      lines << "Config file saved."
+
+      render json: { ok: true, output: lines.join("\n") }
+    rescue => e
+      Rails.logger.error "[ReflectorConfig] Redis export failed: #{e.class} #{e.message}"
+      render json: { error: e.message }, status: :internal_server_error
+    end
+
     def reset_pki
       container = find_reflector_container
       unless container
@@ -253,7 +334,7 @@ module Admin
       # Trunk mode: reflector or satellite — strip the opposite mode's keys
       trunk_mode = params.dig(:config, :trunk_mode).to_s
       satellite_keys = %w[SATELLITE_OF SATELLITE_PORT SATELLITE_SECRET SATELLITE_ID]
-      reflector_only_keys = %w[LOCAL_PREFIX CLUSTER_TGS]
+      reflector_only_keys = %w[LOCAL_PREFIX CLUSTER_TGS TWIN_LISTEN_PORT]
 
       # Global settings
       (params.dig(:config, :global) || {}).each do |key, value|
@@ -324,17 +405,28 @@ module Admin
         trunk_secrets = Array(cfg[:trunk_secrets])
         trunk_prefixes = Array(cfg[:trunk_remote_prefixes])
         trunk_status_urls = Array(cfg[:trunk_status_urls])
+        trunk_paireds = Array(cfg[:trunk_paireds])
+        trunk_peer_ids = Array(cfg[:trunk_peer_ids])
+        trunk_blacklist_tgs = Array(cfg[:trunk_blacklist_tgs])
+        trunk_allow_tgs = Array(cfg[:trunk_allow_tgs])
+        trunk_tg_maps = Array(cfg[:trunk_tg_maps])
         trunk_names.each_with_index do |name, i|
           next if name.blank?
           section = name.strip.upcase
           section = "TRUNK_#{section}" unless section.start_with?("TRUNK_")
-          config.trunks[section] = {
+          trunk_data = {
             "HOST" => trunk_hosts[i].to_s.strip,
             "PORT" => trunk_ports[i].to_s.strip,
             "SECRET" => trunk_secrets[i].to_s.strip,
             "REMOTE_PREFIX" => trunk_prefixes[i].to_s.strip,
-            "STATUS_URL" => trunk_status_urls[i].to_s.strip
+            "STATUS_URL" => trunk_status_urls[i].to_s.strip,
+            "PEER_ID" => trunk_peer_ids[i].to_s.strip,
+            "BLACKLIST_TGS" => trunk_blacklist_tgs[i].to_s.strip,
+            "ALLOW_TGS" => trunk_allow_tgs[i].to_s.strip,
+            "TG_MAP" => trunk_tg_maps[i].to_s.strip
           }.reject { |_, v| v.blank? }
+          trunk_data["PAIRED"] = "1" if trunk_paireds[i] == "1"
+          config.trunks[section] = trunk_data
         end
 
         # Satellite server section (reflector mode only, requires both port and secret)
@@ -344,6 +436,16 @@ module Admin
           config.satellite["LISTEN_PORT"] = sat_port
           config.satellite["SECRET"] = sat_secret
         end
+
+        # Twin section (reflector mode only)
+        (params.dig(:config, :twin) || {}).each do |key, value|
+          config.twin[key] = value if value.present?
+        end
+      end
+
+      # Redis section
+      (params.dig(:config, :redis_section) || {}).each do |key, value|
+        config.redis_section[key] = value if value.present?
       end
 
       # MQTT
@@ -352,10 +454,17 @@ module Admin
       end
 
       config.save
+      sync_redis_config(config) if config.redis_mode?
       publish_trunk_status_urls(config)
-      restart_svxreflector
-      refresh_reflector_config_cache
-      redirect_to edit_admin_reflector_path, notice: "Configuration saved and svxreflector restarted."
+
+      if params[:restart] == "1"
+        restart_svxreflector
+        refresh_reflector_config_cache
+        redirect_to edit_admin_reflector_path, notice: "Configuration saved and svxreflector restarted."
+      else
+        send_hot_cfg_commands(config)
+        redirect_to edit_admin_reflector_path, notice: "Configuration saved (hot-reloadable fields applied via CFG pipe)."
+      end
     end
     private
 
@@ -365,6 +474,101 @@ module Admin
       unless current_user.reflector_admin?
         redirect_to root_path, alert: "Reflector admin access required"
       end
+    end
+
+    # Sends CFG pipe commands for all hot-reloadable fields so they take
+    # effect immediately without restarting the reflector.
+    HOT_GLOBAL_KEYS = %w[SQL_TIMEOUT SQL_TIMEOUT_BLOCKTIME ACCEPT_CALLSIGN REJECT_CALLSIGN CODECS].freeze
+
+    def send_hot_cfg_commands(config)
+      commands = []
+
+      # USERS
+      config.users.each { |callsign, group| commands << "CFG USERS #{callsign} #{group}" }
+
+      # PASSWORDS
+      config.passwords.each { |name, password| commands << "CFG PASSWORDS #{name} #{password}" }
+
+      # TG rules
+      config.tg_rules.each do |tg_num, rules|
+        rules.each { |key, value| commands << "CFG TG##{tg_num} #{key} #{value}" }
+      end
+
+      # Hot GLOBAL keys
+      HOT_GLOBAL_KEYS.each do |key|
+        commands << "CFG GLOBAL #{key} #{config.global[key]}" if config.global[key].present?
+      end
+
+      ReflectorConfig.send_cfg_commands(commands) if commands.any?
+    rescue => e
+      Rails.logger.error "[ReflectorConfig] Failed to send hot CFG commands: #{e.message}"
+    end
+
+    # Syncs users, passwords, cluster TGs, and per-trunk filters to the
+    # reflector's config Redis store. Mirrors the key layout used by
+    # `svxreflector --import-conf-to-redis`.
+    def sync_redis_config(config)
+      r = config.reflector_redis
+      return unless r
+
+      # ── Users: {prefix}:user:<callsign> → HSET group, enabled ──
+      # Clear existing user keys and re-create from config
+      r.scan_each(match: config.redis_key("user:*")) { |k| r.del(k) }
+      config.users.each do |callsign, group|
+        r.hset(config.redis_key("user:#{callsign}"), "group", group, "enabled", "1")
+      end
+
+      # ── Passwords: {prefix}:group:<name> → HSET password ──
+      r.scan_each(match: config.redis_key("group:*")) { |k| r.del(k) }
+      config.passwords.each do |name, password|
+        r.hset(config.redis_key("group:#{name}"), "password", password)
+      end
+
+      # ── Cluster TGs: {prefix}:cluster:tgs → SADD ──
+      cluster_key = config.redis_key("cluster:tgs")
+      r.del(cluster_key)
+      cluster_tgs = config.global["CLUSTER_TGS"].to_s.split(",").map(&:strip).reject(&:blank?)
+      r.sadd(cluster_key, cluster_tgs) if cluster_tgs.any?
+
+      # ── Per-trunk filters ──
+      config.trunks.each do |section_name, trunk|
+        label = section_name.delete_prefix("TRUNK_").downcase
+
+        # Blacklist: {prefix}:trunk:<label>:blacklist → SADD
+        bl_key = config.redis_key("trunk:#{label}:blacklist")
+        r.del(bl_key)
+        bl = trunk["BLACKLIST_TGS"].to_s.split(",").map(&:strip).reject(&:blank?)
+        r.sadd(bl_key, bl) if bl.any?
+
+        # Allow: {prefix}:trunk:<label>:allow → SADD
+        al_key = config.redis_key("trunk:#{label}:allow")
+        r.del(al_key)
+        al = trunk["ALLOW_TGS"].to_s.split(",").map(&:strip).reject(&:blank?)
+        r.sadd(al_key, al) if al.any?
+
+        # TG map: {prefix}:trunk:<label>:tgmap → HSET peer_tg local_tg
+        tm_key = config.redis_key("trunk:#{label}:tgmap")
+        r.del(tm_key)
+        trunk["TG_MAP"].to_s.split(",").map(&:strip).reject(&:blank?).each do |mapping|
+          peer_tg, local_tg = mapping.split(":", 2)
+          r.hset(tm_key, peer_tg.strip, local_tg.strip) if peer_tg.present? && local_tg.present?
+        end
+
+        # Peer definition: {prefix}:trunk:<label>:peer → HSET
+        peer_key = config.redis_key("trunk:#{label}:peer")
+        r.del(peer_key)
+        peer_fields = {}
+        peer_fields["host"] = trunk["HOST"] if trunk["HOST"].present?
+        peer_fields["port"] = trunk["PORT"] if trunk["PORT"].present?
+        peer_fields["secret"] = trunk["SECRET"] if trunk["SECRET"].present?
+        peer_fields["remote_prefix"] = trunk["REMOTE_PREFIX"] if trunk["REMOTE_PREFIX"].present?
+        peer_fields["peer_id"] = trunk["PEER_ID"] if trunk["PEER_ID"].present?
+        r.hset(peer_key, peer_fields) if peer_fields.any?
+      end
+
+      Rails.logger.info "[ReflectorConfig] Synced config to reflector Redis (#{config.users.size} users, #{config.trunks.size} trunks)"
+    rescue => e
+      Rails.logger.error "[ReflectorConfig] Redis config sync failed: #{e.message}"
     end
 
     # After saving config and restarting the reflector, immediately refresh
@@ -384,7 +588,7 @@ module Admin
           res = http.get(uri.request_uri)
           if res.is_a?(Net::HTTPSuccess)
             data = JSON.parse(res.body)
-            config = data.slice('mode', 'version', 'local_prefix', 'satellite', 'cluster_tgs', 'http_port', 'listen_port').compact
+            config = data.slice('mode', 'version', 'local_prefix', 'satellite', 'cluster_tgs', 'twin', 'http_port', 'listen_port').compact
             redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
             redis.set('reflector:config', config.to_json)
             Rails.logger.info "[ReflectorConfig] Refreshed config cache from /status after save"
@@ -413,19 +617,27 @@ module Admin
       require "net/http"
       require "socket"
 
-      # List containers to find svxreflector
       containers = docker_api_get("/containers/json")
-      container = containers.find { |c| c["Names"].any? { |n| n =~ /-svxreflector-\d+$/ } }
-      unless container
+
+      # Restart svxreflector
+      reflector = containers.find { |c| c["Names"].any? { |n| n =~ /-svxreflector-\d+$/ } }
+      if reflector
+        Rails.logger.info "[ReflectorConfig] Restarting svxreflector #{reflector["Id"][0..11]}"
+        docker_api_post("/containers/#{reflector["Id"]}/restart?t=5")
+      else
         Rails.logger.error "[ReflectorConfig] svxreflector container not found"
-        return
       end
 
-      Rails.logger.info "[ReflectorConfig] Restarting container #{container["Id"][0..11]} (#{container["Names"].first})"
-      docker_api_post("/containers/#{container["Id"]}/restart?t=5")
-      Rails.logger.info "[ReflectorConfig] Restart request sent"
+      # Restart updater (re-detects listener source)
+      updater = containers.find { |c| c["Names"].any? { |n| n =~ /-updater-\d+$/ } }
+      if updater
+        Rails.logger.info "[ReflectorConfig] Restarting updater #{updater["Id"][0..11]}"
+        docker_api_post("/containers/#{updater["Id"]}/restart?t=3")
+      else
+        Rails.logger.warn "[ReflectorConfig] updater container not found"
+      end
     rescue => e
-      Rails.logger.error "[ReflectorConfig] Failed to restart svxreflector: #{e.class} #{e.message}"
+      Rails.logger.error "[ReflectorConfig] Failed to restart containers: #{e.class} #{e.message}"
     end
 
     def docker_api_get(path)

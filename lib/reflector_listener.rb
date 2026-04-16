@@ -5,9 +5,56 @@ require 'json'
 # Polls the SVXReflector/GeuReflector HTTP status API and broadcasts node-level diffs
 # via ActionCable whenever tg or isTalker changes for any node.
 # Also tracks trunk links, satellites, and cluster TGs (GeuReflector extensions).
+#
+# Sources (auto-detected):
+#   :http  — polls /status via HTTP (default)
+#   :redis — subscribes to reflector's Redis pub/sub (requires [REDIS] in svxreflector.conf)
+#   :mqtt  — subscribes to MQTT broker (requires [MQTT] HOST in svxreflector.conf)
 class ReflectorListener
   POLL_INTERVAL = 1 # seconds
   TRUNK_THREAD_CHECK_INTERVAL = 60 # seconds — how often to check/start trunk status threads
+
+  # ── Source files (redis/mqtt created in later tasks) ──────────────────────
+  require_relative 'reflector_listener/http_source'
+  begin; require_relative 'reflector_listener/redis_source'; rescue LoadError; end
+  begin; require_relative 'reflector_listener/mqtt_source';  rescue LoadError; end
+
+  # ── Pipeline state (shared across sources) ────────────────────────────────
+  @prev            = {}
+  @prev_trunks     = {}
+  @prev_satellites = {}
+  @prev_cluster_tgs = []
+  @pipeline_mutex  = Mutex.new
+  @active_source   = nil
+
+  # ── Trunk status polling state ────────────────────────────────────────────
+  @trunk_status_cache   = {}   # { trunk_name => { nodes } }
+  @trunk_status_threads = {}   # { trunk_name => Thread }
+  @trunk_status_mutex   = Mutex.new
+
+  class << self
+    def active_source
+      @active_source || read_active_source_from_redis
+    end
+
+    attr_writer :active_source
+  end
+
+  def self.publish_active_source(source)
+    @active_source = source
+    redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://redis:6379/1'))
+    redis.set('reflector:listener_source', source.to_s)
+  rescue => e
+    STDERR.puts "[Poller] Failed to publish active source: #{e.message}"
+  end
+
+  def self.read_active_source_from_redis
+    redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://redis:6379/1'))
+    val = redis.get('reflector:listener_source')
+    val&.to_sym
+  rescue
+    nil
+  end
 
   # Net::HTTP needs bare IPv6 addresses without the brackets that URI keeps.
   def self.http_get(url)
@@ -19,118 +66,175 @@ class ReflectorListener
     http.get(uri.request_uri)
   end
 
+  # ── Public entry point ────────────────────────────────────────────────────
   def self.start(_host = nil, _port = nil)
-    STDERR.puts "[Poller] Starting HTTP poll every #{POLL_INTERVAL}s"
+    source = detect_source
+    publish_active_source(source)
+    STDERR.puts "[Poller] Detected source: #{source}"
 
+    # Trunk status thread management runs in its own thread
+    start_trunk_status_threads
     Thread.new do
-      prev = {}
-      prev_trunks = {}
-      prev_satellites = {}
-      prev_cluster_tgs = []
-      last_config_fetch = 0
-      start_trunk_status_threads
-
       loop do
+        sleep TRUNK_THREAD_CHECK_INTERVAL
         begin
-          status_url = Setting.get('reflector_status_url', ENV.fetch('REFLECTOR_STATUS_URL', 'http://213.254.10.33:8181/status'))
-          res  = http_get(status_url)
-          status_data = JSON.parse(res.body)
-
-          curr             = status_data.fetch('nodes', {})
-          curr_trunks      = status_data.fetch('trunks', {})
-          curr_satellites  = status_data.fetch('satellites', {})
-          curr_cluster_tgs = status_data.fetch('cluster_tgs', [])
-
-          # Extract config fields from /status (GeuReflector includes them inline)
-          curr_config = status_data.slice('mode', 'version', 'local_prefix', 'satellite', 'cluster_tgs', 'http_port', 'listen_port').compact
-
-          # Merge remote trunk nodes (tagged with _external)
-          merge_trunk_status_nodes(curr)
-
-          # Enrich web listener nodes with browser/location metadata stored by AudioChannel
-          enrich_web_nodes(curr)
-
-          # Enrich bridge nodes with RX metadata from Redis
-          enrich_dstar_rx(curr)
-          enrich_dmr_rx(curr)
-          enrich_ysf_rx(curr)
-          enrich_m17_rx(curr)
-          enrich_zello_rx(curr)
-
-          # ── Node diffs ────────────────────────────────────────────────────
-          changed = curr.select do |cs, node|
-            p = prev[cs]
-            next true if p.nil?
-            next true if node['tg'] != p['tg'] || node['isTalker'] != p['isTalker']
-            next true if node['sw'] != p['sw'] || node['swVer'] != p['swVer']
-            next true if node['nodeLocation'] != p['nodeLocation']
-            next true if node['dstar_rx'] != p['dstar_rx']
-            next true if node['dmr_rx'] != p['dmr_rx']
-            next true if node['ysf_rx'] != p['ysf_rx']
-            next true if node['m17_rx'] != p['m17_rx']
-            next true if node['zello_rx'] != p['zello_rx']
-            # Also trigger when any RX squelch opens/closes (gives fresh siglev data)
-            node_rx = node.dig('qth', 0, 'rx') || {}
-            prev_rx = p.dig('qth', 0, 'rx') || {}
-            node_rx.any? { |port, rx| rx['sql_open'] != prev_rx.dig(port, 'sql_open') }
-          end
-
-          removed = prev.keys - curr.keys
-
-          # ── Trunk/satellite/cluster diffs ──────────────────────────────────
-          trunks_changed     = curr_trunks != prev_trunks
-          satellites_changed = curr_satellites != prev_satellites
-          cluster_changed    = curr_cluster_tgs.sort != prev_cluster_tgs.sort
-
-          anything_changed = !changed.empty? || !removed.empty? || trunks_changed || satellites_changed || cluster_changed
-
-          if anything_changed
-            payload = { nodes: curr, changed: changed.keys, removed: removed,
-                        _ts: Time.now.iso8601 }
-            payload[:trunks]      = curr_trunks      if trunks_changed || !changed.empty? || !removed.empty?
-            payload[:satellites]  = curr_satellites   if satellites_changed || !changed.empty? || !removed.empty?
-            payload[:cluster_tgs] = curr_cluster_tgs  if cluster_changed || !changed.empty? || !removed.empty?
-            ActionCable.server.broadcast('updates', payload)
-            parts = []
-            parts << "#{changed.keys.size} nodes changed" unless changed.empty?
-            parts << "#{removed.size} removed" unless removed.empty?
-            parts << "trunks updated" if trunks_changed
-            parts << "satellites updated" if satellites_changed
-            parts << "cluster_tgs updated" if cluster_changed
-            STDERR.puts "[Poller] Broadcast: #{parts.join(', ')}"
-          end
-
-          # ── Persist events ──────────────────────────────────────────────────
-          log_events(changed, removed, prev)
-          log_trunk_events(curr_trunks, prev_trunks) if trunks_changed
-          log_satellite_events(curr_satellites, prev_satellites) if satellites_changed
-
-          # ── Sync cluster TGs to database ────────────────────────────────────
-          sync_cluster_tgs(curr_cluster_tgs) if cluster_changed
-
-          # ── Cache in Redis ──────────────────────────────────────────────────
-          cache_all(curr, curr_trunks, curr_satellites, curr_cluster_tgs, curr_config)
-
-          # ── Manage trunk status threads periodically ────────────────────────
-          now = Time.now.to_i
-          if now - last_config_fetch >= TRUNK_THREAD_CHECK_INTERVAL
-            start_trunk_status_threads
-            last_config_fetch = now
-          end
-
-          prev = curr
-          prev_trunks = curr_trunks
-          prev_satellites = curr_satellites
-          prev_cluster_tgs = curr_cluster_tgs
+          start_trunk_status_threads
         rescue => e
-          STDERR.puts "[Poller] Error: #{e.message}"
+          STDERR.puts "[Poller] Trunk thread management error: #{e.message}"
         end
-        interval = (Setting.get('poll_interval') || POLL_INTERVAL).to_i.clamp(1, 10)
-        sleep interval
+      end
+    end
+
+    # Start the selected source in a thread
+    Thread.new do
+      case source
+      when :redis
+        if defined?(ReflectorListener::RedisSource)
+          ReflectorListener::RedisSource.run
+        else
+          STDERR.puts "[Poller] RedisSource not available, falling back to HTTP"
+          publish_active_source(:http)
+          ReflectorListener::HttpSource.run
+        end
+      when :mqtt
+        if defined?(ReflectorListener::MqttSource)
+          ReflectorListener::MqttSource.run
+        else
+          STDERR.puts "[Poller] MqttSource not available, falling back to HTTP"
+          publish_active_source(:http)
+          ReflectorListener::HttpSource.run
+        end
+      else
+        ReflectorListener::HttpSource.run
       end
     end
   end
 
+  # ── Source detection ──────────────────────────────────────────────────────
+  def self.detect_source
+    begin
+      config = ReflectorConfig.load
+      return :redis if config.redis_mode?
+      return :mqtt  if config.mqtt['HOST'].present?
+    rescue => e
+      STDERR.puts "[Poller] Could not load ReflectorConfig for source detection: #{e.message}"
+    end
+    :http
+  end
+
+  # ── Shared processing pipeline ───────────────────────────────────────────
+  # Takes a full status hash (from any source) and runs:
+  # enrich → diff → broadcast → log events → cache
+  def self.process_snapshot(status_data)
+    @pipeline_mutex.synchronize do
+      curr             = status_data.fetch('nodes', {})
+      curr_trunks      = status_data.fetch('trunks', {})
+      curr_satellites  = status_data.fetch('satellites', {})
+      curr_cluster_tgs = status_data.fetch('cluster_tgs', [])
+
+      # Extract config fields from /status (GeuReflector includes them inline)
+      curr_config = status_data.slice('mode', 'version', 'local_prefix', 'satellite', 'twin', 'cluster_tgs', 'http_port', 'listen_port').compact
+
+      # Merge remote trunk nodes (tagged with _external)
+      merge_trunk_status_nodes(curr)
+
+      # Enrich web listener nodes with browser/location metadata stored by AudioChannel
+      enrich_web_nodes(curr)
+
+      # Enrich bridge nodes with RX metadata from Redis
+      enrich_dstar_rx(curr)
+      enrich_dmr_rx(curr)
+      enrich_ysf_rx(curr)
+      enrich_m17_rx(curr)
+      enrich_zello_rx(curr)
+
+      # ── Diffs ──────────────────────────────────────────────────────────
+      changed, removed = diff_nodes(curr, @prev)
+
+      trunks_changed     = curr_trunks != @prev_trunks
+      satellites_changed = curr_satellites != @prev_satellites
+      cluster_changed    = curr_cluster_tgs.sort != @prev_cluster_tgs.sort
+
+      # ── Broadcast ──────────────────────────────────────────────────────
+      broadcast_changes(
+        curr:               curr,
+        changed:            changed,
+        removed:            removed,
+        curr_trunks:        curr_trunks,
+        curr_satellites:    curr_satellites,
+        curr_cluster_tgs:   curr_cluster_tgs,
+        trunks_changed:     trunks_changed,
+        satellites_changed: satellites_changed,
+        cluster_changed:    cluster_changed
+      )
+
+      # ── Persist events ────────────────────────────────────────────────
+      log_events(changed, removed, @prev)
+      log_trunk_events(curr_trunks, @prev_trunks) if trunks_changed
+      log_satellite_events(curr_satellites, @prev_satellites) if satellites_changed
+
+      # ── Sync cluster TGs to database ──────────────────────────────────
+      sync_cluster_tgs(curr_cluster_tgs) if cluster_changed
+
+      # ── Cache in Redis ────────────────────────────────────────────────
+      cache_all(curr, curr_trunks, curr_satellites, curr_cluster_tgs, curr_config)
+
+      # ── Update prev state ─────────────────────────────────────────────
+      @prev             = curr
+      @prev_trunks      = curr_trunks
+      @prev_satellites  = curr_satellites
+      @prev_cluster_tgs = curr_cluster_tgs
+    end
+  end
+
+  # ── Node diffing ─────────────────────────────────────────────────────────
+  # Returns [changed_hash, removed_array] comparing current nodes to previous.
+  def self.diff_nodes(curr, prev)
+    changed = curr.select do |cs, node|
+      p = prev[cs]
+      next true if p.nil?
+      next true if node['tg'] != p['tg'] || node['isTalker'] != p['isTalker']
+      next true if node['sw'] != p['sw'] || node['swVer'] != p['swVer']
+      next true if node['nodeLocation'] != p['nodeLocation']
+      next true if node['dstar_rx'] != p['dstar_rx']
+      next true if node['dmr_rx'] != p['dmr_rx']
+      next true if node['ysf_rx'] != p['ysf_rx']
+      next true if node['m17_rx'] != p['m17_rx']
+      next true if node['zello_rx'] != p['zello_rx']
+      # Also trigger when any RX squelch opens/closes (gives fresh siglev data)
+      node_rx = node.dig('qth', 0, 'rx') || {}
+      prev_rx = p.dig('qth', 0, 'rx') || {}
+      node_rx.any? { |port, rx| rx['sql_open'] != prev_rx.dig(port, 'sql_open') }
+    end
+
+    removed = prev.keys - curr.keys
+
+    [changed, removed]
+  end
+
+  # ── ActionCable broadcast ────────────────────────────────────────────────
+  def self.broadcast_changes(curr:, changed:, removed:, curr_trunks:, curr_satellites:,
+                             curr_cluster_tgs:, trunks_changed:, satellites_changed:, cluster_changed:)
+    anything_changed = !changed.empty? || !removed.empty? || trunks_changed || satellites_changed || cluster_changed
+    return unless anything_changed
+
+    payload = { nodes: curr, changed: changed.keys, removed: removed,
+                _ts: Time.now.iso8601 }
+    payload[:trunks]      = curr_trunks      if trunks_changed || !changed.empty? || !removed.empty?
+    payload[:satellites]  = curr_satellites   if satellites_changed || !changed.empty? || !removed.empty?
+    payload[:cluster_tgs] = curr_cluster_tgs  if cluster_changed || !changed.empty? || !removed.empty?
+    ActionCable.server.broadcast('updates', payload)
+
+    parts = []
+    parts << "#{changed.keys.size} nodes changed" unless changed.empty?
+    parts << "#{removed.size} removed" unless removed.empty?
+    parts << "trunks updated" if trunks_changed
+    parts << "satellites updated" if satellites_changed
+    parts << "cluster_tgs updated" if cluster_changed
+    STDERR.puts "[Poller] Broadcast: #{parts.join(', ')}"
+  end
+
+  # ── Redis caching ────────────────────────────────────────────────────────
   def self.cache_all(nodes, trunks, satellites, cluster_tgs, config = {})
     redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
     redis.pipelined do |pipe|
@@ -154,9 +258,6 @@ class ReflectorListener
   # Each trunk with a STATUS_URL gets its own background thread that fetches
   # on a 5s interval and caches the result. The main poll loop reads from
   # the cache — never blocks on HTTP.
-  @trunk_status_cache = {}   # { trunk_name => { nodes } }
-  @trunk_status_threads = {} # { trunk_name => Thread }
-  @trunk_status_mutex = Mutex.new
 
   def self.start_trunk_status_threads
     # Read trunk STATUS_URLs from Redis (published by the web container)
