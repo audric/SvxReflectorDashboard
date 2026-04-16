@@ -283,7 +283,8 @@
           %h5.text-lg.font-semibold.text-gray-100
             %i.bi.bi-bug.mr-2
             Redis Debug
-          .flex.items-center.gap-2
+          .flex.items-center.gap-3
+            %select.px-2.py-1.rounded-md.border.border-gray-600.text-xs.font-mono{class: "bg-[#0d1117] text-gray-300", id: "redis-db-select", onchange: "switchRedisDb(this.value)"}
             %span.text-xs.text-ghmuted#debug-status Live
             %span.inline-block.w-2.h-2.rounded-full.bg-green-500#debug-dot
 
@@ -355,7 +356,14 @@
               .mb-4
                 %label.block.text-sm.text-gray-500.mb-1 Poll Interval (seconds)
                 %input.w-full.px-3.py-2.rounded-md.border.border-gray-600{class: "bg-[#0d1117]", type: "number", name: "settings[poll_interval]", value: @settings["poll_interval"], min: 1, max: 10, step: 1}
-                %small.text-gray-500 How often the updater polls the reflector (1–10 seconds).
+                %small.text-gray-500
+                  How often the updater polls the reflector (1–10 seconds). Only applies in HTTP mode.
+                  - source = ReflectorListener.active_source rescue :http
+                  - if source && source != :http
+                    %br
+                    Currently using
+                    %strong.text-gray-300= source.to_s.upcase
+                    source (poll interval ignored).
 
               %hr.border-ghborder.my-4
               %h6.text-sm.font-semibold.text-gray-100.mb-3
@@ -899,6 +907,8 @@
       // ── Redis Debug (lazy-loaded on tab switch) ──
       var debugStarted = false;
       var debugInterval = null;
+      var currentDb = null;
+      var dbSelectPopulated = false;
 
       function esc(s) {
         return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -979,8 +989,33 @@
           tbody.innerHTML = html;
         }
 
+        function populateDbSelect(databases, selectedDb) {
+          var sel = document.getElementById('redis-db-select');
+          if (!sel) return;
+          var prevVal = sel.value;
+          if (!dbSelectPopulated) {
+            sel.innerHTML = '';
+            databases.forEach(function(d) {
+              var opt = document.createElement('option');
+              opt.value = d.index;
+              var label = 'db' + d.index;
+              if (d.info) {
+                var m = d.info.match(/keys=(\d+)/);
+                if (m) label += ' (' + m[1] + ' keys)';
+              }
+              opt.textContent = label;
+              if (String(d.index) === String(selectedDb)) opt.selected = true;
+              sel.appendChild(opt);
+            });
+            dbSelectPopulated = true;
+          }
+          currentDb = selectedDb;
+        }
+
         function refresh() {
-          fetch('/admin/debug.json')
+          var url = '/admin/debug.json';
+          if (currentDb !== null) url += '?db=' + currentDb;
+          fetch(url)
             .then(function(r) {
               if (!r.ok) throw new Error('HTTP ' + r.status);
               var ct = r.headers.get('content-type') || '';
@@ -991,6 +1026,7 @@
               document.getElementById('debug-dot').className = 'inline-block w-2 h-2 rounded-full bg-green-500';
               document.getElementById('debug-status').textContent = 'Live';
               document.getElementById('debug-error').innerHTML = '';
+              if (data.databases) populateDbSelect(data.databases, data.selected_db);
               if (data.info) renderInfo(data.info);
               if (data.pubsub_channels) renderPubsub(data.pubsub_channels);
               if (data.keys) renderKeys(data.keys);
@@ -1003,8 +1039,14 @@
             });
         }
 
+        window._debugRefresh = refresh;
         refresh();
         debugInterval = setInterval(refresh, 3000);
+      }
+
+      function switchRedisDb(db) {
+        currentDb = db;
+        if (window._debugRefresh) window._debugRefresh();
       }
 
       // Auto-start debug if that tab is active
