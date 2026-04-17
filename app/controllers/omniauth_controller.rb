@@ -45,7 +45,7 @@ class OmniauthController < ApplicationController
       redirect_to register_path
       return
     end
-    @oauth = session[:oauth]
+    @oauth = session[:oauth].with_indifferent_access
   end
 
   # POST /auth/complete — create account with callsign
@@ -56,13 +56,14 @@ class OmniauthController < ApplicationController
       return
     end
 
+    oauth = oauth.with_indifferent_access
     @oauth = oauth
     @user = User.new(
       callsign: params[:callsign].to_s.strip,
-      name: oauth['name'],
-      email: oauth['email'],
-      provider: oauth['provider'],
-      uid: oauth['uid'],
+      name: oauth[:name],
+      email: oauth[:email],
+      provider: oauth[:provider],
+      uid: oauth[:uid],
       role: 'user',
       approved: false
     )
