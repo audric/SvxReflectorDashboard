@@ -114,8 +114,8 @@ class ReflectorListener
   def self.detect_source
     begin
       config = ReflectorConfig.load
-      return :redis if config.redis_mode?
       return :mqtt  if config.mqtt['HOST'].present?
+      return :redis if config.redis_mode?
     rescue => e
       STDERR.puts "[Poller] Could not load ReflectorConfig for source detection: #{e.message}"
     end
