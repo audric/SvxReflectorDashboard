@@ -41,6 +41,7 @@ Some settings can be changed at runtime from the admin panel (`/admin/settings`)
 
 - **Reflector status URL** — overrides `REFLECTOR_STATUS_URL`
 - **Poll interval** — how often the updater fetches the reflector status (1–10 seconds, default 4)
+- **Rate limiting** — `/status` throttling tiers, see [[Rate Limiting]]
 
 These are stored in the `settings` table and take effect on the next poll cycle without restarting services.
 
