@@ -16,6 +16,8 @@ All configuration is done via environment variables. Docker Compose loads `.env`
 | `DOCKER_SOCK` | No | `/var/run/docker.sock` | Path to the Docker socket (set for rootless Docker) |
 | `BRIDGE_TYPES` | No | `reflector` | Comma-separated list of enabled bridge types (e.g. `reflector,xlx,zello`) |
 | `RAILS_ENV` | No | `production` | Rails environment |
+| `GOOGLE_CLIENT_ID` | No | — | Google OAuth 2.0 client ID — enables Sign in with Google (see [[Google OAuth]]) |
+| `GOOGLE_CLIENT_SECRET` | No | — | Google OAuth 2.0 client secret |
 
 ## Generating SECRET_KEY_BASE
 

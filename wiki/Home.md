@@ -8,6 +8,7 @@ Welcome to the SVX Dashboard wiki — the complete reference for deploying, usin
 - **[[Architecture]]** — services, data flow, and audio path
 - **[[Configuration]]** — environment variables and settings
 - **[[User Management]]** — registration, approval, and permissions
+- **[[Google OAuth]]** — optional Google sign-in setup
 - **[[Bridges]]** — multi-protocol bridges (reflector, EchoLink, XLX, DMR, YSF, AllStar, Zello), audio processing (filter/AGC), config generation, backups
 - **[[Audio Bridge]]** — the Go service that connects browsers to the reflector
 - **[[Reflector Protocol]]** — SVXReflector protocol V2 wire format

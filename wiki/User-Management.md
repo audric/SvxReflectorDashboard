@@ -21,6 +21,8 @@ Callsigns are automatically uppercased and validated against the format `/\A[A-Z
 
 New registrations are held in a **pending** state until approved by an admin.
 
+Users can also sign up with a Google account — see [[Google OAuth]] for setup.
+
 ![Web Users](images/admin-users.png)
 
 ## Web Users admin panel
