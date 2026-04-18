@@ -59,6 +59,8 @@ Rails.application.routes.draw do
     resource :mqtt, only: :show, controller: "mqtt"
     resource :logs, only: :show, controller: "logs" do
       get :fetch, on: :collection
+      post :log_command, on: :collection
+      get :log_show, on: :collection
     end
   end
 

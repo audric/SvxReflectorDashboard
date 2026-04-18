@@ -4,6 +4,8 @@ module Admin
     before_action :require_admin
 
     DOCKER_SOCKET = "/var/run/docker.sock"
+    LOG_SUBSYSTEMS = %w[* trunk satellite twin client mqtt redis core].freeze
+    LOG_LEVELS = %w[trace debug info warn error off].freeze
 
     def show
       @containers = fetch_containers
@@ -20,6 +22,38 @@ module Admin
       since = params[:since] # ISO 8601 timestamp for incremental fetching
       output = fetch_container_logs(container_id, tail, since)
       render json: { logs: output }
+    end
+
+    # Sends a runtime LOG command to the svxreflector control PTY.
+    # Accepts either { reset: true } or { subsystem:, level: } from a whitelist.
+    def log_command
+      cmd = if ActiveModel::Type::Boolean.new.cast(params[:reset])
+              "LOG RESET"
+            else
+              subsystem = params[:subsystem].to_s
+              level = params[:level].to_s
+              unless LOG_SUBSYSTEMS.include?(subsystem) && LOG_LEVELS.include?(level)
+                render json: { error: "Invalid subsystem or level" }, status: :bad_request
+                return
+              end
+              "LOG #{subsystem}=#{level}"
+            end
+
+      if ReflectorConfig.send_pty_command(cmd)
+        render json: { ok: true, command: cmd }
+      else
+        render json: { error: "Failed to send command — svxreflector container not found or unreachable" }, status: :internal_server_error
+      end
+    end
+
+    # Queries the reflector for current per-subsystem log levels via `LOG SHOW`.
+    def log_show
+      out = ReflectorConfig.pty_query("LOG SHOW")
+      if out.nil?
+        render json: { error: "Failed to query reflector — container not found or unreachable" }, status: :internal_server_error
+      else
+        render json: { ok: true, output: out }
+      end
     end
 
     private

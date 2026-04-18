@@ -45,6 +45,7 @@
   - help["TG_FOR_V1_CLIENTS"] = "Set which talk group to place protocol version 1 clients in. Without this configuration version 1 clients will not be able to use the reflector since they cannot select a talk group by themselves. Talk groups should normally be configured to start with the ITU-T E.212 Mobile Country Code (MCC) for your country, e.g. 240 for Sweden."
   - help["RANDOM_QSY_RANGE"] = "Specify in which talk group range the reflector server should select random talk groups used when using the QSY functionality. The range is specified using two colon separated values. The first one is the lower limit and the second value is the number of talk groups in the range. As an example, if set to 1239900:100 QSY talk groups will be selected from the range 1239900 to 1239999. The recommended lower range to use is <MCC>9900 where MCC is the ITU-T E.212 Mobile Country Code for your country."
   - help["TIMESTAMP_FORMAT"] = "This variable specifies the format of the timestamp that is written in front of each row in the log file. The format string is in the same format as specified in the strftime(3) manual page. The default is \"%c\" which is described as: \"the preferred date and time representation for the current locale\". Example: TIMESTAMP_FORMAT=\"%d %b %Y %H:%M:%S\" would give a timestamp looking something like: \"29 Nov 2005 22:31:59\"."
+  - help["LOG"] = "GeuReflector: Per-subsystem log verbosity. Comma-separated <subsystem>=<level> pairs; * is the wildcard. Subsystems: trunk, satellite, twin, client, mqtt, redis, core. Levels: trace, debug, info, warn, error, off. Default: *=info. Example: LOG=*=warn,trunk=debug,mqtt=info."
   - help["COMMAND_PTY"] = "Configure a path for a pseudo tty device to send runtime commands to the svxreflector. Example: COMMAND_PTY=/dev/shm/reflector_ctrl. To change a config variable: echo CFG GLOBAL SQL_TIMEOUT_BLOCKTIME 60 > /dev/shm/reflector_ctrl. To sign a client certificate: echo CA SIGN callsign > /dev/shm/reflector_ctrl."
   - help["CFG_DIR"] = "Specify the path to a directory that contain additional configuration files. If a relative path is specified, the path will be relative to the directory where the main configuration file is at. All files in the specified directory will be read as additional configuration. Filenames starting with a dot are ignored."
   - help["CERT_PKI_DIR"] = "The path to the directory containing PKI (Public Key Infrastructure) files. If a relative path is given, the value of the build time variable SVX_LOCAL_STATE_DIR (e.g. /var/lib/svxlink/) will be prepended. Default: pki/"
@@ -241,7 +242,7 @@
 
             %h6.text-sm.font-semibold.text-gray-400.mb-3 Advanced
             .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
-              - %w[TG_FOR_V1_CLIENTS RANDOM_QSY_RANGE TIMESTAMP_FORMAT COMMAND_PTY CFG_DIR].each do |key|
+              - %w[TG_FOR_V1_CLIENTS RANDOM_QSY_RANGE TIMESTAMP_FORMAT LOG COMMAND_PTY CFG_DIR].each do |key|
                 .mb-1
                   %label.block.text-sm.text-gray-500.mb-1
                     = key

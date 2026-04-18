@@ -375,6 +375,87 @@ class ReflectorConfig
     Rails.logger.error "[ReflectorConfig] Failed to send CFG commands: #{e.message}"
   end
 
+  # Writes a single line to the reflector's control PTY (/dev/shm/reflector_ctrl).
+  # Used for runtime commands like `LOG trunk=debug`, `LOG RESET`, etc.
+  # Returns true on success, false otherwise.
+  def self.send_pty_command(cmd)
+    require "socket"
+    container = find_reflector_container
+    return false unless container
+    docker_exec(container["Id"], ["sh", "-c", "printf '%s\\n' \"$1\" > /dev/shm/reflector_ctrl", "--", cmd])
+    Rails.logger.info "[ReflectorConfig] Sent PTY command: #{cmd}"
+    true
+  rescue => e
+    Rails.logger.error "[ReflectorConfig] Failed to send PTY command '#{cmd}': #{e.message}"
+    false
+  end
+
+  # Sends a command to the control PTY and reads back the reflector's response.
+  # Opens the reader in the background BEFORE writing the command to avoid any
+  # race where the reflector's response might be emitted before we start reading.
+  #
+  # Uses `dd bs=1` rather than `cat` because coreutils cat block-buffers stdout
+  # when the consumer is a pipe, and `timeout`'s SIGTERM kills it before the
+  # buffer is flushed — resulting in silent empty output. `dd bs=1` uses raw
+  # write(2), so every byte is emitted as soon as it's read.
+  #
+  # Returns the captured output string, or nil on failure.
+  def self.pty_query(command, read_timeout: 0.8, settle: 0.05)
+    require "socket"
+    container = find_reflector_container
+    return nil unless container
+
+    shell = <<~SH
+      if [ ! -e /dev/shm/reflector_ctrl ]; then
+        echo "PTY missing: /dev/shm/reflector_ctrl" >&2
+        exit 1
+      fi
+      ( timeout #{read_timeout} dd bs=1 if=/dev/shm/reflector_ctrl 2>/dev/null ) &
+      READER=$!
+      sleep #{settle}
+      printf '%s\\n' "$1" > /dev/shm/reflector_ctrl
+      wait $READER 2>/dev/null
+    SH
+
+    out = docker_exec_capture(container["Id"], ["sh", "-c", shell, "--", command])
+    Rails.logger.info "[ReflectorConfig] PTY query: #{command} (#{out.to_s.bytesize} bytes)"
+    out
+  rescue => e
+    Rails.logger.error "[ReflectorConfig] Failed PTY query '#{command}': #{e.message}"
+    nil
+  end
+
+  # Like docker_exec but captures and returns the command's stdout/stderr.
+  # Parses Docker's multiplexed exec stream (8-byte frame header + payload).
+  def self.docker_exec_capture(container_id, cmd)
+    require "socket"
+    json = { Cmd: cmd, AttachStdout: true, AttachStderr: true }.to_json
+    sock = UNIXSocket.new("/var/run/docker.sock")
+    sock.write("POST /containers/#{container_id}/exec HTTP/1.0\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: #{json.bytesize}\r\n\r\n#{json}")
+    response = sock.read
+    sock.close
+    body = response.split("\r\n\r\n", 2).last
+    exec_id = (JSON.parse(body) rescue {})["Id"]
+    return nil unless exec_id
+
+    start_body = { Detach: false, Tty: false }.to_json
+    sock = UNIXSocket.new("/var/run/docker.sock")
+    sock.write("POST /exec/#{exec_id}/start HTTP/1.0\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: #{start_body.bytesize}\r\n\r\n#{start_body}")
+    response = sock.read
+    sock.close
+    body = response.split("\r\n\r\n", 2).last
+
+    out = String.new
+    pos = 0
+    while pos + 8 <= body.bytesize
+      frame_size = body.byteslice(pos + 4, 4).unpack1("N")
+      break if pos + 8 + frame_size > body.bytesize
+      out << body.byteslice(pos + 8, frame_size)
+      pos += 8 + frame_size
+    end
+    (out.empty? ? body.to_s : out).force_encoding("UTF-8").scrub
+  end
+
   def self.find_reflector_container
     require "socket"
     sock = UNIXSocket.new("/var/run/docker.sock")

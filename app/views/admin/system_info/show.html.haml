@@ -6,6 +6,7 @@
     %meta{charset: "UTF-8"}
     %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
     %title= "SVXReflector #{@reflector_host} · System"
+    = csrf_meta_tags
     %script{src: "/vendor/tailwind/tailwind.js"}
     :javascript
       tailwind.config = {
@@ -256,7 +257,7 @@
             %select#log-container.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-1.cursor-pointer{style: "outline:none;"}
               %option{value: ""} Select container…
               - @containers.each do |c|
-                %option{value: c[:id], data: { state: c[:state] }}
+                %option{value: c[:id], data: { state: c[:state], service: c[:name] }}
                   = "#{c[:name]} (#{c[:state]})"
             %select#log-tail.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-1.cursor-pointer{style: "outline:none;"}
               %option{value: "50"} 50 lines
@@ -268,6 +269,50 @@
             %label.flex.items-center.gap-1.text-xs.text-ghmuted.cursor-pointer
               %input#log-auto{type: "checkbox"}
               Auto
+
+        -# Reflector log verbosity control (visible only when svxreflector is selected)
+        #reflector-log-control.flex-wrap.items-center.gap-2.mb-4.px-3.py-2.rounded-lg.border.border-ghborder{class: "bg-[#0d1117]", style: "display: none;"}
+          %span.text-xs.text-ghmuted.font-semibold
+            %i.bi.bi-sliders.mr-1
+            Reflector log:
+          %select#reflector-log-subsystem.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-1.cursor-pointer{style: "outline:none;"}
+            %option{value: "*"} * (all)
+            %option{value: "trunk"} trunk
+            %option{value: "satellite"} satellite
+            %option{value: "twin"} twin
+            %option{value: "client"} client
+            %option{value: "mqtt"} mqtt
+            %option{value: "redis"} redis
+            %option{value: "core"} core
+          %span.text-xs.text-ghdim =
+          %select#reflector-log-level.text-xs.bg-ghbg.text-gray-300.border.border-ghborder.rounded.px-2.py-1.cursor-pointer{style: "outline:none;"}
+            %option{value: "trace"} trace
+            %option{value: "debug"} debug
+            %option{value: "info", selected: true} info
+            %option{value: "warn"} warn
+            %option{value: "error"} error
+            %option{value: "off"} off
+          %button#reflector-log-apply.text-xs.px-2.py-1.rounded.border.border-blue-600.text-blue-400.hover:bg-blue-600.hover:text-white.cursor-pointer{type: "button"}
+            Apply
+          %button#reflector-log-show.text-xs.px-2.py-1.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.cursor-pointer{type: "button", title: "Show current log levels"}
+            %i.bi.bi-list-ul.mr-1
+            Show
+          %button#reflector-log-reset.text-xs.px-2.py-1.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.cursor-pointer{type: "button", title: "Revert to startup LOG config"}
+            Reset
+          %span#reflector-log-status.text-xs.text-ghdim.ml-auto
+
+        -# Log settings modal
+        #log-show-modal.fixed.inset-0.z-50.items-center.justify-center{style: "display: none; background: rgba(0,0,0,0.6)"}
+          .bg-ghcard.border.border-gray-600.rounded-lg.w-full.mx-4.shadow-xl.flex.flex-col{style: "max-width: 32rem; max-height: 75vh"}
+            .flex.items-center.justify-between.px-5.py-3.border-b.border-ghborder.shrink-0
+              %h6.text-base.font-semibold.text-gray-100
+                %i.bi.bi-list-ul.mr-2
+                Current log settings
+              %button#log-show-close.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button"}
+                %i.bi.bi-x-lg
+            .flex-1.overflow-y-auto.p-4
+              %pre.text-xs.font-mono.text-gray-200.whitespace-pre-wrap.m-0#log-show-body
+                %span.text-ghdim Loading…
 
         .rounded-lg.border.border-ghborder.bg-ghcard
           #log-output{style: "max-height: calc(100vh - 220px); overflow-y: auto;"}
@@ -930,6 +975,90 @@
         logAuto.addEventListener('change', function() {
           if (this.checked) scheduleNext(); else stopLogAuto();
         });
+
+        // ── Reflector LOG verbosity control (svxreflector only) ──
+        var rlPanel = document.getElementById('reflector-log-control');
+        var rlSub = document.getElementById('reflector-log-subsystem');
+        var rlLvl = document.getElementById('reflector-log-level');
+        var rlApply = document.getElementById('reflector-log-apply');
+        var rlReset = document.getElementById('reflector-log-reset');
+        var rlStatus = document.getElementById('reflector-log-status');
+
+        function updateReflectorLogPanel() {
+          var opt = logSelect.options[logSelect.selectedIndex];
+          var isSvx = opt && opt.dataset.service === 'svxreflector';
+          rlPanel.style.display = isSvx ? 'flex' : 'none';
+        }
+
+        function sendLogCmd(body, label) {
+          rlStatus.textContent = 'Sending…';
+          rlStatus.className = 'text-xs text-ghmuted ml-auto';
+          var token = document.querySelector('meta[name="csrf-token"]');
+          fetch('/admin/logs/log_command', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'X-CSRF-Token': token ? token.content : ''
+            },
+            body: JSON.stringify(body)
+          })
+          .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+          .then(function(res) {
+            if (res.ok) {
+              rlStatus.textContent = '✓ ' + label;
+              rlStatus.className = 'text-xs text-green-400 ml-auto';
+            } else {
+              rlStatus.textContent = (res.data && res.data.error) || 'Error';
+              rlStatus.className = 'text-xs text-red-400 ml-auto';
+            }
+          })
+          .catch(function(err) {
+            rlStatus.textContent = 'Error: ' + err.message;
+            rlStatus.className = 'text-xs text-red-400 ml-auto';
+          });
+        }
+
+        rlApply.addEventListener('click', function() {
+          var sub = rlSub.value, lvl = rlLvl.value;
+          sendLogCmd({ subsystem: sub, level: lvl }, sub + '=' + lvl);
+        });
+        rlReset.addEventListener('click', function() {
+          sendLogCmd({ reset: true }, 'reset');
+        });
+
+        // Show modal with current log settings (LOG SHOW via PTY)
+        var rlShow = document.getElementById('reflector-log-show');
+        var rlModal = document.getElementById('log-show-modal');
+        var rlModalBody = document.getElementById('log-show-body');
+        var rlModalClose = document.getElementById('log-show-close');
+
+        function openLogShow() {
+          rlModalBody.innerHTML = '<span class="text-ghdim">Loading…</span>';
+          rlModal.style.display = 'flex';
+          fetch('/admin/logs/log_show', { headers: { 'Accept': 'application/json' } })
+            .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+            .then(function(res) {
+              if (res.ok) {
+                var out = (res.data.output || '').replace(/\r/g, '').trim();
+                rlModalBody.textContent = out.length ? out : '(no output — the reflector may be busy)';
+              } else {
+                rlModalBody.textContent = (res.data && res.data.error) || 'Error';
+              }
+            })
+            .catch(function(err) { rlModalBody.textContent = 'Error: ' + err.message; });
+        }
+        function closeLogShow() { rlModal.style.display = 'none'; }
+
+        rlShow.addEventListener('click', openLogShow);
+        rlModalClose.addEventListener('click', closeLogShow);
+        rlModal.addEventListener('click', function(e) { if (e.target === rlModal) closeLogShow(); });
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && rlModal.style.display === 'flex') closeLogShow();
+        });
+
+        logSelect.addEventListener('change', updateReflectorLogPanel);
+        updateReflectorLogPanel();
       })();
 
       // ── Redis Debug (lazy-loaded on tab switch) ──
