@@ -525,6 +525,91 @@
                 - if twin['host'].present?
                   %span.font-mono.text-amber-300.ml-1= twin['host']
 
+        -# ── Parent Configuration ─────────────────────────────────────────────
+        - if @parent_status.any?
+          - parent_prefix = @parent_status['local_prefix']
+          - parent_prefix_str = Array(parent_prefix).flatten.flat_map { |x| x.to_s.split(',') }.map(&:strip).reject(&:blank?).join(', ')
+          - parent_cluster_tgs = Array(@parent_status['cluster_tgs']).reject(&:blank?)
+          - parent_trunks = @parent_status['trunks'].is_a?(Hash) ? @parent_status['trunks'] : {}
+          - parent_sats = @parent_status['satellites'].is_a?(Hash) ? @parent_status['satellites'] : {}
+
+          .page-header.mb-3
+            %i.bi.bi-gear.mr-1
+            Parent Configuration
+
+          - if parent_prefix_str.present? || parent_cluster_tgs.any?
+            .mb-3
+              - if parent_prefix_str.present?
+                %span.text-xs.text-ghmuted LOCAL_PREFIX:
+                %span.text-xs.font-mono.text-cyan-400.ml-1= parent_prefix_str
+              - if parent_cluster_tgs.any?
+                %span.text-xs.text-ghmuted{class: parent_prefix_str.present? ? 'ml-3' : ''} CLUSTER_TGS:
+                %span.text-xs.font-mono.text-cyan-400.ml-1= parent_cluster_tgs.join(', ')
+
+          - if parent_trunks.any?
+            .page-header.mb-3
+              %i.bi.bi-diagram-3.mr-1
+              Parent Trunk Peers
+            .grid.grid-cols-1.md:grid-cols-2.xl:grid-cols-3.gap-3.mb-4
+              - parent_trunks.each do |name, trunk|
+                - trunk = {} unless trunk.is_a?(Hash)
+                .rounded-lg.border.border-ghborder.p-4
+                  .flex.items-center.gap-2.mb-3
+                    - if trunk['connected']
+                      %span.inline-block.w-2.5.h-2.5.rounded-full.bg-green-500{title: "Connected"}
+                    - else
+                      %span.inline-block.w-2.5.h-2.5.rounded-full.bg-red-500{title: "Disconnected"}
+                    %span.font-mono.text-sm.font-semibold.text-gray-100= name
+                    %span.ml-auto.text-xs.px-2.py-0.5.rounded-full.font-semibold{class: trunk['connected'] ? "bg-green-900/50 text-green-400 border border-green-700" : "bg-red-900/50 text-red-400 border border-red-700"}
+                      = trunk['connected'] ? 'Connected' : 'Disconnected'
+                  .space-y-1.5
+                    - if trunk['host'].present?
+                      .flex.items-center.gap-2
+                        %i.bi.bi-globe.text-ghdim{style: "font-size:.7rem"}
+                        %span.text-xs.text-ghmuted Host
+                        %a.text-xs.font-mono.text-gray-300.ml-auto.hover:text-blue-400.transition-colors{href: "https://#{trunk['host']}", target: "_blank", rel: "noopener"}= trunk['host']
+                    - if trunk['remote_prefix'].present?
+                      .flex.items-center.gap-2
+                        %i.bi.bi-tag.text-ghdim{style: "font-size:.7rem"}
+                        %span.text-xs.text-ghmuted Remote Prefix
+                        %span.text-xs.font-mono.text-cyan-400.ml-auto= Array(trunk['remote_prefix']).flatten.flat_map { |x| x.to_s.split(',') }.map(&:strip).join(', ')
+                  - if trunk['connected'] && trunk['active_talkers'].is_a?(Hash) && trunk['active_talkers'].any?
+                    .mt-3.pt-3.border-t.border-ghborder2
+                      .text-xs.text-ghmuted.mb-1.5
+                        %i.bi.bi-mic-fill.mr-1{style: "font-size:.6rem"}
+                        Active Talkers
+                      .flex.flex-wrap.gap-1
+                        - trunk['active_talkers'].each do |tg, cs|
+                          %span.text-xs.px-1.5.py-0.5.rounded.font-mono{class: "bg-green-900/50 text-green-400 border border-green-700"}
+                            %i.bi.bi-mic-fill.mr-1{style: "font-size:.55rem"}
+                            = "#{cs} TG#{tg}"
+
+          - if parent_sats.any?
+            .page-header.mb-3
+              %i.bi.bi-broadcast.mr-1
+              Parent Satellites
+            .grid.grid-cols-1.md:grid-cols-2.xl:grid-cols-3.gap-3.mb-4
+              - parent_sats.each do |sat_id, sat|
+                - sat = {} unless sat.is_a?(Hash)
+                .rounded-lg.border.border-ghborder.p-4
+                  .flex.items-center.gap-2.mb-3
+                    - if sat['authenticated']
+                      %span.inline-block.w-2.5.h-2.5.rounded-full.bg-green-500{title: "Authenticated"}
+                    - else
+                      %span.inline-block.w-2.5.h-2.5.rounded-full.bg-yellow-500{title: "Pending authentication"}
+                    %span.font-mono.text-sm.font-semibold.text-gray-100= sat_id
+                    %span.ml-auto.text-xs.px-2.py-0.5.rounded-full.font-semibold{class: sat['authenticated'] ? "bg-green-900/50 text-green-400 border border-green-700" : "bg-yellow-900/50 text-yellow-400 border border-yellow-700"}
+                      = sat['authenticated'] ? 'Authenticated' : 'Pending'
+                  - active_tgs = Array(sat['active_tgs'])
+                  - if active_tgs.any?
+                    .mt-1
+                      .text-xs.text-ghmuted.mb-1.5
+                        %i.bi.bi-collection.mr-1{style: "font-size:.6rem"}
+                        Active TGs
+                      .flex.flex-wrap.gap-1
+                        - active_tgs.each do |tg|
+                          %span.text-xs.px-1.5.py-0.5.rounded.font-mono.border.border-ghborder.text-ghmuted= "TG#{tg}"
+
       - if @reflector_mode != 'satellite'
         -# ── Local Trunk Configuration ────────────────────────────────────────
         .page-header.mb-3
@@ -593,7 +678,7 @@
 
                 -# Active talkers from live data
                 - if connected && live['active_talkers'].present? && live['active_talkers'].any?
-                  .mt-3.pt-3.border-t.border-ghborder2
+                  .trunk-talkers.mt-3.pt-3.border-t.border-ghborder2
                     .text-xs.text-ghmuted.mb-1.5
                       %i.bi.bi-mic-fill.mr-1{style: "font-size:.6rem"}
                       Active Talkers
@@ -725,7 +810,7 @@
                       %span.text-xs.font-mono.text-cyan-400.ml-auto= Array(trunk['remote_prefix']).join(', ')
 
                 - if trunk['connected'] && trunk['active_talkers'].present? && trunk['active_talkers'].any?
-                  .mt-3.pt-3.border-t.border-ghborder2
+                  .trunk-talkers.mt-3.pt-3.border-t.border-ghborder2
                     .text-xs.text-ghmuted.mb-1.5
                       %i.bi.bi-mic-fill.mr-1{style: "font-size:.6rem"}
                       Active Talkers
@@ -828,7 +913,7 @@
               }
 
               // Update active talkers section
-              var talkerSection = card.querySelector('.border-t.border-ghborder2');
+              var talkerSection = card.querySelector('.trunk-talkers');
               var talkers = t.active_talkers || {};
               var talkerKeys = Object.keys(talkers);
               if (talkerKeys.length > 0) {
@@ -841,9 +926,14 @@
                   talkerSection.innerHTML = html;
                 } else {
                   var wrapper = document.createElement('div');
-                  wrapper.className = 'mt-3 pt-3 border-t border-ghborder2';
+                  wrapper.className = 'trunk-talkers mt-3 pt-3 border-t border-ghborder2';
                   wrapper.innerHTML = html;
-                  card.appendChild(wrapper);
+                  var peerView = card.querySelector('.border-t.border-ghborder2');
+                  if (peerView) {
+                    card.insertBefore(wrapper, peerView);
+                  } else {
+                    card.appendChild(wrapper);
+                  }
                 }
               } else if (talkerSection) {
                 talkerSection.remove();
