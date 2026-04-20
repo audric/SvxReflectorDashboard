@@ -333,7 +333,7 @@ module Admin
 
       # Trunk mode: reflector or satellite — strip the opposite mode's keys
       trunk_mode = params.dig(:config, :trunk_mode).to_s
-      satellite_keys = %w[SATELLITE_OF SATELLITE_PORT SATELLITE_SECRET SATELLITE_ID]
+      satellite_keys = %w[SATELLITE_OF SATELLITE_PORT SATELLITE_SECRET SATELLITE_ID SATELLITE_FILTER]
       reflector_only_keys = %w[LOCAL_PREFIX CLUSTER_TGS TWIN_LISTEN_PORT]
 
       # Global settings

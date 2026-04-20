@@ -222,6 +222,8 @@ Satellites are lightweight relay instances that connect to a parent reflector in
 
 Config: `SATELLITE_OF`, `SATELLITE_PORT`, `SATELLITE_SECRET`, `SATELLITE_ID` in `[GLOBAL]` on the satellite side. `[SATELLITE]` section with `LISTEN_PORT` and `SECRET` on the parent side.
 
+Optional `SATELLITE_FILTER` in `[GLOBAL]` on the satellite side narrows the set of TGs carried in both directions. Same grammar as trunk filters (exact: `666`, prefix: `777*`, range: `100-199`, comma-separated). Outbound: the satellite suppresses non-matching local events before they leave. Inbound: the satellite advertises the filter to the parent via `MsgTrunkFilter` and the parent skips forwarding non-matching TGs back. Empty/absent ⇒ no filtering. Requires GeuReflector ≥ v1.3.4 on the parent for inbound suppression (older parents ignore the message and keep forwarding all TGs). The active filter surfaces as `satellites[<id>].filter` on the parent's `/status`.
+
 ### Mode detection
 
 The poller fetches the `/config` endpoint every 60 seconds and caches the result in Redis at `reflector:config`. The `mode` field (`"reflector"` or `"satellite"`) drives the mode-aware UI — satellite mode hides trunk management and shows the parent connection status instead.

@@ -89,6 +89,7 @@
   - help["TRUNK_BLACKLIST_TGS"] = "Comma-separated TG filter patterns (exact: 666, prefix: 777*, range: 100-199). These TGs are never carried on this link."
   - help["TRUNK_ALLOW_TGS"] = "If set, ONLY these TGs are exchanged. Same syntax as BLACKLIST_TGS."
   - help["TRUNK_TG_MAP"] = "Bidirectional TG remap: peer_tg:local_tg (comma-separated). Mapped TGs bypass prefix routing."
+  - help["SATELLITE_FILTER"] = "Bidirectional TG scope for this satellite link (same grammar as BLACKLIST_TGS/ALLOW_TGS — exact: 666, prefix: 777*, range: 100-199, comma-separated). Outbound: non-matching local events stay on the satellite. Inbound: the satellite advertises the filter to the parent (MsgTrunkFilter) so the parent skips forwarding non-matching TGs. Empty = no filtering. Requires GeuReflector ≥ v1.3.4 on the parent for inbound suppression."
   - help["REDIS_HOST"] = "Redis server hostname or IP address. Default: 127.0.0.1."
   - help["REDIS_PORT"] = "Redis TCP port. Default: 6379."
   - help["REDIS_PASSWORD"] = "AUTH password for the Redis connection."
@@ -447,6 +448,13 @@
                   %label.block.text-sm.text-gray-500.mb-1 SATELLITE_ID
                   %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][SATELLITE_ID]", value: @config.global['SATELLITE_ID']}
               .grid.grid-cols-1.gap-4.mb-4
+                .mb-1
+                  %label.block.text-sm.text-gray-500.mb-1
+                    SATELLITE_FILTER
+                    %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('SATELLITE_FILTER')", title: "Help"}
+                      %i.bi.bi-question-circle{style: "font-size:0.75rem"}
+                  %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][SATELLITE_FILTER]", value: @config.global['SATELLITE_FILTER'], placeholder: "24*,262*,2427-2438"}
+                  %small.text-gray-500.block.mt-1 Bidirectional TG scope. Leave empty to carry all TGs. Requires GeuReflector ≥ v1.3.4 on the parent for inbound suppression.
                 .mb-1
                   %label.block.text-sm.text-gray-500.mb-1
                     Parent status URL
