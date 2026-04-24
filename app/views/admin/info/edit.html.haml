@@ -1,0 +1,43 @@
+!!!
+%html{lang: "en"}
+  :javascript
+    (function(){var t=localStorage.getItem('theme')||'auto';var r=(t==='auto'?(window.matchMedia('(prefers-color-scheme:light)').matches?'light':'auto'):t);document.documentElement.setAttribute('data-theme',r);})();
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title= "SVXReflector #{@reflector_host} · Edit Info"
+    = csrf_meta_tags
+    = csp_meta_tag
+    %script{src: "/vendor/tailwind/tailwind.js"}
+    :javascript
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ghbg: '#0d1117',
+              ghcard: '#161b22',
+              ghborder: '#30363d',
+              ghborder2: '#21262d',
+              ghtext: '#c9d1d9',
+              ghmuted: '#8b949e',
+              ghdim: '#6e7681',
+            }
+          }
+        }
+      }
+    %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
+    :css
+      body { background: #0d1117; }
+  %body.text-ghtext
+    = render 'shared/navbar', active: 'info'
+    .max-w-3xl.mx-auto.px-4.py-8
+      %h1.text-2xl.font-semibold.mb-4
+        %i.bi.bi-pencil-square.mr-2
+        Edit /info page
+      - if flash[:notice]
+        .mb-4.px-3.py-2.rounded.bg-green-900.text-green-100= flash[:notice]
+      = form_with url: admin_info_path, method: :patch, local: true do |f|
+        %textarea#info-body.w-full.h-96.p-3.rounded.bg-ghcard.border.border-ghborder.text-ghtext{name: "body"}= @body
+        .mt-4.flex.gap-2
+          = f.submit "Save", class: "px-4 py-2 rounded bg-blue-700 hover:bg-blue-600 text-white"
+          = link_to "Cancel", info_path, class: "px-4 py-2 rounded bg-ghcard border border-ghborder text-ghtext"
