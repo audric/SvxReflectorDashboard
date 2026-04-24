@@ -45,6 +45,9 @@ Rails.application.routes.draw do
       post :revoke_cert, on: :collection
     end
     resources :external_reflectors
+    resource :info, only: %i[edit update], controller: "info" do
+      post :upload_image, on: :collection
+    end
     resources :bridges, controller: "bridge" do
       collection do
         get :xlx_hosts
