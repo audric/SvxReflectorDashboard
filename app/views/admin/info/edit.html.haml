@@ -26,8 +26,23 @@
         }
       }
     %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
+    %link{rel: "stylesheet", href: "/vendor/easymde/easymde.min.css"}
+    %script{src: "/vendor/easymde/easymde.min.js"}
     :css
       body { background: #0d1117; }
+      .EasyMDEContainer .CodeMirror { background: #0d1117; color: #c9d1d9; border-color: #30363d; min-height: 24rem; }
+      .EasyMDEContainer .CodeMirror-cursor { border-color: #c9d1d9; }
+      .editor-toolbar { background: #161b22; border-color: #30363d; }
+      .editor-toolbar button { color: #c9d1d9 !important; }
+      .editor-toolbar button:hover, .editor-toolbar button.active { background: #21262d !important; border-color: #30363d !important; }
+      .editor-toolbar i.separator { border-color: #30363d; }
+      .editor-preview, .editor-preview-side { background: #0d1117; color: #c9d1d9; border-color: #30363d; }
+      .editor-statusbar { color: #8b949e; }
+      .CodeMirror-selected { background: #264f78 !important; }
+      .cm-s-easymde .cm-header { color: #c9d1d9; }
+      .cm-s-easymde .cm-link, .cm-s-easymde .cm-url { color: #58a6ff; }
+      .cm-s-easymde .cm-strong { color: #e6edf3; }
+      .cm-s-easymde .cm-em { color: #c9d1d9; }
   %body.text-ghtext
     = render 'shared/navbar', active: 'info'
     .max-w-3xl.mx-auto.px-4.py-8
@@ -37,7 +52,34 @@
       - if flash[:notice]
         .mb-4.px-3.py-2.rounded.bg-green-900.text-green-100= flash[:notice]
       = form_with url: admin_info_path, method: :patch, local: true do |f|
-        %textarea#info-body.w-full.h-96.p-3.rounded.bg-ghcard.border.border-ghborder.text-ghtext{name: "body"}= @body
+        %textarea#info-body{name: "body"}= @body
         .mt-4.flex.gap-2
-          = f.submit "Save", class: "px-4 py-2 rounded bg-blue-700 hover:bg-blue-600 text-white"
+          = f.submit "Save", class: "px-4 py-2 rounded bg-blue-700 hover:bg-blue-600 text-white cursor-pointer"
           = link_to "Cancel", info_path, class: "px-4 py-2 rounded bg-ghcard border border-ghborder text-ghtext"
+    :javascript
+      (function(){
+        var uploadUrl = "#{upload_image_admin_info_path}";
+        var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        var csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+        var easyMDE = new EasyMDE({
+          element: document.getElementById('info-body'),
+          spellChecker: false,
+          autofocus: true,
+          status: ['lines', 'words'],
+          uploadImage: true,
+          imageUploadFunction: function(file, onSuccess, onError) {
+            var fd = new FormData();
+            fd.append('file', file);
+            fetch(uploadUrl, {
+              method: 'POST',
+              headers: { 'X-CSRF-Token': csrfToken, 'Accept': 'application/json' },
+              body: fd,
+              credentials: 'same-origin'
+            }).then(function(r){
+              if (!r.ok) { return r.json().then(function(j){ throw new Error(j.error || ('HTTP ' + r.status)); }); }
+              return r.json();
+            }).then(function(j){ onSuccess(j.url); })
+              .catch(function(e){ onError(e.message); });
+          }
+        });
+      })();
