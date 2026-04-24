@@ -13,7 +13,18 @@ module Admin
     end
 
     def upload_image
-      head :not_implemented
+      file = params[:file]
+      return render(json: { error: "no file" }, status: :unprocessable_entity) if file.blank?
+
+      blob = ActiveStorage::Blob.create_and_upload!(
+        io: file.to_io,
+        filename: file.original_filename,
+        content_type: file.content_type
+      )
+      render json: { url: url_for(blob) }
+    rescue => e
+      Rails.logger.error("Info image upload failed: #{e.class}: #{e.message}")
+      render json: { error: e.message }, status: :internal_server_error
     end
   end
 end
