@@ -134,6 +134,8 @@ GEM
     json (2.18.1)
     jwt (3.1.2)
       base64
+    kramdown (2.5.2)
+      rexml (>= 3.4.4)
     logger (1.7.0)
     loofah (2.25.0)
       crass (~> 1.0.2)
@@ -259,6 +261,7 @@ GEM
       connection_pool
     reline (0.6.3)
       io-console (~> 0.5)
+    rexml (3.4.4)
     securerandom (0.4.1)
     snaky_hash (2.0.3)
       hashie (>= 0.1.0, < 6)
@@ -318,6 +321,7 @@ DEPENDENCIES
   haml-rails
   importmap-rails
   jbuilder
+  kramdown
   mqtt
   omniauth-google-oauth2
   omniauth-rails_csrf_protection

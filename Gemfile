@@ -67,3 +67,6 @@ gem 'omniauth-google-oauth2'
 gem 'omniauth-rails_csrf_protection'
 gem 'rack-attack'
 gem 'solid_queue'
+
+# Markdown rendering for the /info page
+gem "kramdown"
