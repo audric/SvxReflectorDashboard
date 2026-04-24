@@ -26,33 +26,24 @@
         }
       }
     %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
-    %link{rel: "stylesheet", href: "/vendor/easymde/easymde.min.css"}
-    %script{src: "/vendor/easymde/easymde.min.js"}
+    %link{rel: "stylesheet", href: "/vendor/toastui-editor/toastui-editor.min.css"}
+    %link{rel: "stylesheet", href: "/vendor/toastui-editor/toastui-editor-dark.min.css"}
+    %script{src: "/vendor/toastui-editor/toastui-editor.min.js"}
     :css
       body { background: #0d1117; }
-      .EasyMDEContainer .CodeMirror { background: #0d1117; color: #c9d1d9; border-color: #30363d; min-height: 24rem; }
-      .EasyMDEContainer .CodeMirror-cursor { border-color: #c9d1d9; }
-      .editor-toolbar { background: #161b22; border-color: #30363d; }
-      .editor-toolbar button { color: #c9d1d9 !important; }
-      .editor-toolbar button:hover, .editor-toolbar button.active { background: #21262d !important; border-color: #30363d !important; }
-      .editor-toolbar i.separator { border-color: #30363d; }
-      .editor-preview, .editor-preview-side { background: #0d1117; color: #c9d1d9; border-color: #30363d; }
-      .editor-statusbar { color: #8b949e; }
-      .CodeMirror-selected { background: #264f78 !important; }
-      .cm-s-easymde .cm-header { color: #c9d1d9; }
-      .cm-s-easymde .cm-link, .cm-s-easymde .cm-url { color: #58a6ff; }
-      .cm-s-easymde .cm-strong { color: #e6edf3; }
-      .cm-s-easymde .cm-em { color: #c9d1d9; }
+      /* Keep the Toast UI container styled consistently with the rest of the app. */
+      .toastui-editor-defaultUI { border-color: #30363d !important; border-radius: .4rem; }
   %body.text-ghtext
     = render 'shared/navbar', active: 'info'
-    .max-w-3xl.mx-auto.px-4.py-8
+    .max-w-5xl.mx-auto.px-4.py-8
       %h1.text-2xl.font-semibold.mb-4
         %i.bi.bi-pencil-square.mr-2
         Edit /info page
       - if flash[:notice]
         .mb-4.px-3.py-2.rounded.bg-green-900.text-green-100= flash[:notice]
-      = form_with url: admin_info_path, method: :patch, local: true do |f|
-        %textarea#info-body{name: "body"}= @body
+      = form_with url: admin_info_path, method: :patch, local: true, html: { id: 'info-form' } do |f|
+        %textarea#info-body{name: "body", style: "display:none;"}= @body
+        #editor
         .mt-4.flex.gap-2
           = f.submit "Save", class: "px-4 py-2 rounded bg-blue-700 hover:bg-blue-600 text-white cursor-pointer"
           = link_to "Cancel", info_path, class: "px-4 py-2 rounded bg-ghcard border border-ghborder text-ghtext"
@@ -61,25 +52,47 @@
         var uploadUrl = "#{upload_image_admin_info_path}";
         var csrfMeta = document.querySelector('meta[name="csrf-token"]');
         var csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
-        var easyMDE = new EasyMDE({
-          element: document.getElementById('info-body'),
-          spellChecker: false,
-          autofocus: true,
-          status: ['lines', 'words'],
-          uploadImage: true,
-          imageUploadFunction: function(file, onSuccess, onError) {
-            var fd = new FormData();
-            fd.append('file', file);
-            fetch(uploadUrl, {
-              method: 'POST',
-              headers: { 'X-CSRF-Token': csrfToken, 'Accept': 'application/json' },
-              body: fd,
-              credentials: 'same-origin'
-            }).then(function(r){
-              if (!r.ok) { return r.json().then(function(j){ throw new Error(j.error || ('HTTP ' + r.status)); }); }
-              return r.json();
-            }).then(function(j){ onSuccess(j.url); })
-              .catch(function(e){ onError(e.message); });
+        var textarea = document.getElementById('info-body');
+        var form = document.getElementById('info-form');
+
+        var editor = new toastui.Editor({
+          el: document.getElementById('editor'),
+          height: '600px',
+          initialEditType: 'markdown',
+          previewStyle: 'vertical',
+          theme: 'dark',
+          usageStatistics: false,
+          initialValue: textarea.value,
+          toolbarItems: [
+            ['heading', 'bold', 'italic', 'strike'],
+            ['hr', 'quote'],
+            ['ul', 'ol', 'task'],
+            ['table', 'image', 'link'],
+            ['code', 'codeblock'],
+            ['scrollSync']
+          ],
+          hooks: {
+            addImageBlobHook: function(blob, callback) {
+              var fd = new FormData();
+              fd.append('file', blob);
+              fetch(uploadUrl, {
+                method: 'POST',
+                headers: { 'X-CSRF-Token': csrfToken, 'Accept': 'application/json' },
+                body: fd,
+                credentials: 'same-origin'
+              }).then(function(r){
+                if (!r.ok) { return r.json().then(function(j){ throw new Error(j.error || ('HTTP ' + r.status)); }); }
+                return r.json();
+              }).then(function(j){
+                callback(j.url, blob.name || 'image');
+              }).catch(function(e){
+                alert('Image upload failed: ' + e.message);
+              });
+            }
           }
+        });
+
+        form.addEventListener('submit', function(){
+          textarea.value = editor.getMarkdown();
         });
       })();
