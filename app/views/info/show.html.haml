@@ -46,6 +46,10 @@
       .info-content th, .info-content td { border: 1px solid #30363d; padding: .4rem .65rem; }
       .info-content th { background: #161b22; }
       .info-content hr { border: 0; border-top: 1px solid #30363d; margin: 1rem 0; }
+      .info-content ul.task-list { list-style: none; padding-left: 1rem; margin-left: 0; }
+      .info-content ul.task-list li.task-list-item { margin: .25rem 0; }
+      .info-content ul.task-list input.task-list-item-checkbox { margin-right: .5rem; vertical-align: middle; }
+      .info-content del { color: #8b949e; }
   %body.text-ghtext
     = render 'shared/navbar', active: 'info'
     .max-w-3xl.mx-auto.px-4.py-8

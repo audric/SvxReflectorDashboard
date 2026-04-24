@@ -70,3 +70,4 @@ gem 'solid_queue'
 
 # Markdown rendering for the /info page
 gem "kramdown"
+gem "kramdown-parser-gfm"
