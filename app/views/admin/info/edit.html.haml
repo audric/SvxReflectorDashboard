@@ -28,7 +28,7 @@
     %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
     %link{rel: "stylesheet", href: "/vendor/toastui-editor/toastui-editor.min.css"}
     %link{rel: "stylesheet", href: "/vendor/toastui-editor/toastui-editor-dark.min.css"}
-    %script{src: "/vendor/toastui-editor/toastui-editor.min.js"}
+    %script{src: "/vendor/toastui-editor/toastui-editor-all.min.js"}
     :css
       body { background: #0d1117; }
       /* Keep the Toast UI container styled consistently with the rest of the app. */
@@ -60,7 +60,6 @@
           height: '600px',
           initialEditType: 'markdown',
           previewStyle: 'vertical',
-          theme: 'dark',
           usageStatistics: false,
           initialValue: textarea.value,
           toolbarItems: [
@@ -95,4 +94,15 @@
         form.addEventListener('submit', function(){
           textarea.value = editor.getMarkdown();
         });
+
+        function applyEditorTheme() {
+          var theme = document.documentElement.getAttribute('data-theme') || 'auto';
+          var isDark = theme !== 'light';
+          var container = document.querySelector('.toastui-editor-defaultUI');
+          if (container) {
+            container.classList.toggle('toastui-editor-dark', isDark);
+          }
+        }
+        applyEditorTheme();
+        new MutationObserver(applyEditorTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
       })();
