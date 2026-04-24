@@ -1,0 +1,55 @@
+!!!
+%html{lang: "en"}
+  :javascript
+    (function(){var t=localStorage.getItem('theme')||'auto';var r=(t==='auto'?(window.matchMedia('(prefers-color-scheme:light)').matches?'light':'auto'):t);document.documentElement.setAttribute('data-theme',r);})();
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title= "SVXReflector #{@reflector_host} · Info"
+    = csrf_meta_tags
+    = csp_meta_tag
+    %script{src: "/vendor/tailwind/tailwind.js"}
+    :javascript
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ghbg: '#0d1117',
+              ghcard: '#161b22',
+              ghborder: '#30363d',
+              ghborder2: '#21262d',
+              ghtext: '#c9d1d9',
+              ghmuted: '#8b949e',
+              ghdim: '#6e7681',
+            }
+          }
+        }
+      }
+    %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
+    :css
+      body { background: #0d1117; }
+      .info-content h1 { font-size: 1.75rem; font-weight: 600; margin: 1.25rem 0 .75rem; color: #c9d1d9; }
+      .info-content h2 { font-size: 1.35rem; font-weight: 600; margin: 1.1rem 0 .6rem; color: #c9d1d9; }
+      .info-content h3 { font-size: 1.1rem; font-weight: 600; margin: 1rem 0 .5rem; color: #c9d1d9; }
+      .info-content p  { margin: .6rem 0; line-height: 1.6; }
+      .info-content ul, .info-content ol { margin: .6rem 0 .6rem 1.5rem; }
+      .info-content ul { list-style: disc; }
+      .info-content ol { list-style: decimal; }
+      .info-content li { margin: .2rem 0; }
+      .info-content a  { color: #58a6ff; text-decoration: underline; }
+      .info-content code { background: #161b22; padding: .1em .35em; border-radius: .25em; font-size: .9em; }
+      .info-content pre { background: #161b22; padding: .75rem 1rem; border-radius: .4rem; overflow-x: auto; margin: .75rem 0; }
+      .info-content pre code { background: transparent; padding: 0; }
+      .info-content blockquote { border-left: 3px solid #30363d; padding-left: .85rem; color: #8b949e; margin: .75rem 0; }
+      .info-content img { max-width: 100%; height: auto; border-radius: .4rem; margin: .75rem 0; }
+      .info-content table { border-collapse: collapse; margin: .75rem 0; }
+      .info-content th, .info-content td { border: 1px solid #30363d; padding: .4rem .65rem; }
+      .info-content th { background: #161b22; }
+      .info-content hr { border: 0; border-top: 1px solid #30363d; margin: 1rem 0; }
+  %body.text-ghtext
+    = render 'shared/navbar', active: 'info'
+    .max-w-3xl.mx-auto.px-4.py-8
+      - if @body.present?
+        .info-content= render_markdown(@body)
+      - else
+        %p.text-ghmuted No description yet.
