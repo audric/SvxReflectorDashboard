@@ -161,6 +161,11 @@ class ReflectorListener
     # Satellites: drop non-Hash entries
     data['satellites'].reject! { |_, v| !v.is_a?(Hash) }
 
+    # Satellite (singular) parent_nodes: array of Hashes only
+    if data['satellite'].is_a?(Hash) && data['satellite']['parent_nodes'].is_a?(Array)
+      data['satellite']['parent_nodes'].select! { |n| n.is_a?(Hash) && n['callsign'].is_a?(String) }
+    end
+
     # cluster_tgs: keep only integers/numeric strings
     data['cluster_tgs'] = data['cluster_tgs'].select { |v| v.is_a?(Integer) || v.to_s =~ /\A\d+\z/ }.map(&:to_i)
 
@@ -184,6 +189,11 @@ class ReflectorListener
 
       # Merge remote trunk nodes (tagged with _external)
       merge_trunk_status_nodes(curr)
+
+      # In satellite mode the parent's roster is shipped inline as
+      # satellite.parent_nodes. Merge it so cards/map/events see the
+      # actual network instead of an empty local snapshot.
+      merge_satellite_parent_nodes(curr, status_data)
 
       # Enrich web listener nodes with browser/location metadata stored by AudioChannel
       enrich_web_nodes(curr)
@@ -358,9 +368,64 @@ class ReflectorListener
     end
   end
 
+  # Merge satellite.parent_nodes into the local node hash. Parent activity
+  # belongs on the parent's reflector — we tag entries with _satellite_parent
+  # so log_events skips DB persistence (avoids spurious disconnect spam when
+  # the parent link drops) while ActionCable broadcasts still update the UI.
+  def self.merge_satellite_parent_nodes(curr, status_data)
+    sat = status_data['satellite']
+    return unless sat.is_a?(Hash)
+    parent_nodes = sat['parent_nodes']
+    return unless parent_nodes.is_a?(Array)
+
+    parent_id   = sat['parent_id'].to_s.presence || 'PARENT'
+    parent_host = sat['parent_host'].to_s
+
+    ext_label, ext_portal = lookup_parent_external_label(parent_host)
+    label  = ext_label || parent_id
+    portal = ext_portal || (parent_host.present? ? "https://#{parent_host}/" : nil)
+
+    parent_nodes.each do |node|
+      cs = node['callsign']
+      next if cs.blank? || curr.key?(cs) || node['hidden']
+      curr[cs] = node.merge(
+        '_satellite_parent' => true,
+        '_external'         => label,
+        '_external_portal'  => portal
+      ).compact
+    end
+  end
+
+  # Look up an ExternalReflector record whose URL matches the parent host
+  # so the dashboard reuses the user-configured label and portal URL
+  # instead of the raw parent_id. Memoized for 60 s to keep the per-tick
+  # DB hit cheap while still picking up edits without a restart.
+  def self.lookup_parent_external_label(parent_host)
+    return [nil, nil] if parent_host.blank?
+    @parent_label_cache ||= {}
+    cached = @parent_label_cache[parent_host]
+    return cached[:value] if cached && cached[:expires_at] > Time.now
+
+    value = ActiveRecord::Base.connection_pool.with_connection do
+      pattern = "%#{parent_host}%"
+      rec = ExternalReflector.where("status_url LIKE ? OR portal_url LIKE ?", pattern, pattern).first
+      rec ? [rec.name.presence, rec.portal_url.presence] : [nil, nil]
+    end
+    @parent_label_cache[parent_host] = { value: value, expires_at: Time.now + 60 }
+    value
+  rescue => e
+    STDERR.puts "[Poller] ExternalReflector lookup failed: #{e.message}"
+    [nil, nil]
+  end
+
   def self.log_events(changed, removed, prev)
     ActiveRecord::Base.connection_pool.with_connection do
       changed.each do |cs, node|
+        # Parent nodes belong on the parent's dashboard; skip DB persistence
+        # to avoid duplicates and spurious connect/disconnect cycles when the
+        # satellite-to-parent link flaps.
+        next if node['_satellite_parent']
+
         prev_node = prev[cs]
         attrs = { callsign: cs, tg: node['tg'].to_i,
                   node_class: node['nodeClass'], node_location: node['nodeLocation'] }
@@ -388,6 +453,7 @@ class ReflectorListener
 
       removed.each do |cs|
         prev_node = prev[cs] || {}
+        next if prev_node['_satellite_parent']
         NodeEvent.create!(
           callsign: cs, event_type: NodeEvent::DISCONNECTED,
           node_class: prev_node['nodeClass'], node_location: prev_node['nodeLocation']
