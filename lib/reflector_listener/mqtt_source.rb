@@ -89,6 +89,12 @@ class ReflectorListener
 
       when %r{\Atrunk/([^/]+)/(outbound|inbound)/down\z}
         handle_trunk_down($1, $2, data)
+
+      when %r{\Apeer/([^/]+)/talker/(\d+)/start\z}
+        handle_peer_talker_start($1, $2.to_i, data)
+
+      when %r{\Apeer/([^/]+)/talker/(\d+)/stop\z}
+        handle_peer_talker_stop($1, $2.to_i, data)
       end
     end
 
@@ -191,11 +197,47 @@ class ReflectorListener
       ReflectorListener.process_snapshot(snapshot) if snapshot
     end
 
+    # ── Peer talker events ───────────────────────────────────────────────
+    # Published by GeuReflector when a remote talker on a trunk/satellite/twin
+    # peer starts or stops. Mirrored into the matching trunk's active_talkers
+    # so the existing diff/broadcast pipeline fires `remote_talk_*` events
+    # without waiting for the next periodic /status snapshot.
+
+    def self.handle_peer_talker_start(peer_id, tg, data)
+      callsign = data['callsign']
+      return unless callsign && peer_id
+
+      @status_mutex.synchronize do
+        return unless @last_status
+        trunk = @last_status.dig('trunks', peer_id)
+        return unless trunk
+        trunk['active_talkers'] ||= {}
+        trunk['active_talkers'][tg.to_s] = callsign
+      end
+
+      snapshot = @status_mutex.synchronize { @last_status&.deep_dup }
+      ReflectorListener.process_snapshot(snapshot) if snapshot
+    end
+
+    def self.handle_peer_talker_stop(peer_id, tg, _data)
+      return unless peer_id
+
+      @status_mutex.synchronize do
+        return unless @last_status
+        trunk = @last_status.dig('trunks', peer_id)
+        return unless trunk
+        trunk['active_talkers']&.delete(tg.to_s)
+      end
+
+      snapshot = @status_mutex.synchronize { @last_status&.deep_dup }
+      ReflectorListener.process_snapshot(snapshot) if snapshot
+    end
+
     # ── Helpers ──────────────────────────────────────────────────────────
 
     def self.build_prefix(mqtt_conf)
       prefix = mqtt_conf['TOPIC_PREFIX'].to_s
-      name   = mqtt_conf['NAME'].to_s
+      name   = (mqtt_conf['MQTT_NAME'].presence || mqtt_conf['NAME']).to_s
       if name.present?
         "#{prefix}/#{name}"
       else

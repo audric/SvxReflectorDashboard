@@ -74,7 +74,7 @@
   - help["MQTT_USERNAME"] = "Username for MQTT broker authentication."
   - help["MQTT_PASSWORD"] = "Password for MQTT broker authentication."
   - help["MQTT_TOPIC_PREFIX"] = "Base topic path (e.g. svxreflector/myreflector). Must be set to a unique identifier for this reflector. All MQTT messages are published under this prefix."
-  - help["MQTT_STATUS_INTERVAL"] = "Periodic full status publish interval in milliseconds. The status topic receives the same JSON as the HTTP /status endpoint. Default: 1000."
+  - help["MQTT_STATUS_INTERVAL"] = "Periodic full status publish interval in milliseconds. The status topic receives the same JSON as the HTTP /status endpoint. Default: 30000."
   - help["MQTT_TLS_ENABLED"] = "Enable TLS encryption for the MQTT connection. Set to 1 to enable, 0 to disable. Default: 0."
   - help["MQTT_TLS_CA_CERT"] = "Path to the CA certificate file for verifying the broker's TLS certificate. Required when TLS is enabled."
   - help["MQTT_TLS_CLIENT_CERT"] = "Path to the client certificate file for mutual TLS authentication. Optional — only needed if the broker requires client certificates."
@@ -641,16 +641,16 @@
                 %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[mqtt][TOPIC_PREFIX]", value: @config.mqtt['TOPIC_PREFIX'], placeholder: "svxreflector/myreflector"}
               .mb-1
                 %label.block.text-sm.text-gray-500.mb-1
-                  NAME
+                  MQTT_NAME
                   %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('MQTT_NAME')", title: "Help"}
                     %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
-                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[mqtt][NAME]", value: @config.mqtt['NAME']}
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[mqtt][MQTT_NAME]", value: @config.mqtt['MQTT_NAME']}
               .mb-1
                 %label.block.text-sm.text-gray-500.mb-1
                   STATUS_INTERVAL (ms)
                   %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('MQTT_STATUS_INTERVAL')", title: "Help"}
                     %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
-                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "number", name: "config[mqtt][STATUS_INTERVAL]", value: @config.mqtt['STATUS_INTERVAL'], placeholder: "1000"}
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "number", name: "config[mqtt][STATUS_INTERVAL]", value: @config.mqtt['STATUS_INTERVAL'], placeholder: "30000"}
 
             %h6.text-sm.font-semibold.text-gray-400.mb-3 TLS
             .grid.grid-cols-1.md:grid-cols-2.gap-4

@@ -112,7 +112,10 @@ class ReflectorConfig
       when "REDIS"
         config.redis_section[key] = value
       when "MQTT"
-        config.mqtt[key] = value
+        # Legacy configs (pre-2026-04) stored the per-reflector path component as
+        # NAME, but the reflector reads MQTT_NAME and aborts twin startup without it.
+        normalized_key = (key == "NAME") ? "MQTT_NAME" : key
+        config.mqtt[normalized_key] = value
       end
     end
 
