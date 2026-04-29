@@ -146,12 +146,16 @@ class ReflectorListener
       @status_mutex.synchronize do
         return unless @last_status
         @last_status['nodes'] ||= {}
-        @last_status['nodes'][callsign] = {
+        # Merge rather than replace: a reconnect on a still-tracked node
+        # would otherwise wipe nodeClass/qth/sw/sysop until the next periodic
+        # status, leaving repeater cards looking empty between heartbeats.
+        existing = @last_status['nodes'][callsign] || {}
+        @last_status['nodes'][callsign] = existing.merge(
           'tg'        => data['tg'].to_i,
-          'isTalker'  => false,
+          'isTalker'  => existing.fetch('isTalker', false),
           'ip'        => data['ip'].to_s,
           'connected' => Time.now.to_i.to_s
-        }
+        )
       end
 
       snapshot = @status_mutex.synchronize { @last_status&.deep_dup }
