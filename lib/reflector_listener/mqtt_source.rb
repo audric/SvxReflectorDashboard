@@ -95,6 +95,12 @@ class ReflectorListener
 
       when %r{\Apeer/([^/]+)/talker/(\d+)/stop\z}
         handle_peer_talker_stop($1, $2.to_i, data)
+
+      when %r{\Apeer/([^/]+)/client/([^/]+)/status\z}
+        handle_peer_client_status($1, $2, data)
+
+      when %r{\Apeer/([^/]+)/client/([^/]+)/rx\z}
+        handle_peer_client_rx($1, $2, data)
       end
     end
 
@@ -214,23 +220,78 @@ class ReflectorListener
       @status_mutex.synchronize do
         return unless @last_status
         trunk = @last_status.dig('trunks', peer_id)
-        return unless trunk
-        trunk['active_talkers'] ||= {}
-        trunk['active_talkers'][tg.to_s] = callsign
+        if trunk
+          trunk['active_talkers'] ||= {}
+          trunk['active_talkers'][tg.to_s] = callsign
+        end
+        update_satellite_parent_node(peer_id, callsign) do |node|
+          node['isTalker'] = true
+          node['tg']       = tg
+        end
       end
 
       snapshot = @status_mutex.synchronize { @last_status&.deep_dup }
       ReflectorListener.process_snapshot(snapshot) if snapshot
     end
 
-    def self.handle_peer_talker_stop(peer_id, tg, _data)
+    def self.handle_peer_talker_stop(peer_id, tg, data = nil)
       return unless peer_id
 
       @status_mutex.synchronize do
         return unless @last_status
         trunk = @last_status.dig('trunks', peer_id)
-        return unless trunk
-        trunk['active_talkers']&.delete(tg.to_s)
+        trunk['active_talkers']&.delete(tg.to_s) if trunk
+
+        sat = @last_status['satellite']
+        if sat.is_a?(Hash) && sat['parent_id'].to_s == peer_id.to_s
+          callsign = data.is_a?(Hash) ? data['callsign'] : nil
+          Array(sat['parent_nodes']).each do |n|
+            next unless n.is_a?(Hash)
+            match = callsign ? n['callsign'] == callsign : (n['tg'].to_i == tg.to_i && n['isTalker'])
+            n['isTalker'] = false if match
+          end
+        end
+      end
+
+      snapshot = @status_mutex.synchronize { @last_status&.deep_dup }
+      ReflectorListener.process_snapshot(snapshot) if snapshot
+    end
+
+    # ── Peer client events ───────────────────────────────────────────────
+    # In satellite mode the parent's per-client snapshots and RX state arrive
+    # under peer/<parent>/client/<cs>/{status,rx}. Merge them into the matching
+    # satellite.parent_nodes entry so PTT/siglev update without waiting for the
+    # next periodic full status retransmit.
+
+    def self.handle_peer_client_status(peer_id, callsign, data)
+      return if peer_id.to_s.empty? || callsign.to_s.empty?
+      return unless data.is_a?(Hash)
+
+      @status_mutex.synchronize do
+        return unless @last_status
+        update_satellite_parent_node(peer_id, callsign) do |node|
+          node.merge!(data)
+          node['callsign'] = callsign
+        end
+      end
+
+      snapshot = @status_mutex.synchronize { @last_status&.deep_dup }
+      ReflectorListener.process_snapshot(snapshot) if snapshot
+    end
+
+    def self.handle_peer_client_rx(peer_id, callsign, data)
+      return if peer_id.to_s.empty? || callsign.to_s.empty?
+      return unless data.is_a?(Hash)
+
+      @status_mutex.synchronize do
+        return unless @last_status
+        update_satellite_parent_node(peer_id, callsign) do |node|
+          qth_list = (node['qth'] ||= [{}])
+          data.each do |port, rx_data|
+            target = qth_list.find { |q| q.is_a?(Hash) && (q['rx'] || {}).key?(port) } || qth_list[0]
+            target['rx'] = (target['rx'] || {}).merge(port => rx_data)
+          end
+        end
       end
 
       snapshot = @status_mutex.synchronize { @last_status&.deep_dup }
@@ -238,6 +299,24 @@ class ReflectorListener
     end
 
     # ── Helpers ──────────────────────────────────────────────────────────
+
+    # Locate (or insert) the parent_nodes entry for `callsign` when `peer_id`
+    # matches the satellite parent, then yield it for in-place mutation.
+    # Caller must hold @status_mutex.
+    def self.update_satellite_parent_node(peer_id, callsign)
+      return false unless @last_status
+      sat = @last_status['satellite']
+      return false unless sat.is_a?(Hash) && sat['parent_id'].to_s == peer_id.to_s
+
+      sat['parent_nodes'] ||= []
+      node = sat['parent_nodes'].find { |n| n.is_a?(Hash) && n['callsign'] == callsign }
+      unless node
+        node = { 'callsign' => callsign }
+        sat['parent_nodes'] << node
+      end
+      yield node
+      true
+    end
 
     def self.build_prefix(mqtt_conf)
       prefix = mqtt_conf['TOPIC_PREFIX'].to_s

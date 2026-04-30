@@ -179,7 +179,14 @@ class ReflectorListener
     status_data = sanitize_status(status_data)
 
     @pipeline_mutex.synchronize do
-      curr             = status_data.fetch('nodes', {})
+      # Dup so merge_trunk_status_nodes / merge_satellite_parent_nodes don't
+      # write back into status_data['nodes'] (which on a status retransmit is
+      # the same object as @last_status['nodes']). Without this, parent_nodes
+      # entries frozen at the retransmit moment leak into @last_status['nodes']
+      # and subsequent calls skip merge_satellite_parent_nodes entirely
+      # (`next if curr.key?(cs)`), so per-event rx/talker mutations never
+      # reach the broadcast.
+      curr             = status_data.fetch('nodes', {}).dup
       curr_trunks      = status_data.fetch('trunks', {})
       curr_satellites  = status_data.fetch('satellites', {})
       curr_cluster_tgs = status_data.fetch('cluster_tgs', [])
@@ -391,6 +398,7 @@ class ReflectorListener
       curr[cs] = node.merge(
         '_satellite_parent' => true,
         '_external'         => label,
+        '_external_type'    => 'trunk',
         '_external_portal'  => portal
       ).compact
     end
