@@ -449,7 +449,10 @@ class ReflectorListener
           type = node['isTalker'] ? NodeEvent::TALKING_START : NodeEvent::TALKING_STOP
           rx_meta = node['dstar_rx'] || node['dmr_rx'] || node['ysf_rx'] || node['zello_rx']
           meta = rx_meta ? rx_meta.to_json : nil
-          NodeEvent.create!(attrs.merge(event_type: type, metadata: meta))
+          # MqttSource stashes _last_duration_ms on the node when a talker_stop
+          # MQTT event carries the field. Plain HTTP polling never sets it.
+          duration_ms = (type == NodeEvent::TALKING_STOP) ? node['_last_duration_ms'] : nil
+          NodeEvent.create!(attrs.merge(event_type: type, metadata: meta, duration_ms: duration_ms))
         end
 
         # TG changed (not already captured by talker transition)
@@ -511,10 +514,14 @@ class ReflectorListener
         end
 
         # Stopped remote talkers
+        # MqttSource stashes _last_duration_ms_by_tg on the curr_trunk just
+        # before deleting the active_talkers entry; HTTP polling won't set it.
+        duration_hints = curr_trunk['_last_duration_ms_by_tg'] || {}
         prev_talkers.each do |tg, callsign|
           unless curr_talkers.key?(tg)
             NodeEvent.create!(callsign: callsign, event_type: NodeEvent::REMOTE_TALK_STOP,
-                              tg: tg.to_i, source: name)
+                              tg: tg.to_i, source: name,
+                              duration_ms: duration_hints[tg.to_s])
           end
         end
       end

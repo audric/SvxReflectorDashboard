@@ -84,6 +84,12 @@ class ReflectorListener
       when %r{\Aclient/([^/]+)/disconnected\z}
         handle_client_disconnected($1)
 
+      when %r{\Aclient/([^/]+)/rx\z}
+        handle_client_rx($1, data)
+
+      when %r{\Aclient/([^/]+)/status\z}
+        handle_client_status($1, data)
+
       when %r{\Atrunk/([^/]+)/(outbound|inbound)/up\z}
         handle_trunk_up($1, $2, data)
 
@@ -95,6 +101,12 @@ class ReflectorListener
 
       when %r{\Apeer/([^/]+)/talker/(\d+)/stop\z}
         handle_peer_talker_stop($1, $2.to_i, data)
+
+      when %r{\Apeer/([^/]+)/client/([^/]+)/connected\z}
+        handle_peer_client_connected($1, $2, data)
+
+      when %r{\Apeer/([^/]+)/client/([^/]+)/disconnected\z}
+        handle_peer_client_disconnected($1, $2)
 
       when %r{\Apeer/([^/]+)/client/([^/]+)/status\z}
         handle_peer_client_status($1, $2, data)
@@ -134,16 +146,25 @@ class ReflectorListener
       callsign = data['callsign']
       return unless callsign
 
+      duration_ms = data['duration_ms']
+
       @status_mutex.synchronize do
         return unless @last_status
         node = @last_status.dig('nodes', callsign)
         if node
+          # Stash duration so the snapshot diff in log_node_events can attach
+          # it to the TALKING_STOP NodeEvent. Cleared after process_snapshot.
+          node['_last_duration_ms'] = duration_ms if duration_ms
           node['isTalker'] = false
         end
       end
 
       snapshot = @status_mutex.synchronize { @last_status&.deep_dup }
       ReflectorListener.process_snapshot(snapshot) if snapshot
+
+      @status_mutex.synchronize do
+        @last_status&.dig('nodes', callsign)&.delete('_last_duration_ms')
+      end
     end
 
     # ── Client events ────────────────────────────────────────────────────
@@ -172,6 +193,48 @@ class ReflectorListener
       @status_mutex.synchronize do
         return unless @last_status
         @last_status['nodes']&.delete(callsign)
+      end
+
+      snapshot = @status_mutex.synchronize { @last_status&.deep_dup }
+      ReflectorListener.process_snapshot(snapshot) if snapshot
+    end
+
+    # Per-client retained rx blob (siglev/sql per receiver, debounced 500ms).
+    # Skip if the node isn't in the current roster — retained `rx` from
+    # previously-departed clients survives in the broker (housekeeping is
+    # deferred upstream).
+    def self.handle_client_rx(callsign, data)
+      return if callsign.to_s.empty?
+      return unless data.is_a?(Hash) && !data.empty?
+
+      @status_mutex.synchronize do
+        return unless @last_status
+        node = @last_status.dig('nodes', callsign)
+        return unless node
+        qth_list = (node['qth'] ||= [{}])
+        data.each do |port, rx_data|
+          target = qth_list.find { |q| q.is_a?(Hash) && (q['rx'] || {}).key?(port) } || qth_list[0]
+          target['rx'] = (target['rx'] || {}).merge(port => rx_data)
+        end
+      end
+
+      snapshot = @status_mutex.synchronize { @last_status&.deep_dup }
+      ReflectorListener.process_snapshot(snapshot) if snapshot
+    end
+
+    # Per-client retained status blob (rich node info: QTH, monitored TGs,
+    # rx config, etc.). Same rationale as handle_client_rx for skipping
+    # unknown callsigns.
+    def self.handle_client_status(callsign, data)
+      return if callsign.to_s.empty?
+      return unless data.is_a?(Hash) && !data.empty?
+
+      @status_mutex.synchronize do
+        return unless @last_status
+        node = @last_status.dig('nodes', callsign)
+        return unless node
+        node.merge!(data)
+        node['callsign'] = callsign
       end
 
       snapshot = @status_mutex.synchronize { @last_status&.deep_dup }
@@ -237,10 +300,20 @@ class ReflectorListener
     def self.handle_peer_talker_stop(peer_id, tg, data = nil)
       return unless peer_id
 
+      duration_ms = data.is_a?(Hash) ? data['duration_ms'] : nil
+
       @status_mutex.synchronize do
         return unless @last_status
         trunk = @last_status.dig('trunks', peer_id)
-        trunk['active_talkers']&.delete(tg.to_s) if trunk
+        if trunk
+          if duration_ms
+            # Stash duration keyed by tg so the trunk diff in log_trunk_events
+            # can attach it to the matching REMOTE_TALK_STOP NodeEvent.
+            trunk['_last_duration_ms_by_tg'] ||= {}
+            trunk['_last_duration_ms_by_tg'][tg.to_s] = duration_ms
+          end
+          trunk['active_talkers']&.delete(tg.to_s)
+        end
 
         sat = @last_status['satellite']
         if sat.is_a?(Hash) && sat['parent_id'].to_s == peer_id.to_s
@@ -255,6 +328,10 @@ class ReflectorListener
 
       snapshot = @status_mutex.synchronize { @last_status&.deep_dup }
       ReflectorListener.process_snapshot(snapshot) if snapshot
+
+      @status_mutex.synchronize do
+        @last_status&.dig('trunks', peer_id, '_last_duration_ms_by_tg')&.delete(tg.to_s)
+      end
     end
 
     # ── Peer client events ───────────────────────────────────────────────
@@ -262,6 +339,38 @@ class ReflectorListener
     # under peer/<parent>/client/<cs>/{status,rx}. Merge them into the matching
     # satellite.parent_nodes entry so PTT/siglev update without waiting for the
     # next periodic full status retransmit.
+
+    def self.handle_peer_client_connected(peer_id, callsign, data)
+      return if peer_id.to_s.empty? || callsign.to_s.empty?
+
+      @status_mutex.synchronize do
+        return unless @last_status
+        update_satellite_parent_node(peer_id, callsign) do |node|
+          node['tg'] = data['tg'].to_i if data.is_a?(Hash) && data.key?('tg')
+          node['ip'] = data['ip'].to_s if data.is_a?(Hash) && data['ip']
+          node['connected'] = Time.now.to_i.to_s
+          node.delete('disconnected_at')
+        end
+      end
+
+      snapshot = @status_mutex.synchronize { @last_status&.deep_dup }
+      ReflectorListener.process_snapshot(snapshot) if snapshot
+    end
+
+    def self.handle_peer_client_disconnected(peer_id, callsign)
+      return if peer_id.to_s.empty? || callsign.to_s.empty?
+
+      @status_mutex.synchronize do
+        return unless @last_status
+        sat = @last_status['satellite']
+        return unless sat.is_a?(Hash) && sat['parent_id'].to_s == peer_id.to_s
+        parent_nodes = sat['parent_nodes']
+        parent_nodes.reject! { |n| n.is_a?(Hash) && n['callsign'] == callsign } if parent_nodes.is_a?(Array)
+      end
+
+      snapshot = @status_mutex.synchronize { @last_status&.deep_dup }
+      ReflectorListener.process_snapshot(snapshot) if snapshot
+    end
 
     def self.handle_peer_client_status(peer_id, callsign, data)
       return if peer_id.to_s.empty? || callsign.to_s.empty?
