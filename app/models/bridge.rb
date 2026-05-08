@@ -25,6 +25,8 @@ class Bridge < ApplicationRecord
   with_options if: :echolink? do
     validates :echolink_callsign, presence: true
     validates :echolink_password, presence: true
+    # EchoLink directory server caps LOCATION at 27 chars; svxlink emits a warning past that.
+    validates :echolink_location, length: { maximum: 27 }, allow_blank: true
     validate :only_one_echolink_bridge
   end
 
@@ -539,19 +541,14 @@ class Bridge < ApplicationRecord
     lines << "DEFAULT_LANG=en_US"
     lines << ""
 
-    # Null audio devices (no physical radio)
+    # No physical radio: Rx1/Tx1 exist only to satisfy SimplexLogic's RX=/TX=
+    # requirement. EchoLink <-> Reflector audio flows through [Link1].
     lines << "[Rx1]"
-    lines << "TYPE=Net"
-    lines << "HOST=localhost"
-    lines << "TCP_PORT=5210"
-    lines << "CODEC=OPUS"
+    lines << "TYPE=Dummy"
     lines << ""
 
     lines << "[Tx1]"
-    lines << "TYPE=Net"
-    lines << "HOST=localhost"
-    lines << "TCP_PORT=5220"
-    lines << "CODEC=OPUS"
+    lines << "TYPE=Dummy"
     lines << ""
 
     # ReflectorLogic connects to our local reflector
