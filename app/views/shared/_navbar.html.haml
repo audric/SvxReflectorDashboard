@@ -579,11 +579,81 @@
     var playing = false;
     var currentTG = 0;
     var decoder = null;
-    var pcmBuffer = [];
-    var bufferMaxSamples = 48000 * 2;
-    var scriptNode = null;
+    var playerNode = null;
     var sampleRate = 48000;
     var timestamp = 0;
+
+    // AudioWorklet processors run on the dedicated audio thread so DOM-heavy
+    // main-thread work doesn't starve the audio callback.
+    // pcm-player drains queued Float32 chunks into the output stream;
+    // mic-capture batches input into 960-sample (20ms) frames for the Opus encoder.
+    var WORKLET_CODE = [
+      "class PcmPlayer extends AudioWorkletProcessor {",
+      "  constructor() {",
+      "    super();",
+      "    this.queue = [];",
+      "    this.queued = 0;",
+      "    this.maxQueued = 96000;",
+      "    this.lastActive = false;",
+      "    this.port.onmessage = (e) => {",
+      "      if (e.data && e.data.clear) { this.queue.length = 0; this.queued = 0; return; }",
+      "      const s = e.data;",
+      "      if (this.queued + s.length > this.maxQueued) return;",
+      "      this.queue.push({ s: s, o: 0 });",
+      "      this.queued += s.length;",
+      "    };",
+      "  }",
+      "  process(_inputs, outputs) {",
+      "    const out = outputs[0][0];",
+      "    let i = 0;",
+      "    while (i < out.length) {",
+      "      if (this.queue.length === 0) {",
+      "        for (let j = i; j < out.length; j++) out[j] = 0;",
+      "        if (this.lastActive) { this.port.postMessage({ active: false }); this.lastActive = false; }",
+      "        return true;",
+      "      }",
+      "      const head = this.queue[0];",
+      "      const rem = head.s.length - head.o;",
+      "      const take = Math.min(rem, out.length - i);",
+      "      out.set(head.s.subarray(head.o, head.o + take), i);",
+      "      head.o += take;",
+      "      if (head.o >= head.s.length) this.queue.shift();",
+      "      i += take;",
+      "      this.queued -= take;",
+      "    }",
+      "    if (!this.lastActive) { this.port.postMessage({ active: true }); this.lastActive = true; }",
+      "    return true;",
+      "  }",
+      "}",
+      "registerProcessor('pcm-player', PcmPlayer);",
+      "class MicCapture extends AudioWorkletProcessor {",
+      "  constructor() {",
+      "    super();",
+      "    this.frame = 960;",
+      "    this.buf = new Float32Array(this.frame);",
+      "    this.fill = 0;",
+      "  }",
+      "  process(inputs) {",
+      "    const ch = inputs[0][0];",
+      "    if (!ch || !ch.length) return true;",
+      "    let i = 0;",
+      "    while (i < ch.length) {",
+      "      const space = this.frame - this.fill;",
+      "      const take = Math.min(space, ch.length - i);",
+      "      this.buf.set(ch.subarray(i, i + take), this.fill);",
+      "      this.fill += take;",
+      "      i += take;",
+      "      if (this.fill === this.frame) {",
+      "        this.port.postMessage(this.buf.slice());",
+      "        this.fill = 0;",
+      "      }",
+      "    }",
+      "    return true;",
+      "  }",
+      "}",
+      "registerProcessor('mic-capture', MicCapture);"
+    ].join('\n');
+    var WORKLET_URL = URL.createObjectURL(new Blob([WORKLET_CODE], { type: 'application/javascript' }));
 
     // DOM refs (sidebar)
     var tgSelect = document.getElementById('audio-tg-select');
@@ -871,9 +941,7 @@
           chunk.set(cwSamples.subarray(offset, end));
 
           // Feed into local playback so the user hears the CW
-          for (var si = 0; si < end - offset; si++) {
-            if (pcmBuffer.length < bufferMaxSamples) pcmBuffer.push(chunk[si]);
-          }
+          if (playerNode) playerNode.port.postMessage(chunk.slice(0, end - offset));
 
           var ad = new AudioData({
             format: 'f32',
@@ -946,7 +1014,7 @@
           bitrate: 24000
         });
 
-        // Use MediaStreamTrackProcessor (Chromium) or ScriptProcessorNode fallback (Firefox)
+        // Prefer MediaStreamTrackProcessor (Chromium) — Firefox uses an AudioWorklet fallback below.
         var track = stream.getAudioTracks()[0];
         if (typeof MediaStreamTrackProcessor !== 'undefined') {
           var trackProcessor = new MediaStreamTrackProcessor({ track: track });
@@ -962,35 +1030,37 @@
             }).catch(function() {});
           })();
         } else {
-          // Fallback: ScriptProcessorNode captures PCM, wraps in AudioData for the encoder
+          // AudioWorklet captures PCM into 960-sample frames and posts them
+          // back; main thread wraps each frame in AudioData for the encoder.
           var micCtx = new AudioContext({ sampleRate: 48000 });
           var micSource = micCtx.createMediaStreamSource(stream);
-          var micProcessor = micCtx.createScriptProcessor(4096, 1, 0);
-          micSource.connect(micProcessor);
-          micProcessor.connect(micCtx.destination);
-          micProcessor.onaudioprocess = function(ev) {
-            if (!pttActive || !txEncoder || txEncoder.state === 'closed') return;
-            var input = ev.inputBuffer.getChannelData(0);
-            var copy = new Float32Array(input.length);
-            copy.set(input);
-            var ad = new AudioData({
-              format: 'f32',
-              sampleRate: 48000,
-              numberOfFrames: copy.length,
-              numberOfChannels: 1,
-              timestamp: txTimestamp,
-              data: copy
-            });
-            txEncoder.encode(ad);
-            ad.close();
-            txTimestamp += Math.round(copy.length / 48000 * 1000000);
-          };
-          // Store refs for cleanup
-          micReader = { cancel: function() {
-            micProcessor.disconnect();
-            micSource.disconnect();
-            micCtx.close();
-          }};
+          micCtx.audioWorklet.addModule(WORKLET_URL).then(function() {
+            var micNode = new AudioWorkletNode(micCtx, 'mic-capture');
+            micSource.connect(micNode);
+            micNode.port.onmessage = function(ev) {
+              if (!pttActive || !txEncoder || txEncoder.state === 'closed') return;
+              var copy = ev.data;
+              var ad = new AudioData({
+                format: 'f32',
+                sampleRate: 48000,
+                numberOfFrames: copy.length,
+                numberOfChannels: 1,
+                timestamp: txTimestamp,
+                data: copy
+              });
+              txEncoder.encode(ad);
+              ad.close();
+              txTimestamp += Math.round(copy.length / 48000 * 1000000);
+            };
+            micReader = { cancel: function() {
+              micNode.disconnect();
+              micSource.disconnect();
+              micCtx.close();
+            }};
+          }).catch(function(e) {
+            console.error('Mic AudioWorklet error:', e);
+            pttStop();
+          });
         }
       }).catch(function(e) {
         console.error('Mic access error:', e);
@@ -1151,7 +1221,7 @@
       [sMeter, sMeterMobile, spectrumCanvas, spectrumMobile].forEach(function(el) { if (el) el.classList.add('hidden'); });
     }
 
-    function startAudio(tgOverride) {
+    async function startAudio(tgOverride) {
       var tg = tgOverride || parseInt(tgSelect ? tgSelect.value : (tgSelectMobile ? tgSelectMobile.value : 0));
       if (!tg || tg <= 0) return;
       currentTG = tg;
@@ -1165,25 +1235,17 @@
       gainNode.gain.value = vol / 100;
       gainNode.connect(audioCtx.destination);
 
-      pcmBuffer = [];
-      scriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
-      scriptNode.onaudioprocess = function(e) {
-        var output = e.outputBuffer.getChannelData(0);
-        for (var i = 0; i < output.length; i++) {
-          if (pcmBuffer.length > 0) {
-            output[i] = pcmBuffer.shift();
-          } else {
-            output[i] = 0;
-          }
-        }
-        showAudioDot(pcmBuffer.length > 0);
+      await audioCtx.audioWorklet.addModule(WORKLET_URL);
+      playerNode = new AudioWorkletNode(audioCtx, 'pcm-player');
+      playerNode.port.onmessage = function(e) {
+        if (e.data && typeof e.data.active === 'boolean') showAudioDot(e.data.active);
       };
-      scriptNode.connect(gainNode);
+      playerNode.connect(gainNode);
 
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
       analyser.smoothingTimeConstant = 0.4;
-      scriptNode.connect(analyser);
+      playerNode.connect(analyser);
       startMeter(analyser);
 
       timestamp = 0;
@@ -1192,11 +1254,7 @@
           output: function(audioData) {
             var samples = new Float32Array(audioData.numberOfFrames);
             audioData.copyTo(samples, { planeIndex: 0 });
-            for (var i = 0; i < samples.length; i++) {
-              if (pcmBuffer.length < bufferMaxSamples) {
-                pcmBuffer.push(samples[i]);
-              }
-            }
+            if (playerNode) playerNode.port.postMessage(samples);
             audioData.close();
           },
           error: function(e) { console.error('AudioDecoder error:', e); }
@@ -1266,10 +1324,9 @@
       subscribedIdentifier = null;
       if (audioWs) { audioWs.onclose = null; audioWs.close(); audioWs = null; }
       if (decoder) { try { decoder.close(); } catch(e) {} decoder = null; }
-      if (scriptNode) { scriptNode.disconnect(); scriptNode = null; }
+      if (playerNode) { playerNode.disconnect(); playerNode = null; }
       if (gainNode) { gainNode.disconnect(); gainNode = null; }
       if (audioCtx) { audioCtx.close(); audioCtx = null; }
-      pcmBuffer = [];
     }
 
     // Expose stop so next script execution can tear down cleanly
@@ -1332,7 +1389,7 @@
         subscribedIdentifier = buildIdentifier();
         audioWs.send(JSON.stringify({ command: 'subscribe', identifier: subscribedIdentifier }));
       }
-      pcmBuffer = [];
+      if (playerNode) playerNode.port.postMessage({ clear: true });
       saveState();
     }
     if (tgSelect) tgSelect.addEventListener('change', function() { switchTg(tgSelect); });
