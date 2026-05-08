@@ -102,6 +102,8 @@ The `node_events` table records 12 event types:
 
 Trunk and satellite events use the `source` column to identify the originating trunk peer.
 
+`talking_stop` and `remote_talk_stop` rows persist a `duration_ms` integer when the event arrived via MQTT (sourced directly from the reflector with sub-second precision). Rows produced by the HTTP polling source leave the column null, and the dashboard derives a coarser duration from the `created_at` delta against the matching `talking_start` as a fallback for legacy rows.
+
 ### Audio path — analog radio (core)
 
 ```

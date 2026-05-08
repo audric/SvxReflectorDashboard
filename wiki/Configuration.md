@@ -113,7 +113,7 @@ USERNAME and PASSWORD can be left empty when using the bundled broker (anonymous
 | USERNAME | Yes | — | Broker auth username (leave empty for anonymous) |
 | PASSWORD | Yes | — | Broker auth password |
 | TOPIC_PREFIX | Yes | — | Base topic path (e.g. `svxreflector/myreflector`) |
-| STATUS_INTERVAL | No | `1000` | Full status publish interval in milliseconds |
+| STATUS_INTERVAL | No | `30000` | Full status publish interval in milliseconds |
 | TLS_ENABLED | No | `0` | Enable TLS (`0` or `1`) |
 | TLS_CA_CERT | If TLS | — | Path to CA certificate file |
 | TLS_CLIENT_CERT | No | — | Client certificate for mutual TLS |
@@ -125,17 +125,30 @@ All topics are published under `{TOPIC_PREFIX}/`:
 
 | Topic | Payload | Retain |
 |---|---|---|
-| `talker/{tg}/start` | `{"callsign": "...", "source": "local"\|"trunk"}` | No |
-| `talker/{tg}/stop` | `{"callsign": "...", "source": "local"\|"trunk"}` | No |
+| `talker/{tg}/start` | `{"callsign": "...", "source": "local", "ts": <epoch_ms>}` | No |
+| `talker/{tg}/stop` | `{"callsign": "...", "source": "local", "ts": <epoch_ms>, "duration_ms": <int>}` ¹ | No |
 | `client/{callsign}/connected` | `{"tg": 1234, "ip": "..."}` | No |
 | `client/{callsign}/disconnected` | `{}` | No |
-| `trunk/{section}/outbound/up` | — | No |
-| `trunk/{section}/outbound/down` | — | No |
-| `trunk/{section}/inbound/up` | — | No |
-| `trunk/{section}/inbound/down` | — | No |
+| `client/{callsign}/rx` | Per-port rx blob (`siglev`, `sql_open`, `active`) ² | Yes |
+| `client/{callsign}/status` | Rich client status (QTH, monitored TGs, sw, etc.) | Yes |
+| `trunk/{section}/(outbound\|inbound)/(up\|down)` | `{"host": "...", "port": ...}` on `up`, `{}` on `down` | No |
+| `peer/{peer_id}/talker/{tg}/start` | `{"callsign": "...", "ts": <epoch_ms>}` | No |
+| `peer/{peer_id}/talker/{tg}/stop` | `{"callsign": "...", "ts": <epoch_ms>, "duration_ms": <int>}` ¹ | No |
+| `peer/{peer_id}/client/{callsign}/connected` | `{"tg": 1234, "ip": "..."}` ³ | No |
+| `peer/{peer_id}/client/{callsign}/disconnected` | `{}` ³ | No |
+| `peer/{peer_id}/client/{callsign}/rx` | Per-port rx blob ² ³ | Yes |
+| `peer/{peer_id}/client/{callsign}/status` | Rich client status ³ | Yes |
+| `nodes/local` | Full local nodes object (same shape as `/status` `nodes`) | Yes |
+| `nodes/{peer_id}` | Full peer nodes object | Yes |
 | `status` | Full `/status` JSON | Yes |
 
-All event topics use QoS 0. The `status` topic is retained so late-joining subscribers get the last known state.
+¹ `duration_ms` is omitted on `stop` if the publisher didn't observe the matching `start` (e.g. reflector restarted mid-talker) or if the resulting duration would be negative (NTP backstep).
+² `rx` topics are debounced at ~500 ms per callsign — adequate for human dashboards, not lossless. Local `client/.../rx` is cleared with a zero-length retained publish on disconnect; peer-client retained `rx`/`status` currently survive disconnect (housekeeping deferred upstream — correlate against `nodes/{peer_id}` to filter ghosts).
+³ Peer-client topics fire only for satellite and twin links. Trunk peers exchange `MsgPeerNodeList` snapshots and talker events only.
+
+`talker/{tg}/...` is local-only. Talkers arriving over a satellite or twin peer appear under `peer/{peer_id}/talker/{tg}/...`. Subscribe to both subtrees to receive every talker on the mesh.
+
+All event topics use QoS 0. Retained topics let late-joining subscribers bootstrap state immediately.
 
 ### Using an external broker
 
