@@ -84,9 +84,6 @@
                   %i.bi{class: "#{type_style[1]} mr-1"}
                   = ev.event_type.tr('_', ' ')
                 %strong.font-mono.text-gray-100.shrink-0{style: "font-size:.82rem"}= ev.callsign
-                - if ev.event_type == 'talking_stop' && @durations[ev.id]
-                  - dur = @durations[ev.id]
-                  %span.text-gray-500.text-xs.font-mono= dur >= 60 ? "#{dur / 60}m#{dur % 60}s" : "#{dur}s"
                 - if ev.tg.to_i != 0
                   %span.text-gray-500.text-xs TG
                   %span.text-yellow-500.text-xs.font-semibold= ev.tg
@@ -121,6 +118,9 @@
                   %span.text-gray-500.text-xs.ml-auto.shrink-0
                     %i.bi.bi-geo-alt.mr-1
                     = ev.node_location
+                - if ev.event_type == 'talking_stop' && @durations[ev.id]
+                  - dur = @durations[ev.id]
+                  %span.text-gray-500.text-xs.font-mono.shrink-0{class: (ev.node_location.present? ? nil : 'ml-auto')}= dur >= 60 ? "#{dur / 60}m#{dur % 60}s" : "#{dur}s"
         - else
           .text-center.text-gray-500.py-8.text-sm
             %i.bi.bi-hourglass-split.block.text-xl.mb-2
@@ -130,6 +130,7 @@
       (function() {
         'use strict';
         var prevNodes = {};
+        var talkStartAt = {};
         var listEl = document.getElementById('events-list');
         var emptyEl = document.querySelector('#events-container .text-center');
 
@@ -224,7 +225,11 @@
           return h;
         }
 
-        function addEvent(type, cs, node) {
+        function fmtDur(sec) {
+          return sec >= 60 ? Math.floor(sec / 60) + 'm' + (sec % 60) + 's' : sec + 's';
+        }
+
+        function addEvent(type, cs, node, durationSec) {
           var st = typeStyles[type] || ['bg-gray-600 text-white', 'bi-dot'];
           var tg = node ? (node.tg || 0) : 0;
           var loc = node ? (node.nodeLocation || '') : '';
@@ -235,6 +240,9 @@
           if (tg) h += '<span class="text-gray-500 text-xs">TG </span><span class="text-yellow-500 text-xs font-semibold">' + tg + '</span>';
           if (node && type.indexOf('talking') === 0) h += renderRxMeta(node);
           if (loc) h += '<span class="text-gray-500 text-xs ml-auto shrink-0"><i class="bi bi-geo-alt mr-1"></i>' + esc(loc) + '</span>';
+          if (type === 'talking_stop' && durationSec != null) {
+            h += '<span class="text-gray-500 text-xs font-mono shrink-0' + (loc ? '' : ' ml-auto') + '">' + fmtDur(durationSec) + '</span>';
+          }
           h += '</div>';
 
           if (!listEl) {
@@ -274,7 +282,17 @@
               var prev = prevNodes[cs];
               if (!prev) { addEvent('connected', cs, node); return; }
               if (node.isTalker !== prev.isTalker) {
-                addEvent(node.isTalker ? 'talking_start' : 'talking_stop', cs, node);
+                if (node.isTalker) {
+                  talkStartAt[cs] = Date.now();
+                  addEvent('talking_start', cs, node);
+                } else {
+                  var dur = null;
+                  if (talkStartAt[cs]) {
+                    dur = Math.round((Date.now() - talkStartAt[cs]) / 1000);
+                    delete talkStartAt[cs];
+                  }
+                  addEvent('talking_stop', cs, node, dur);
+                }
               } else if (node.tg !== prev.tg) {
                 addEvent(node.tg ? 'tg_join' : 'tg_leave', cs, node);
               }
