@@ -135,12 +135,20 @@ func runBridge(
 		// Buffer for accumulating PCM before encoding to Zello (need 60ms = 960 samples at 16kHz)
 		zelloBuffer   []int16
 		zelloBufMu    sync.Mutex
+		// Audio-inactivity watchdog for the Zello→SVX direction. Zello WS does
+		// not always deliver on_stream_stop promptly (the channel can stall for
+		// seconds when the app suspends or the network blips), and without a
+		// fallback the SVX side waits for its own TG inactivity timeout — RF
+		// listeners hear a multi-second dead-carrier tail. Reset on every audio
+		// packet; on expiry, force TalkerStop on the SVX side.
+		zelloAudioTimer *time.Timer
 		agcSvxToZello = NewAGCFromEnv("AGC_SVX_TO_EXT_")
 		agcZelloToSvx = NewAGCFromEnv("AGC_EXT_TO_SVX_")
 		// Voice bandpass filters
 		filterSvxToZello = NewVoiceFilterFromEnv("FILTER_SVX_TO_EXT_", float64(SVXSampleRate))
 		filterZelloToSvx = NewVoiceFilterFromEnv("FILTER_EXT_TO_SVX_", float64(SVXSampleRate))
 	)
+	const zelloStreamWatchdog = 1500 * time.Millisecond
 
 	// --- Redis (optional, for metadata) ---
 	var redisCli *RedisClient
@@ -308,6 +316,24 @@ func runBridge(
 			val, _ := json.Marshal(map[string]string{"from": senderName, "channel": zelloChannel})
 			redisCli.SetEX("zello_rx:"+strings.TrimSpace(callsign), 30, string(val))
 		}
+
+		if zelloAudioTimer != nil {
+			zelloAudioTimer.Stop()
+		}
+		zelloAudioTimer = time.AfterFunc(zelloStreamWatchdog, func() {
+			zelloTalkMu.Lock()
+			if !zelloTalking {
+				zelloTalkMu.Unlock()
+				return
+			}
+			zelloTalking = false
+			zelloTalkMu.Unlock()
+			log.Printf("[Zello→SVX] Stream watchdog timeout — forcing TalkerStop")
+			svx.SendTalkerStop(svxTG, callsign)
+			if redisCli != nil {
+				redisCli.Del("zello_rx:" + strings.TrimSpace(callsign))
+			}
+		})
 	})
 
 	zello.SetStreamDataCallback(func(streamID uint32, packetID uint32, opusData []byte) {
@@ -317,6 +343,10 @@ func runBridge(
 			return
 		}
 		svxTalkMu.Unlock()
+
+		if zelloAudioTimer != nil {
+			zelloAudioTimer.Reset(zelloStreamWatchdog)
+		}
 
 		// Decode Zello OPUS at 48kHz (OPUS handles 16kHz→48kHz internally)
 		// Buffer large enough for up to 120ms (Zello may send multi-frame packets)
@@ -352,11 +382,19 @@ func runBridge(
 	})
 
 	zello.SetStreamStopCallback(func(streamID uint32) {
+		if zelloAudioTimer != nil {
+			zelloAudioTimer.Stop()
+		}
+
 		zelloTalkMu.Lock()
+		alreadyStopped := !zelloTalking
 		zelloTalking = false
 		zelloTalkMu.Unlock()
 
 		log.Printf("[Zello→SVX] Stream stop (id=%d)", streamID)
+		if alreadyStopped {
+			return
+		}
 		svx.SendTalkerStop(svxTG, callsign)
 
 		if redisCli != nil {
