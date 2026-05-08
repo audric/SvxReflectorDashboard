@@ -46,6 +46,8 @@ Exposed ports:
 - **5302** (TCP) — trunk peer-to-peer links
 - **5303** (TCP) — satellite connections
 
+Trunk peers exchange a `MsgPeerTgInterest` message (wire ID 129) advertising the union of each side's local clients' selected and monitored TGs. Edge-triggered on roster changes (debounced 500 ms) with a 60 s heartbeat refresh. Receivers register the interest so cross-mesh audio is delivered without the destination side first keying up — a node that adds a foreign TG to its `monitoredTGs` actually starts hearing it. Multi-hop propagation is handled by re-advertising upstream interest with prefix filtering, so a monitor several hops from the talker still receives audio after one debounce per hop.
+
 ### redis
 
 Used for four purposes:
