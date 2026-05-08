@@ -2,6 +2,11 @@
 %html{lang: "en"}
   :javascript
     (function(){var t=localStorage.getItem('theme')||'auto';var r=(t==='auto'?(window.matchMedia('(prefers-color-scheme:light)').matches?'light':'auto'):t);document.documentElement.setAttribute('data-theme',r);})();
+    (function(){
+      var d=document.documentElement;
+      d.dataset.statsTalkers=localStorage.getItem('stats_talkers_sort')||'count';
+      d.dataset.statsTgs    =localStorage.getItem('stats_tgs_sort')    ||'count';
+    })();
   %head
     %meta{charset: "UTF-8"}
     %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
@@ -51,6 +56,26 @@
       .period-pill:hover { background: #21262d; color: #c9d1d9; border-color: #6e7681; }
       .period-pill.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
 
+      /* Sort toggle (compact pill) */
+      .sort-pill {
+        font-size: .68rem; padding: .12rem .55rem;
+        border-radius: 2em; border: 1px solid #30363d;
+        color: #8b949e; background: transparent; cursor: pointer;
+        text-decoration: none; transition: background .15s, color .15s, border-color .15s;
+      }
+      .sort-pill:hover { background: #21262d; color: #c9d1d9; border-color: #6e7681; }
+      .sort-pill.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+
+      /* Show one variant of each ranking based on saved sort preference */
+      html[data-stats-talkers="count"]   [data-sort-section="talkers"] [data-sort-view="airtime"] { display: none; }
+      html[data-stats-talkers="airtime"] [data-sort-section="talkers"] [data-sort-view="count"]   { display: none; }
+      html[data-stats-tgs="count"]       [data-sort-section="tgs"]     [data-sort-view="airtime"] { display: none; }
+      html[data-stats-tgs="airtime"]     [data-sort-section="tgs"]     [data-sort-view="count"]   { display: none; }
+      html[data-stats-talkers="count"]   [data-sort-section="talkers"] [data-sort-pill="count"]   { background:#1f6feb; border-color:#1f6feb; color:#fff; }
+      html[data-stats-talkers="airtime"] [data-sort-section="talkers"] [data-sort-pill="airtime"] { background:#1f6feb; border-color:#1f6feb; color:#fff; }
+      html[data-stats-tgs="count"]       [data-sort-section="tgs"]     [data-sort-pill="count"]   { background:#1f6feb; border-color:#1f6feb; color:#fff; }
+      html[data-stats-tgs="airtime"]     [data-sort-section="tgs"]     [data-sort-pill="airtime"] { background:#1f6feb; border-color:#1f6feb; color:#fff; }
+
       /* Ranking bars */
       .rank-bar-wrap { height: 5px; background: #21262d; border-radius: 3px; }
       .rank-bar-fill { height: 100%; border-radius: 3px; min-width: 2px; }
@@ -58,6 +83,13 @@
       /* Signal bars */
       .sig-bar-wrap { height: 5px; background: #21262d; border-radius: 3px; min-width: 60px; }
       .sig-bar-fill { height: 100%; border-radius: 3px; min-width: 2px; }
+
+      /* Themed scrollbar for inner scroll areas (matches dark palette) */
+      .thin-scroll { scrollbar-width: thin; scrollbar-color: #30363d #161b22; scrollbar-gutter: stable; }
+      .thin-scroll::-webkit-scrollbar           { width: 8px; height: 8px; }
+      .thin-scroll::-webkit-scrollbar-track     { background: transparent; }
+      .thin-scroll::-webkit-scrollbar-thumb     { background: #30363d; border-radius: 4px; border: 2px solid transparent; background-clip: padding-box; }
+      .thin-scroll::-webkit-scrollbar-thumb:hover { background: #484f58; background-clip: padding-box; }
 
       .nodes-table th { font-size: .73rem; text-transform: uppercase; letter-spacing: .05em; color: #6e7681; border-color: #21262d; }
       .nodes-table td { font-size: .82rem; border-color: #21262d; vertical-align: middle; }
@@ -190,7 +222,7 @@
             - if @nodes.reject { |_, n| n['hidden'] }.sort_by { |cs, _| cs }.any?
               - node_sigs = @nodes.reject { |_, n| n['hidden'] }.sort_by { |cs, _| cs }.map { |cs, n| [cs, n, (n['qth'] || []).flat_map { |q| (q['rx'] || {}).select { |_, r| r.is_a?(Hash) }.map { |p, r| [p, r] } }.map { |_, r| r['siglev'] }.compact.max] }
               - node_sigs = node_sigs.sort_by { |_, _, sig| -(sig || -999) }
-              %div{style: "max-height:320px;overflow-y:auto;scrollbar-width:thin"}
+              .thin-scroll.pr-2{style: "max-height:320px;overflow-y:auto"}
                 - node_sigs.each do |cs, n, best_sig|
                   - tg        = n['tg'].to_i
                   - is_talker = n['isTalker']
@@ -228,15 +260,20 @@
 
       -# Historical summary cards
       - hist_cards = []
-      - hist_cards << {icon: 'bi-mic-fill',     color: 'text-green-500',  label: 'Transmissions',   val: @hist_talks}
-      - hist_cards << {icon: 'bi-collection',   color: 'text-yellow-500', label: 'TG Sessions',     val: @hist_tg_joins}
-      - hist_cards << {icon: 'bi-person-badge', color: 'text-blue-500',   label: 'Unique Nodes',    val: @hist_unique_nodes}
-      - hist_cards << {icon: 'bi-diagram-3',    color: 'text-cyan-500',   label: 'Unique TGs',      val: @hist_unique_tgs}
-      .grid.grid-cols-2.md:grid-cols-4.gap-3.mb-4
+      - hist_cards << {icon: 'bi-mic-fill',       color: 'text-green-500',  label: 'Transmissions',   val: @hist_talks}
+      - hist_cards << {icon: 'bi-collection',     color: 'text-yellow-500', label: 'TG Sessions',     val: @hist_tg_joins}
+      - hist_cards << {icon: 'bi-person-badge',   color: 'text-blue-500',   label: 'Unique Nodes',    val: @hist_unique_nodes}
+      - hist_cards << {icon: 'bi-diagram-3',      color: 'text-cyan-500',   label: 'Unique TGs',      val: @hist_unique_tgs}
+      - hist_cards << {icon: 'bi-stopwatch',      color: 'text-green-400',  label: 'Total Airtime',   val: format_duration(@hist_airtime_ms)}
+      - hist_cards << {icon: 'bi-soundwave',      color: 'text-yellow-400', label: 'Avg TX Length',   val: format_duration(@hist_avg_tx_ms)}
+      - hist_cards << {icon: 'bi-broadcast-pin',  color: 'text-red-400',    label: 'Longest TX',      val: format_duration(@hist_longest&.dig(:ms)), subtitle: @hist_longest&.dig(:callsign)}
+      .grid.grid-cols-2.md:grid-cols-4.xl:grid-cols-7.gap-3.mb-4
         - hist_cards.each do |s|
           .stat-card.rounded-lg.h-full
             .text-center.py-3
               .text-4xl.font-bold{class: s[:color]}= s[:val]
+              - if s[:subtitle]
+                .text-gray-400.font-mono{style: "font-size:.72rem"}= s[:subtitle]
               .text-gray-500.text-sm.mt-1
                 %i.bi{class: s[:icon]}
                 = s[:label]
@@ -244,45 +281,91 @@
       .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
 
         -# Top talkers
-        .rounded-lg.border.border-ghborder.h-full
+        .rounded-lg.border.border-ghborder.h-full{data: {sort_section: "talkers"}}
           .p-4
-            .section-label
-              %i.bi.bi-trophy.mr-1
-              Top Talkers
-            - if @top_talkers.any?
-              - max_talks = @top_talkers.values.first.to_f
-              - @top_talkers.each_with_index do |(cs, count), i|
-                .flex.items-center.gap-2.mb-2
-                  %span.text-gray-500{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
-                  %span.font-mono.text-gray-100.shrink-0{style: "min-width:90px;font-size:.82rem"}= cs
-                  .rank-bar-wrap.grow
-                    .rank-bar-fill.bg-green-500{style: "width:#{(count / max_talks * 100).round}%"}
-                  %span.text-gray-500.font-semibold{style: "font-size:.78rem;min-width:28px;text-align:right"}= count
-            - else
-              .text-center.text-gray-500.py-4.text-sm
-                %i.bi.bi-mic-mute.block.text-xl.mb-2
-                = "No transmissions recorded#{@period != 'all' ? ' for this period' : ''}."
+            .flex.items-center.justify-between.mb-3
+              .section-label.mb-0
+                %i.bi.bi-trophy.mr-1
+                Top Talkers
+              .flex.items-center.gap-1
+                - %w[count airtime].each do |s|
+                  %button.sort-pill{type: 'button', data: {sort_pill: s}}= s.capitalize
+            - [['count', @top_talkers, @top_talkers_airtime], ['airtime', @top_talkers_alt, @top_talkers_alt_airtime]].each do |sort_key, rows, airtime_map|
+              %div{data: {sort_view: sort_key}}
+                - if rows.any?
+                  - max_count   = (rows.values.max || 1).to_f
+                  - max_airtime = (airtime_map.values.compact.max || 0).to_f
+                  - rows.each_with_index do |(cs, count), i|
+                    - air_ms    = airtime_map[cs].to_i
+                    - count_pct = (count / max_count * 100).round
+                    - air_pct   = max_airtime > 0 ? (air_ms / max_airtime * 100).round : 0
+                    - count_str = "#{count} TX"
+                    - air_str   = format_duration(air_ms)
+                    - if sort_key == 'airtime'
+                      - primary_pct, secondary_pct = air_pct, count_pct
+                      - primary_str, secondary_str = air_str, count_str
+                    - else
+                      - primary_pct, secondary_pct = count_pct, air_pct
+                      - primary_str, secondary_str = count_str, air_str
+                    .flex.items-center.gap-2.mb-2
+                      %span.text-gray-500{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
+                      %span.font-mono.text-gray-100.shrink-0{style: "min-width:90px;font-size:.82rem"}= cs
+                      .grow.flex.flex-col.gap-1
+                        .rank-bar-wrap
+                          .rank-bar-fill.bg-green-500{style: "width:#{primary_pct}%"}
+                        .rank-bar-wrap
+                          .rank-bar-fill{class: "bg-green-500/40", style: "width:#{secondary_pct}%"}
+                      .flex.flex-col.items-end{style: "min-width:64px"}
+                        %span.text-gray-300.font-semibold{style: "font-size:.78rem"}= primary_str
+                        %span.text-gray-500{style: "font-size:.7rem"}= secondary_str
+                - else
+                  .text-center.text-gray-500.py-4.text-sm
+                    %i.bi.bi-mic-mute.block.text-xl.mb-2
+                    = "No transmissions recorded#{@period != 'all' ? ' for this period' : ''}."
 
         -# Top talkgroups
-        .rounded-lg.border.border-ghborder.h-full
+        .rounded-lg.border.border-ghborder.h-full{data: {sort_section: "tgs"}}
           .p-4
-            .section-label
-              %i.bi.bi-bar-chart.mr-1
-              Top Talkgroups
-            - if @top_tgs.any?
-              - max_tg = @top_tgs.values.first.to_f
-              - @top_tgs.each_with_index do |(tg, count), i|
-                .flex.items-center.gap-2.mb-2
-                  %span.text-gray-500{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
-                  %span.font-mono.text-yellow-500.font-semibold.shrink-0{style: "min-width:52px;font-size:.82rem"}
-                    = "TG #{tg}"
-                  .rank-bar-wrap.grow
-                    .rank-bar-fill.bg-yellow-500{style: "width:#{(count / max_tg * 100).round}%"}
-                  %span.text-gray-500.font-semibold{style: "font-size:.78rem;min-width:28px;text-align:right"}= count
-            - else
-              .text-center.text-gray-500.py-4.text-sm
-                %i.bi.bi-collection.block.text-xl.mb-2
-                = "No talkgroup activity recorded#{@period != 'all' ? ' for this period' : ''}."
+            .flex.items-center.justify-between.mb-3
+              .section-label.mb-0
+                %i.bi.bi-bar-chart.mr-1
+                Top Talkgroups
+              .flex.items-center.gap-1
+                - %w[count airtime].each do |s|
+                  %button.sort-pill{type: 'button', data: {sort_pill: s}}= s.capitalize
+            - [['count', @top_tgs, @top_tgs_airtime], ['airtime', @top_tgs_alt, @top_tgs_alt_airtime]].each do |sort_key, rows, airtime_map|
+              %div{data: {sort_view: sort_key}}
+                - if rows.any?
+                  - max_count   = (rows.values.max || 1).to_f
+                  - max_airtime = (airtime_map.values.compact.max || 0).to_f
+                  - rows.each_with_index do |(tg, count), i|
+                    - air_ms    = airtime_map[tg].to_i
+                    - count_pct = (count / max_count * 100).round
+                    - air_pct   = max_airtime > 0 ? (air_ms / max_airtime * 100).round : 0
+                    - count_str = "#{count} TX"
+                    - air_str   = format_duration(air_ms)
+                    - if sort_key == 'airtime'
+                      - primary_pct, secondary_pct = air_pct, count_pct
+                      - primary_str, secondary_str = air_str, count_str
+                    - else
+                      - primary_pct, secondary_pct = count_pct, air_pct
+                      - primary_str, secondary_str = count_str, air_str
+                    .flex.items-center.gap-2.mb-2
+                      %span.text-gray-500{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
+                      %span.font-mono.text-yellow-500.font-semibold.shrink-0{style: "min-width:52px;font-size:.82rem"}
+                        = "TG #{tg}"
+                      .grow.flex.flex-col.gap-1
+                        .rank-bar-wrap
+                          .rank-bar-fill.bg-yellow-500{style: "width:#{primary_pct}%"}
+                        .rank-bar-wrap
+                          .rank-bar-fill{class: "bg-yellow-500/40", style: "width:#{secondary_pct}%"}
+                      .flex.flex-col.items-end{style: "min-width:64px"}
+                        %span.text-gray-300.font-semibold{style: "font-size:.78rem"}= primary_str
+                        %span.text-gray-500{style: "font-size:.7rem"}= secondary_str
+                - else
+                  .text-center.text-gray-500.py-4.text-sm
+                    %i.bi.bi-collection.block.text-xl.mb-2
+                    = "No talkgroup activity recorded#{@period != 'all' ? ' for this period' : ''}."
 
       .grid.grid-cols-1.md:grid-cols-3.gap-4.mb-4
 
@@ -294,13 +377,21 @@
               Top Nodes
             - if @top_nodes.any?
               - max_n = @top_nodes.values.first.to_f
+              - max_n_air = (@top_nodes_airtime.values.max || 0).to_f
               - @top_nodes.each_with_index do |(cs, count), i|
+                - air_ms = @top_nodes_airtime[cs].to_i
+                - air_pct = max_n_air > 0 ? (air_ms / max_n_air * 100).round : 0
                 .flex.items-center.gap-2.mb-2
                   %span.text-gray-500{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
                   %span.font-mono.text-gray-100.shrink-0{style: "min-width:90px;font-size:.82rem"}= cs
-                  .rank-bar-wrap.grow
-                    .rank-bar-fill.bg-cyan-500{style: "width:#{(count / max_n * 100).round}%"}
-                  %span.text-gray-500.font-semibold{style: "font-size:.78rem;min-width:28px;text-align:right"}= count
+                  .grow.flex.flex-col.gap-1
+                    .rank-bar-wrap
+                      .rank-bar-fill.bg-cyan-500{style: "width:#{(count / max_n * 100).round}%"}
+                    .rank-bar-wrap
+                      .rank-bar-fill{class: "bg-cyan-500/40", style: "width:#{air_pct}%"}
+                  .flex.flex-col.items-end{style: "min-width:64px"}
+                    %span.text-gray-300.font-semibold{style: "font-size:.78rem"}= "#{count} TX"
+                    %span.text-gray-500{style: "font-size:.7rem"}= format_duration(air_ms)
             - else
               .text-center.text-gray-500.py-4.text-sm
                 %i.bi.bi-broadcast.block.text-xl.mb-2
@@ -314,13 +405,21 @@
               Top Bridges
             - if @top_bridges.any?
               - max_b = @top_bridges.values.first.to_f
+              - max_b_air = (@top_bridges_airtime.values.max || 0).to_f
               - @top_bridges.each_with_index do |(cs, count), i|
+                - air_ms = @top_bridges_airtime[cs].to_i
+                - air_pct = max_b_air > 0 ? (air_ms / max_b_air * 100).round : 0
                 .flex.items-center.gap-2.mb-2
                   %span.text-gray-500{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
                   %span.font-mono.text-gray-100.shrink-0{style: "min-width:90px;font-size:.82rem"}= cs
-                  .rank-bar-wrap.grow
-                    .rank-bar-fill.bg-purple-500{style: "width:#{(count / max_b * 100).round}%"}
-                  %span.text-gray-500.font-semibold{style: "font-size:.78rem;min-width:28px;text-align:right"}= count
+                  .grow.flex.flex-col.gap-1
+                    .rank-bar-wrap
+                      .rank-bar-fill.bg-purple-500{style: "width:#{(count / max_b * 100).round}%"}
+                    .rank-bar-wrap
+                      .rank-bar-fill{class: "bg-purple-500/40", style: "width:#{air_pct}%"}
+                  .flex.flex-col.items-end{style: "min-width:64px"}
+                    %span.text-gray-300.font-semibold{style: "font-size:.78rem"}= "#{count} TX"
+                    %span.text-gray-500{style: "font-size:.7rem"}= format_duration(air_ms)
             - else
               .text-center.text-gray-500.py-4.text-sm
                 %i.bi.bi-diagram-3.block.text-xl.mb-2
@@ -365,13 +464,21 @@
                   %i.bi.bi-diagram-3.mr-1.text-cyan-400
                   Trunk Traffic
                 - max_trunk = @trunk_traffic.values.first.to_f
+                - max_trunk_air = (@trunk_traffic_airtime.values.max || 0).to_f
                 - @trunk_traffic.each_with_index do |(trunk_name, count), i|
+                  - air_ms = @trunk_traffic_airtime[trunk_name].to_i
+                  - air_pct = max_trunk_air > 0 ? (air_ms / max_trunk_air * 100).round : 0
                   .flex.items-center.gap-2.mb-2
                     %span.text-gray-500{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
                     %span.font-mono.text-cyan-400.shrink-0{style: "min-width:90px;font-size:.82rem"}= trunk_name
-                    .rank-bar-wrap.grow
-                      .rank-bar-fill.bg-cyan-500{style: "width:#{(count / max_trunk * 100).round}%"}
-                    %span.text-gray-500.font-semibold{style: "font-size:.78rem;min-width:28px;text-align:right"}= count
+                    .grow.flex.flex-col.gap-1
+                      .rank-bar-wrap
+                        .rank-bar-fill.bg-cyan-500{style: "width:#{(count / max_trunk * 100).round}%"}
+                      .rank-bar-wrap
+                        .rank-bar-fill{class: "bg-cyan-500/40", style: "width:#{air_pct}%"}
+                    .flex.flex-col.items-end{style: "min-width:64px"}
+                      %span.text-gray-300.font-semibold{style: "font-size:.78rem"}= "#{count} TX"
+                      %span.text-gray-500{style: "font-size:.7rem"}= format_duration(air_ms)
 
           -# Cluster TG usage
           - if @cluster_tg_usage.any?
@@ -381,13 +488,21 @@
                   %i.bi.bi-globe2.mr-1.text-cyan-400
                   Cluster TG Usage
                 - max_cluster = @cluster_tg_usage.values.first.to_f
+                - max_cluster_air = (@cluster_tg_usage_airtime.values.max || 0).to_f
                 - @cluster_tg_usage.each_with_index do |(tg, count), i|
+                  - air_ms = @cluster_tg_usage_airtime[tg].to_i
+                  - air_pct = max_cluster_air > 0 ? (air_ms / max_cluster_air * 100).round : 0
                   .flex.items-center.gap-2.mb-2
                     %span.text-gray-500{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
                     %span.font-mono.text-cyan-400.font-semibold.shrink-0{style: "min-width:52px;font-size:.82rem"}= "TG #{tg}"
-                    .rank-bar-wrap.grow
-                      .rank-bar-fill.bg-cyan-500{style: "width:#{(count / max_cluster * 100).round}%"}
-                    %span.text-gray-500.font-semibold{style: "font-size:.78rem;min-width:28px;text-align:right"}= count
+                    .grow.flex.flex-col.gap-1
+                      .rank-bar-wrap
+                        .rank-bar-fill.bg-cyan-500{style: "width:#{(count / max_cluster * 100).round}%"}
+                      .rank-bar-wrap
+                        .rank-bar-fill{class: "bg-cyan-500/40", style: "width:#{air_pct}%"}
+                    .flex.flex-col.items-end{style: "min-width:64px"}
+                      %span.text-gray-300.font-semibold{style: "font-size:.78rem"}= "#{count} TX"
+                      %span.text-gray-500{style: "font-size:.7rem"}= format_duration(air_ms)
 
           -# Live trunk status
           - if @trunks.any?
@@ -430,6 +545,19 @@
                     %span.text-sm.text-ghmuted= "#{active_tgs.size} TGs"
 
     :javascript
+      (function () {
+        'use strict';
+        var SORT_KEYS = { talkers: 'statsTalkers', tgs: 'statsTgs' };
+        Object.keys(SORT_KEYS).forEach(function (section) {
+          document.querySelectorAll('[data-sort-section="' + section + '"] [data-sort-pill]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var v = btn.dataset.sortPill;
+              localStorage.setItem('stats_' + section + '_sort', v);
+              document.documentElement.dataset[SORT_KEYS[section]] = v;
+            });
+          });
+        });
+      })();
       (function () {
         'use strict';
         function setWs(state) {

@@ -193,6 +193,34 @@ class DashboardController < ApplicationController
     else
       @cluster_tg_usage = {}
     end
+
+    # ── Airtime aggregations (parallel to count metrics above) ────────────────
+    @hist_airtime_ms = NodeEvent.airtime_total(period: @period)
+    @hist_avg_tx_ms  = NodeEvent.airtime_avg(period: @period)
+    @hist_longest    = NodeEvent.longest_tx(period: @period)
+
+    airtime_by_cs  = NodeEvent.airtime_by(:callsign, period: @period)
+    airtime_by_tg  = NodeEvent.airtime_by(:tg,        period: @period)
+    airtime_by_src = NodeEvent.airtime_by(:source,    period: @period)
+
+    @top_talkers_airtime = airtime_by_cs.slice(*@top_talkers.keys)
+    @top_tgs_airtime     = airtime_by_tg.slice(*@top_tgs.keys)
+
+    # Airtime-sorted variants (rendered alongside count-sorted ones; client toggles)
+    talkers_air_keys     = airtime_by_cs.sort_by { |_, ms| -ms }.first(15).map(&:first)
+    talkers_air_counts   = scope.talks.where(callsign: talkers_air_keys).group(:callsign).count
+    @top_talkers_alt         = talkers_air_keys.each_with_object({}) { |k, h| h[k] = talkers_air_counts[k] || 0 }
+    @top_talkers_alt_airtime = talkers_air_keys.each_with_object({}) { |k, h| h[k] = airtime_by_cs[k] }
+
+    tgs_air_keys     = airtime_by_tg.sort_by { |_, ms| -ms }.first(15).map(&:first)
+    tgs_air_counts   = scope.talks.where.not(tg: [0, nil]).where(tg: tgs_air_keys).group(:tg).count
+    @top_tgs_alt         = tgs_air_keys.each_with_object({}) { |k, h| h[k] = tgs_air_counts[k] || 0 }
+    @top_tgs_alt_airtime = tgs_air_keys.each_with_object({}) { |k, h| h[k] = airtime_by_tg[k] }
+
+    @top_nodes_airtime        = airtime_by_cs.slice(*@top_nodes.keys)
+    @top_bridges_airtime      = airtime_by_cs.slice(*@top_bridges.keys)
+    @trunk_traffic_airtime    = airtime_by_src.slice(*@trunk_traffic.keys)
+    @cluster_tg_usage_airtime = airtime_by_tg.slice(*@cluster_tg_usage.keys)
   end
 
   def trunks
