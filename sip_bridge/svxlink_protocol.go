@@ -26,8 +26,9 @@ const (
 
 // UDP message types
 const (
-	UDPMsgTypeHeartbeat uint16 = 1
-	UDPMsgTypeAudio     uint16 = 101
+	UDPMsgTypeHeartbeat    uint16 = 1
+	UDPMsgTypeAudio        uint16 = 101
+	UDPMsgTypeFlushSamples uint16 = 102
 )
 
 // Protocol version
@@ -141,6 +142,14 @@ func BuildTalkerStop(tg uint32, callsign string) []byte {
 func BuildUDPHeartbeatV2(clientID uint16, seq uint16) []byte {
 	buf := make([]byte, 6)
 	binary.BigEndian.PutUint16(buf[0:2], UDPMsgTypeHeartbeat)
+	binary.BigEndian.PutUint16(buf[2:4], clientID)
+	binary.BigEndian.PutUint16(buf[4:6], seq)
+	return buf
+}
+
+func BuildUDPFlushSamplesV2(clientID, seq uint16) []byte {
+	buf := make([]byte, 6)
+	binary.BigEndian.PutUint16(buf[0:2], UDPMsgTypeFlushSamples)
 	binary.BigEndian.PutUint16(buf[2:4], clientID)
 	binary.BigEndian.PutUint16(buf[4:6], seq)
 	return buf

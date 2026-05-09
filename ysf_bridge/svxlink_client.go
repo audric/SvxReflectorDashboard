@@ -216,7 +216,19 @@ func (c *SVXLinkClient) SendTalkerStart(tg uint32, callsign string) error {
 }
 
 func (c *SVXLinkClient) SendTalkerStop(tg uint32, callsign string) error {
-	return WriteTCPMessage(c.tcpConn, MsgTypeTalkerStop, BuildTalkerStop(tg, callsign))
+	// The reflector ignores incoming TCP MsgTalkerStop from clients — it only
+	// clears the talker on UDP MsgUdpFlushSamples or after TALKER_AUDIO_TIMEOUT
+	// (3-4s of silence). Send the UDP flush so listeners hear the carrier drop
+	// promptly instead of waiting for the silence timeout.
+	tcpErr := WriteTCPMessage(c.tcpConn, MsgTypeTalkerStop, BuildTalkerStop(tg, callsign))
+	c.mu.Lock()
+	seq := c.udpSeq
+	c.udpSeq++
+	c.mu.Unlock()
+	if _, err := c.udpConn.Write(BuildUDPFlushSamplesV2(c.clientID, seq)); err != nil {
+		return err
+	}
+	return tcpErr
 }
 
 func (c *SVXLinkClient) SendAudio(opusFrame []byte) error {
