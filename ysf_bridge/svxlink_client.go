@@ -165,8 +165,8 @@ func (c *SVXLinkClient) Connect() error {
 	// Send NodeInfo
 	infoMap := map[string]string{
 		"callsign":  c.callsign,
-		"sw":        "DMR_Bridge",
-		"swVer":     "1.0",
+		"sw":        "YSF_Bridge",
+		"swVer":     "1.1",
 		"nodeClass": "dmr",
 	}
 	if c.nodeLocation != "" {

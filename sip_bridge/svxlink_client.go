@@ -166,7 +166,7 @@ func (c *SVXLinkClient) Connect() error {
 	infoMap := map[string]string{
 		"callsign":  c.callsign,
 		"sw":        "SIP_Bridge",
-		"swVer":     "1.0",
+		"swVer":     "1.1",
 		"nodeClass": "sip",
 	}
 	if c.nodeLocation != "" {
