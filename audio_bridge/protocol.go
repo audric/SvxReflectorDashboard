@@ -34,8 +34,9 @@ const (
 
 // UDP message types
 const (
-	UDPMsgTypeHeartbeat uint16 = 1
-	UDPMsgTypeAudio     uint16 = 101
+	UDPMsgTypeHeartbeat     uint16 = 1
+	UDPMsgTypeAudio         uint16 = 101
+	UDPMsgTypeFlushSamples  uint16 = 102
 )
 
 // Protocol version
@@ -266,6 +267,16 @@ func BuildUDPAudioV2(clientID, seq uint16, opusData []byte) []byte {
 	binary.BigEndian.PutUint16(buf[4:6], seq)
 	binary.BigEndian.PutUint16(buf[6:8], uint16(len(opusData)))
 	copy(buf[8:], opusData)
+	return buf
+}
+
+// BuildUDPFlushSamplesV2 creates a V2 UDP flush-samples packet (type 102).
+// V2 wire format: [2B type=102][2B client_id][2B seq]
+func BuildUDPFlushSamplesV2(clientID, seq uint16) []byte {
+	buf := make([]byte, 6)
+	binary.BigEndian.PutUint16(buf[0:2], UDPMsgTypeFlushSamples)
+	binary.BigEndian.PutUint16(buf[2:4], clientID)
+	binary.BigEndian.PutUint16(buf[4:6], seq)
 	return buf
 }
 

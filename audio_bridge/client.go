@@ -202,13 +202,27 @@ func (c *Client) SendTalkerStart(tg uint32, callsign string) error {
 
 // SendTalkerStop sends a TalkerStop message for the given TG.
 // If callsign is empty, falls back to the client's own callsign.
+//
+// The reflector ignores incoming TCP MsgTalkerStop from clients — it only
+// clears the talker on UDP MsgUdpFlushSamples or after TALKER_AUDIO_TIMEOUT
+// (3-4s of silence). Send the UDP flush so listeners hear the carrier drop
+// promptly instead of waiting for the silence timeout.
 func (c *Client) SendTalkerStop(tg uint32, callsign string) error {
 	if callsign == "" {
 		callsign = c.callsign
 	}
 	payload := BuildTalkerStop(tg, callsign)
 	log.Printf("TX: TalkerStop TG %d callsign %s", tg, callsign)
-	return WriteTCPMessage(c.tcpConn, MsgTypeTalkerStop, payload)
+	tcpErr := WriteTCPMessage(c.tcpConn, MsgTypeTalkerStop, payload)
+
+	c.mu.Lock()
+	seq := c.udpSeq
+	c.udpSeq++
+	c.mu.Unlock()
+	if _, err := c.udpConn.Write(BuildUDPFlushSamplesV2(c.clientID, seq)); err != nil {
+		return err
+	}
+	return tcpErr
 }
 
 // SendAudio sends a single OPUS frame via UDP.
