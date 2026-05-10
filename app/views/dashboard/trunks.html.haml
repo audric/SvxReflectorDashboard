@@ -584,6 +584,20 @@
                             %i.bi.bi-mic-fill.mr-1{style: "font-size:.55rem"}
                             = "#{cs} TG#{tg}"
 
+                  -# Their Local Prefix (from parent's /status — populated on the
+                  -# trunk object directly, so this works for twin-pair peers too
+                  -# where there's no static remote host to fetch from).
+                  - pt_remote_prefix = trunk['remote_prefix']
+                  - if pt_remote_prefix.present?
+                    .mt-3.pt-3.border-t.border-ghborder2
+                      .flex.items-center.gap-2.mb-2
+                        %i.bi.bi-arrow-left-right.text-cyan-400{style: "font-size:.7rem"}
+                        %span.text-xs.text-cyan-400.font-semibold.uppercase Remote Peer View
+                      .flex.items-center.gap-2
+                        %i.bi.bi-tag.text-ghdim{style: "font-size:.7rem"}
+                        %span.text-xs.text-ghmuted Their Local Prefix
+                        %span.text-xs.font-mono.text-cyan-400.ml-auto= Array(pt_remote_prefix).flatten.flat_map { |x| x.to_s.split(',') }.map(&:strip).join(', ')
+
           - if parent_sats.any?
             .page-header.mb-3
               %i.bi.bi-broadcast.mr-1
@@ -688,27 +702,34 @@
                           %i.bi.bi-mic-fill.mr-1{style: "font-size:.55rem"}
                           = "#{cs} TG#{tg}"
 
-                -# Remote reflector's view of this trunk
+                -# Remote peer view. Prefer live trunk data (delivered over the
+                -# trunk protocol — works even for twin-pair peers with no static
+                -# remote host) and fall back to @remote_configs[name] (HTTP-fetched
+                -# via STATUS_URL) for the extras the local /status doesn't carry.
                 - remote = @remote_configs[name]
-                - if remote
+                - live_nodes = (live.is_a?(Hash) && live['nodes'].is_a?(Array)) ? live['nodes'] : []
+                - live_remote_prefix = live.is_a?(Hash) ? live['remote_prefix'] : nil
+                - has_remote_data = remote || live_nodes.any? || live_remote_prefix.present?
+                - if has_remote_data
                   .mt-3.pt-3.border-t.border-ghborder2
                     .flex.items-center.gap-2.mb-2
                       %i.bi.bi-arrow-left-right.text-cyan-400{style: "font-size:.7rem"}
                       %span.text-xs.text-cyan-400.font-semibold.uppercase Remote Peer View
-                    - r_mode = remote['mode'] || 'reflector'
-                    - r_trunks = remote['trunks'] || {}
-                    - r_local_prefix = remote.dig('global', 'LOCAL_PREFIX') || remote['local_prefix']
-                    - r_cluster_tgs = remote['cluster_tgs'] || []
+                    - r_local_prefix = live_remote_prefix.presence || (remote && (remote.dig('global', 'LOCAL_PREFIX') || remote['local_prefix']))
+                    - r_mode = remote && (remote['mode'] || 'reflector')
+                    - r_trunks = (remote && remote['trunks']) || {}
+                    - r_cluster_tgs = (remote && remote['cluster_tgs']) || []
                     .space-y-1.5
-                      - if remote['version'].present?
+                      - if remote && remote['version'].present?
                         .flex.items-center.gap-2
                           %i.bi.bi-code-square.text-ghdim{style: "font-size:.7rem"}
                           %span.text-xs.text-ghmuted Version
                           %span.text-xs.font-mono.text-gray-300.ml-auto= remote['version']
-                      .flex.items-center.gap-2
-                        %i.bi.bi-broadcast-pin.text-ghdim{style: "font-size:.7rem"}
-                        %span.text-xs.text-ghmuted Mode
-                        %span.text-xs.font-mono.text-gray-300.ml-auto= r_mode
+                      - if r_mode
+                        .flex.items-center.gap-2
+                          %i.bi.bi-broadcast-pin.text-ghdim{style: "font-size:.7rem"}
+                          %span.text-xs.text-ghmuted Mode
+                          %span.text-xs.font-mono.text-gray-300.ml-auto= r_mode
                       - if r_local_prefix.present?
                         .flex.items-center.gap-2
                           %i.bi.bi-tag.text-ghdim{style: "font-size:.7rem"}
@@ -734,7 +755,7 @@
                       - warnings << { label: "Their REMOTE_PREFIX for us", ours: our_local_pfx.join(', '), theirs: their_remote_pfx.join(', '), theirs_label: "our LOCAL_PREFIX" }
                     - if their_local_pfx.any? && our_remote_pfx.blank?
                       - warnings << { label: "Our REMOTE_PREFIX is not set", ours: "(empty)", theirs: their_local_pfx.join(', '), theirs_label: "their LOCAL_PREFIX" }
-                    - if !their_trunk_to_us && r_trunks.any?
+                    - if remote && !their_trunk_to_us && r_trunks.any?
                       - warnings << { label: "No trunk peer on their side points back to us", ours: our_local_pfx.any? ? our_local_pfx.join(', ') : '(not set)', theirs: '', theirs_label: '' }
                     - if warnings.any?
                       .mt-3.rounded.border.p-2.space-y-1.5{class: "border-yellow-700/50 bg-yellow-900/20"}
