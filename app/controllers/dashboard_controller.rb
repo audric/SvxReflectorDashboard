@@ -123,45 +123,9 @@ class DashboardController < ApplicationController
       .transform_values { |arr| arr.map { |cs, _| cs }.sort }
       .sort_by   { |tg, _| tg }
 
-    # ── Historical usage (filterable by period) ────────────────────────────────
-    @period = params[:period].presence_in(%w[day month year]) || 'all'
-    scope   = NodeEvent.by_period(@period)
-
-    @hist_talks         = scope.talks.count
-    @hist_tg_joins      = scope.tg_joins.count
-    @hist_unique_nodes  = scope.talks.distinct.count(:callsign)
-    @hist_unique_tgs    = scope.talks.where.not(tg: [0, nil]).distinct.count(:tg)
-
-    @top_talkers = scope.talks
-                        .group(:callsign)
-                        .order('count_all DESC')
-                        .limit(15)
-                        .count
-
-    @top_tgs = scope.talks
-                    .where.not(tg: [0, nil])
-                    .group(:tg)
-                    .order('count_all DESC')
-                    .limit(15)
-                    .count
-
-    # Top nodes vs bridges: split by node class from live snapshot
+    # Bridge/node split derived from the live snapshot
     bridge_callsigns = visible.select { |_, n| %w[bridge xlx dmr ysf allstar echolink].include?(n['nodeClass'].to_s) }.map(&:first).to_set
-    node_callsigns = visible.reject { |cs, _| bridge_callsigns.include?(cs) }.map(&:first).to_set
-
-    @top_nodes = scope.talks
-                      .where(callsign: node_callsigns.to_a)
-                      .group(:callsign)
-                      .order('count_all DESC')
-                      .limit(10)
-                      .count
-
-    @top_bridges = scope.talks
-                        .where(callsign: bridge_callsigns.to_a)
-                        .group(:callsign)
-                        .order('count_all DESC')
-                        .limit(10)
-                        .count
+    node_callsigns   = visible.reject { |cs, _| bridge_callsigns.include?(cs) }.map(&:first).to_set
 
     @bridge_type_counts = visible
       .select { |_, n| %w[bridge xlx dmr ysf allstar echolink].include?(n['nodeClass'].to_s) }
@@ -169,58 +133,38 @@ class DashboardController < ApplicationController
       .transform_values(&:size)
       .sort_by { |_, count| -count }
 
-    # ── Web users ─────────────────────────────────────────────────────────────
-    @total_users  = User.where(approved: true).count
-    redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
-    all_sessions = redis.keys("session:*")
-    @online_users = all_sessions.count { |k| redis.get(k).to_s.include?("user_id") }
-    @anonymous_sessions = all_sessions.size - @online_users
-    redis.close
-
-    # ── Trunk traffic stats ────────────────────────────────────────────────────
-    @trunk_traffic = scope.where.not(source: [nil, ''])
-                          .group(:source)
-                          .order('count_all DESC')
-                          .count
-
-    # ── Cluster TG usage ───────────────────────────────────────────────────────
-    if @cluster_tgs.any?
-      @cluster_tg_usage = scope.talks
-                               .where(tg: @cluster_tgs)
-                               .group(:tg)
-                               .order('count_all DESC')
-                               .count
-    else
-      @cluster_tg_usage = {}
+    # ── Historical aggregates — cached 30s per (period, cluster_tg set) ──
+    # Heavy work (LAG-window airtime SQL + group/count queries) runs once per
+    # cache window; the airtime LAG query is materialized exactly once and
+    # the six derived aggregates are computed in Ruby.
+    @period = params[:period].presence_in(%w[day month year]) || 'all'
+    cache_key = "stats:hist:#{@period}:#{Array(@cluster_tgs).sort.join(',')}"
+    hist = Rails.cache.fetch(cache_key, expires_in: 30.seconds) do
+      compute_historical_stats(@period, Array(@cluster_tgs))
     end
+    hist.each { |k, v| instance_variable_set("@#{k}", v) }
 
-    # ── Airtime aggregations (parallel to count metrics above) ────────────────
-    @hist_airtime_ms = NodeEvent.airtime_total(period: @period)
-    @hist_avg_tx_ms  = NodeEvent.airtime_avg(period: @period)
-    @hist_longest    = NodeEvent.longest_tx(period: @period)
+    # Live-data-dependent split (depends on current bridge classification, so
+    # not part of the historical cache).
+    scope = NodeEvent.by_period(@period)
+    @top_nodes   = scope.talks.where(callsign: node_callsigns.to_a).group(:callsign).order('count_all DESC').limit(10).count
+    @top_bridges = scope.talks.where(callsign: bridge_callsigns.to_a).group(:callsign).order('count_all DESC').limit(10).count
+    @top_nodes_airtime   = @airtime_by_cs.slice(*@top_nodes.keys)
+    @top_bridges_airtime = @airtime_by_cs.slice(*@top_bridges.keys)
 
-    airtime_by_cs  = NodeEvent.airtime_by(:callsign, period: @period)
-    airtime_by_tg  = NodeEvent.airtime_by(:tg,        period: @period)
-    airtime_by_src = NodeEvent.airtime_by(:source,    period: @period)
-
-    @top_talkers_airtime = airtime_by_cs.slice(*@top_talkers.keys)
-    @top_tgs_airtime     = airtime_by_tg.slice(*@top_tgs.keys)
-
-    # Airtime-sorted variants (rendered alongside count-sorted ones; client toggles)
-    talkers_air_keys     = airtime_by_cs.sort_by { |_, ms| -ms }.first(15).map(&:first)
-    talkers_air_counts   = scope.talks.where(callsign: talkers_air_keys).group(:callsign).count
-    @top_talkers_alt         = talkers_air_keys.each_with_object({}) { |k, h| h[k] = talkers_air_counts[k] || 0 }
-    @top_talkers_alt_airtime = talkers_air_keys.each_with_object({}) { |k, h| h[k] = airtime_by_cs[k] }
-
-    tgs_air_keys     = airtime_by_tg.sort_by { |_, ms| -ms }.first(15).map(&:first)
-    tgs_air_counts   = scope.talks.where.not(tg: [0, nil]).where(tg: tgs_air_keys).group(:tg).count
-    @top_tgs_alt         = tgs_air_keys.each_with_object({}) { |k, h| h[k] = tgs_air_counts[k] || 0 }
-    @top_tgs_alt_airtime = tgs_air_keys.each_with_object({}) { |k, h| h[k] = airtime_by_tg[k] }
-
-    @top_nodes_airtime        = airtime_by_cs.slice(*@top_nodes.keys)
-    @top_bridges_airtime      = airtime_by_cs.slice(*@top_bridges.keys)
-    @trunk_traffic_airtime    = airtime_by_src.slice(*@trunk_traffic.keys)
-    @cluster_tg_usage_airtime = airtime_by_tg.slice(*@cluster_tg_usage.keys)
+    # ── Web users ─ Redis SCAN (non-blocking) + 30s cache ──────────────
+    users = Rails.cache.fetch("stats:users", expires_in: 30.seconds) do
+      redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
+      sessions = redis.scan_each(match: "session:*").to_a
+      online   = sessions.count { |k| redis.get(k).to_s.include?("user_id") }
+      redis.close
+      { total_users: User.where(approved: true).count,
+        online_users: online,
+        anonymous_sessions: sessions.size - online }
+    end
+    @total_users        = users[:total_users]
+    @online_users       = users[:online_users]
+    @anonymous_sessions = users[:anonymous_sessions]
   end
 
   def trunks
@@ -433,5 +377,69 @@ class DashboardController < ApplicationController
   rescue => e
     Rails.logger.warn "[ExternalReflectors] Failed to fetch #{url}: #{e.message}"
     nil
+  end
+
+  # Heavy historical aggregates used by #stats. Cached upstream — runs ~6
+  # SQL queries (was 16; the airtime materialization collapsed 6→1) plus a
+  # bunch of Ruby grouping. Returns a Hash of @ivar-friendly keys.
+  def compute_historical_stats(period, cluster_tgs)
+    scope = NodeEvent.by_period(period)
+
+    # Single LAG()-window materialization for airtime. Six downstream
+    # aggregates derive from this in Ruby.
+    records = NodeEvent.airtime_records(period: period)
+
+    airtime_by_cs  = records.group_by { |r| r['callsign'] }
+                            .transform_values { |arr| arr.sum { |r| r['effective_ms'].to_i } }
+    airtime_by_tg  = records.reject { |r| r['tg'].to_i == 0 }
+                            .group_by { |r| r['tg'].to_i }
+                            .transform_values { |arr| arr.sum { |r| r['effective_ms'].to_i } }
+    airtime_by_src = records.reject { |r| r['source'].to_s.empty? }
+                            .group_by { |r| r['source'] }
+                            .transform_values { |arr| arr.sum { |r| r['effective_ms'].to_i } }
+
+    total_ms      = airtime_by_cs.values.sum
+    avg_ms        = records.empty? ? nil : (total_ms / records.size)
+    longest       = records.max_by { |r| r['effective_ms'].to_i }
+    hist_longest  = longest && { callsign: longest['callsign'], ms: longest['effective_ms'].to_i }
+
+    top_talkers = scope.talks.group(:callsign).order('count_all DESC').limit(15).count
+    top_tgs     = scope.talks.where.not(tg: [0, nil]).group(:tg).order('count_all DESC').limit(15).count
+
+    talkers_air_keys        = airtime_by_cs.sort_by { |_, ms| -ms }.first(15).map(&:first)
+    talkers_air_counts      = scope.talks.where(callsign: talkers_air_keys).group(:callsign).count
+    top_talkers_alt         = talkers_air_keys.each_with_object({}) { |k, h| h[k] = talkers_air_counts[k] || 0 }
+    top_talkers_alt_airtime = talkers_air_keys.each_with_object({}) { |k, h| h[k] = airtime_by_cs[k] || 0 }
+
+    tgs_air_keys        = airtime_by_tg.sort_by { |_, ms| -ms }.first(15).map(&:first)
+    tgs_air_counts      = scope.talks.where.not(tg: [0, nil]).where(tg: tgs_air_keys).group(:tg).count
+    top_tgs_alt         = tgs_air_keys.each_with_object({}) { |k, h| h[k] = tgs_air_counts[k] || 0 }
+    top_tgs_alt_airtime = tgs_air_keys.each_with_object({}) { |k, h| h[k] = airtime_by_tg[k] || 0 }
+
+    trunk_traffic    = scope.where.not(source: [nil, '']).group(:source).order('count_all DESC').count
+    cluster_tg_usage = cluster_tgs.any? ? scope.talks.where(tg: cluster_tgs).group(:tg).order('count_all DESC').count : {}
+
+    {
+      hist_talks:               scope.talks.count,
+      hist_tg_joins:            scope.tg_joins.count,
+      hist_unique_nodes:        scope.talks.distinct.count(:callsign),
+      hist_unique_tgs:          scope.talks.where.not(tg: [0, nil]).distinct.count(:tg),
+      top_talkers:              top_talkers,
+      top_tgs:                  top_tgs,
+      hist_airtime_ms:          total_ms,
+      hist_avg_tx_ms:           avg_ms,
+      hist_longest:             hist_longest,
+      top_talkers_airtime:      airtime_by_cs.slice(*top_talkers.keys),
+      top_tgs_airtime:          airtime_by_tg.slice(*top_tgs.keys),
+      top_talkers_alt:          top_talkers_alt,
+      top_talkers_alt_airtime:  top_talkers_alt_airtime,
+      top_tgs_alt:              top_tgs_alt,
+      top_tgs_alt_airtime:      top_tgs_alt_airtime,
+      trunk_traffic:            trunk_traffic,
+      trunk_traffic_airtime:    airtime_by_src.slice(*trunk_traffic.keys),
+      cluster_tg_usage:         cluster_tg_usage,
+      cluster_tg_usage_airtime: airtime_by_tg.slice(*cluster_tg_usage.keys),
+      airtime_by_cs:            airtime_by_cs,
+    }
   end
 end

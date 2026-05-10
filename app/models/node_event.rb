@@ -42,50 +42,12 @@ class NodeEvent < ApplicationRecord
   # Real duration_ms from MQTT is never capped.
   BACKFILL_CAP_SECONDS = 600
 
-  # Returns total airtime in ms for the period, or 0.
-  def self.airtime_total(period: 'all')
-    sql = "SELECT COALESCE(SUM(effective_ms), 0) AS total FROM (#{effective_ms_sql(period)}) t"
-    connection.select_value(sql).to_i
-  end
-
-  # Returns average transmission length in ms for the period, or nil.
-  def self.airtime_avg(period: 'all')
-    sql = "SELECT AVG(effective_ms) AS avg_ms FROM (#{effective_ms_sql(period)}) t"
-    val = connection.select_value(sql)
-    val ? val.to_i : nil
-  end
-
-  # Returns { callsign:, ms: } for the longest single transmission, or nil.
-  def self.longest_tx(period: 'all')
-    sql = <<~SQL
-      SELECT callsign, effective_ms FROM (#{effective_ms_sql(period)}) t
-      ORDER BY effective_ms DESC LIMIT 1
-    SQL
-    row = connection.select_one(sql)
-    return nil unless row && row['effective_ms']
-    { callsign: row['callsign'], ms: row['effective_ms'].to_i }
-  end
-
-  # Returns { key => total_ms } grouped by the given dimension.
-  # Dimension ∈ [:callsign, :tg, :source].
-  def self.airtime_by(dimension, period: 'all')
-    column, extra_where =
-      case dimension
-      when :callsign then ['callsign', nil]
-      when :tg       then ['tg',       'tg IS NOT NULL AND tg != 0']
-      when :source   then ['source',   "source IS NOT NULL AND source != ''"]
-      else raise ArgumentError, "unknown dimension #{dimension.inspect}"
-      end
-
-    sql = <<~SQL
-      SELECT #{column} AS key, SUM(effective_ms) AS total_ms
-      FROM (#{effective_ms_sql(period)}) t
-      WHERE #{extra_where || '1=1'}
-      GROUP BY #{column}
-    SQL
-    connection.select_all(sql).each_with_object({}) do |row, h|
-      h[row['key']] = row['total_ms'].to_i if row['total_ms']
-    end
+  # Materializes effective_ms_sql once and returns an Array<Hash> with the
+  # keys "callsign", "tg", "source", "effective_ms". Lets callers compute
+  # several aggregates in Ruby without rerunning the LAG() window query.
+  def self.airtime_records(period: 'all')
+    sql = "SELECT callsign, tg, source, effective_ms FROM (#{effective_ms_sql(period)}) t"
+    connection.select_all(sql).to_a
   end
 
   # Builds the inner SQL that yields one row per `talking_stop` event with
