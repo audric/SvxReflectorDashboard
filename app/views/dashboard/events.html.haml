@@ -39,6 +39,12 @@
         color: #6e7681; font-weight: 600;
       }
       .page-header::after { content: ''; flex: 1; height: 1px; background: #21262d; }
+      #events-list { scrollbar-width: thin; scrollbar-color: #30363d #161b22; }
+      #events-list::-webkit-scrollbar         { width: 8px; height: 8px; }
+      #events-list::-webkit-scrollbar-track   { background: transparent; }
+      #events-list::-webkit-scrollbar-thumb   { background: #30363d; border-radius: 4px; border: 2px solid transparent; background-clip: padding-box; }
+      #events-list::-webkit-scrollbar-thumb:hover { background: #484f58; }
+      #events-list::-webkit-scrollbar-corner  { background: transparent; }
 
   %body.text-ghtext
 
@@ -74,12 +80,12 @@
 
       .rounded-lg.border.border-ghborder#events-container
         - if @recent_events.any?
-          .overflow-y-auto#events-list{style: "max-height: calc(100vh - 150px); scrollbar-width: thin"}
+          .overflow-y-auto#events-list{style: "max-height: calc(100vh - 150px)"}
             - @recent_events.each do |ev|
               - type_style = {'talking_start' => ['bg-green-600 text-white', 'bi-mic-fill'], 'talking_stop' => ['bg-gray-600 text-white', 'bi-mic-mute'], 'tg_join' => ['bg-blue-600 text-white', 'bi-collection'], 'tg_leave' => ['bg-gray-600 text-white', 'bi-collection'], 'connected' => ['bg-cyan-600 text-white', 'bi-plug-fill'], 'disconnected' => ['bg-red-600 text-white', 'bi-plug'], 'trunk_connected' => ['bg-cyan-700 text-white', 'bi-diagram-3'], 'trunk_disconnected' => ['bg-red-700 text-white', 'bi-diagram-3'], 'remote_talk_start' => ['bg-emerald-600 text-white', 'bi-mic-fill'], 'remote_talk_stop' => ['bg-gray-600 text-white', 'bi-mic-mute'], 'satellite_connected' => ['bg-purple-600 text-white', 'bi-broadcast'], 'satellite_disconnected' => ['bg-red-700 text-white', 'bi-broadcast']}.fetch(ev.event_type, ['bg-gray-600 text-white', 'bi-dot'])
               - rx = ev.metadata.present? ? (JSON.parse(ev.metadata) rescue nil) : nil
               .px-3.py-1.5.border-b.border-ghborder2.hover:bg-ghcard.flex.items-center.gap-2.flex-wrap.evt-row{"data-event-type" => ev.event_type, "data-callsign" => ev.callsign.downcase}
-                %span.text-gray-500.font-mono.shrink-0{style: "font-size:.72rem"}= ev.created_at.strftime('%Y-%m-%d %H:%M')
+                %span.text-gray-500.font-mono.shrink-0{style: "font-size:.72rem"}= ev.created_at.strftime('%Y-%m-%d %H:%M:%S')
                 %span.event-type-badge.shrink-0{class: type_style[0]}
                   %i.bi{class: "#{type_style[1]} mr-1"}
                   = ev.event_type.tr('_', ' ')
@@ -114,13 +120,14 @@
                   %span.text-xs.font-mono{class: "text-cyan-400"}
                     %i.bi.bi-diagram-3.mr-1{style: "font-size:.6rem"}
                     = ev.source
+                - has_dur = (%w[talking_stop remote_talk_stop].include?(ev.event_type) && @durations[ev.id])
+                - if has_dur
+                  - dur = @durations[ev.id]
+                  %span.text-gray-500.text-xs.font-mono.shrink-0.ml-auto= dur >= 60 ? "#{dur / 60}m#{dur % 60}s" : "#{dur}s"
                 - if ev.node_location.present?
-                  %span.text-gray-500.text-xs.ml-auto.shrink-0
+                  %span.text-gray-500.text-xs.shrink-0{class: (has_dur ? nil : 'ml-auto')}
                     %i.bi.bi-geo-alt.mr-1
                     = ev.node_location
-                - if ev.event_type == 'talking_stop' && @durations[ev.id]
-                  - dur = @durations[ev.id]
-                  %span.text-gray-500.text-xs.font-mono.shrink-0{class: (ev.node_location.present? ? nil : 'ml-auto')}= dur >= 60 ? "#{dur / 60}m#{dur % 60}s" : "#{dur}s"
         - else
           .text-center.text-gray-500.py-8.text-sm
             %i.bi.bi-hourglass-split.block.text-xl.mb-2
@@ -198,7 +205,7 @@
           satellite_disconnected: ['bg-red-700 text-white',   'bi-broadcast']
         };
         function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-        function now() { var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+        function now() { var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0'); }
 
         function renderRxMeta(node) {
           var h = '';
@@ -239,10 +246,11 @@
           h += '<strong class="font-mono text-gray-100" style="font-size:.82rem">' + esc(cs) + '</strong>';
           if (tg) h += '<span class="text-gray-500 text-xs">TG </span><span class="text-yellow-500 text-xs font-semibold">' + tg + '</span>';
           if (node && type.indexOf('talking') === 0) h += renderRxMeta(node);
-          if (loc) h += '<span class="text-gray-500 text-xs ml-auto shrink-0"><i class="bi bi-geo-alt mr-1"></i>' + esc(loc) + '</span>';
-          if (type === 'talking_stop' && durationSec != null) {
-            h += '<span class="text-gray-500 text-xs font-mono shrink-0' + (loc ? '' : ' ml-auto') + '">' + fmtDur(durationSec) + '</span>';
+          var hasDur = (type === 'talking_stop' && durationSec != null);
+          if (hasDur) {
+            h += '<span class="text-gray-500 text-xs font-mono shrink-0 ml-auto">' + fmtDur(durationSec) + '</span>';
           }
+          if (loc) h += '<span class="text-gray-500 text-xs shrink-0' + (hasDur ? '' : ' ml-auto') + '"><i class="bi bi-geo-alt mr-1"></i>' + esc(loc) + '</span>';
           h += '</div>';
 
           if (!listEl) {

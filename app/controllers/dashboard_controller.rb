@@ -299,17 +299,19 @@ class DashboardController < ApplicationController
   def events
     @recent_events = NodeEvent.order(created_at: :desc).limit(100)
 
-    # Durations for talking_stop events. Prefer the reflector-supplied
+    # Durations for talker-stop events. Prefer the reflector-supplied
     # duration_ms (from MQTT, sub-second precision); fall back to the
-    # created_at delta against the matching talking_start for legacy rows
-    # written before the column existed.
+    # created_at delta against the matching start for legacy rows written
+    # before the column existed.
+    stop_to_start = { 'talking_stop' => 'talking_start',
+                      'remote_talk_stop' => 'remote_talk_start' }
     @durations = {}
-    @recent_events.select { |ev| ev.event_type == 'talking_stop' }.each do |stop_ev|
+    @recent_events.select { |ev| stop_to_start.key?(ev.event_type) }.each do |stop_ev|
       if stop_ev.duration_ms
         @durations[stop_ev.id] = (stop_ev.duration_ms / 1000.0).round
         next
       end
-      start_ev = NodeEvent.where(callsign: stop_ev.callsign, event_type: 'talking_start')
+      start_ev = NodeEvent.where(callsign: stop_ev.callsign, event_type: stop_to_start[stop_ev.event_type])
                           .where('created_at < ?', stop_ev.created_at)
                           .order(created_at: :desc)
                           .first
@@ -317,7 +319,6 @@ class DashboardController < ApplicationController
         @durations[stop_ev.id] = (stop_ev.created_at - start_ev.created_at).round
       end
     end
-
   end
 
   private
