@@ -689,6 +689,16 @@
                       %i.bi.bi-tag.text-ghdim{style: "font-size:.7rem"}
                       %span.text-xs.text-ghmuted Remote Prefix
                       %span.text-xs.font-mono.text-cyan-400.ml-auto= cfg['REMOTE_PREFIX']
+                  - if cfg['BLACKLIST_TGS'].present?
+                    .flex.items-center.gap-2
+                      %i.bi.bi-slash-circle.text-ghdim{style: "font-size:.7rem"}
+                      %span.text-xs.text-ghmuted Blacklist TGs
+                      %span.text-xs.font-mono.text-amber-400.ml-auto= cfg['BLACKLIST_TGS']
+                  - if cfg['ALLOW_TGS'].present?
+                    .flex.items-center.gap-2
+                      %i.bi.bi-check-circle.text-ghdim{style: "font-size:.7rem"}
+                      %span.text-xs.text-ghmuted Allow TGs
+                      %span.text-xs.font-mono.text-emerald-400.ml-auto= cfg['ALLOW_TGS']
 
                 -# Active talkers from live data
                 - if connected && live['active_talkers'].present? && live['active_talkers'].any?
