@@ -112,6 +112,24 @@ services:
       mqtt:
         condition: service_healthy
 
+  jobs:
+    image: ghcr.io/audric/svxreflectordashboard-web
+    build: .
+    logging: *default-logging
+    command: ["./bin/jobs"]
+    env_file: .env
+    environment:
+      <<: *rails-env
+    mem_limit: 512m
+    restart: unless-stopped
+    volumes:
+      - db_data:/rails/storage
+    depends_on:
+      web:
+        condition: service_started
+      redis:
+        condition: service_started
+
   audio_bridge:
     image: ghcr.io/audric/svxreflectordashboard-audio-bridge
     build: ./audio_bridge

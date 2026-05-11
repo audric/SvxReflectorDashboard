@@ -1,0 +1,5 @@
+production:
+  prune_tg_join_leave:
+    class: PruneNodeEventsJob
+    args: [tg_join, tg_leave]
+    schedule: every day at 4am

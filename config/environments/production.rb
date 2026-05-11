@@ -65,9 +65,7 @@ Rails.application.configure do
   # Used for login brute-force throttling, etc.
   config.cache_store = :memory_store
 
-  # Use a real queuing backend for Active Job (and separate queues per environment).
-  # config.active_job.queue_adapter = :resque
-  # config.active_job.queue_name_prefix = "app_production"
+  config.active_job.queue_adapter = :solid_queue
 
   config.action_mailer.perform_caching = false
 
