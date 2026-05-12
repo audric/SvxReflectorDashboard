@@ -19,6 +19,12 @@ module Admin
     def show
       @active_tab = params[:tab] || "info"
 
+      # Memory history reset (clears the Redis trend list)
+      if params[:reset_mem_history] == "1"
+        Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1")).del("system_info:mem_history") rescue nil
+        redirect_to admin_system_info_path(tab: "memory") and return
+      end
+
       # For Settings tab
       settings_keys = Admin::SettingsController::KEYS
       settings_defaults = { "reflector_status_url" => ENV.fetch("REFLECTOR_STATUS_URL", ""), "brand_name" => ENV.fetch("BRAND_NAME", ""), "reflector_ext_host" => ENV.fetch("REFLECTOR_EXT_HOST", ""), "poll_interval" => "4", "mqtt_username" => ENV.fetch("MQTT_USERNAME", ""), "mqtt_password" => ENV.fetch("MQTT_PASSWORD", ""), "rate_limit_trusted_ips" => "", "rate_limit_trusted_rate" => "1", "rate_limit_public_rate" => "10", "rate_limit_blacklist" => "" }
@@ -40,6 +46,7 @@ module Admin
       }
       @host = fetch_host_info
       @memory = fetch_memory_info
+      @process_mem = fetch_process_memory_info
       @disks = fetch_disk_info
       @services = fetch_docker_services
       @service_graph = build_mermaid_graph
@@ -173,6 +180,88 @@ module Admin
       Rails.logger.warn("Memory info failed: #{e.message}")
       nil
     end
+
+    # In-process memory introspection — runs in THIS Puma worker, so reflects
+    # the live (long-running) heap, not a freshly-booted rails runner. All
+    # probes are O(1) — safe to call on every page load even near the memory ceiling.
+    def fetch_process_memory_info
+      require "objspace"
+
+      status = File.read("/proc/self/status") rescue ""
+      vm_rss  = status[/VmRSS:\s+(\d+)/, 1].to_i        # kB
+      vm_peak = status[/VmPeak:\s+(\d+)/, 1].to_i
+      vm_size = status[/VmSize:\s+(\d+)/, 1].to_i
+      threads = status[/Threads:\s+(\d+)/, 1].to_i
+
+      gc      = GC.stat
+      counts  = ObjectSpace.count_objects
+
+      memsize = {}
+      [String, Hash, Array, Object, Proc].each do |klass|
+        bytes = ObjectSpace.memsize_of_all(klass) rescue 0
+        memsize[klass.to_s] = bytes
+      end
+
+      cache_size = (Rails.cache.respond_to?(:instance_variable_get) ? Rails.cache.instance_variable_get(:@data)&.size : nil) rescue nil
+
+      pid_uptime_sec = (Time.now - File.stat("/proc/self").mtime).to_i rescue 0
+
+      # Compact snapshot for the history strip — keep small, push to Redis.
+      snapshot = {
+        ts:      Time.now.to_i,
+        rss_kb:  vm_rss,
+        live:    gc[:total_allocated_objects].to_i - gc[:total_freed_objects].to_i,
+        t_str:   counts[:T_STRING].to_i,
+        t_hsh:   counts[:T_HASH].to_i,
+        t_arr:   counts[:T_ARRAY].to_i,
+        t_obj:   counts[:T_OBJECT].to_i,
+        t_data:  counts[:T_DATA].to_i,
+        mem_obj: memsize["Object"].to_i,
+        mem_str: memsize["String"].to_i,
+      }
+
+      history = []
+      begin
+        redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
+        # Read existing history first (so the current snapshot is the newest)
+        raw = redis.lrange("system_info:mem_history", 0, 29) || []
+        history = raw.map { |s| JSON.parse(s, symbolize_names: true) }.compact
+        redis.lpush("system_info:mem_history", snapshot.to_json)
+        redis.ltrim("system_info:mem_history", 0, 29)
+        redis.close
+      rescue => e
+        Rails.logger.warn("Memory history Redis op failed: #{e.message}")
+      end
+
+      {
+        vm_rss_kb:  vm_rss,
+        vm_peak_kb: vm_peak,
+        vm_size_kb: vm_size,
+        threads:    threads,
+        pid_uptime: pid_uptime_sec,
+        gc: {
+          count:                       gc[:count],
+          heap_live_slots:             gc[:heap_live_slots],
+          heap_free_slots:             gc[:heap_free_slots],
+          heap_allocatable_pages:      gc[:heap_allocatable_pages],
+          heap_allocated_pages:        gc[:heap_allocated_pages],
+          total_allocated_objects:     gc[:total_allocated_objects],
+          total_freed_objects:         gc[:total_freed_objects],
+          malloc_increase_bytes:       gc[:malloc_increase_bytes],
+          malloc_increase_bytes_limit: gc[:malloc_increase_bytes_limit],
+          oldmalloc_increase_bytes:    gc[:oldmalloc_increase_bytes],
+        },
+        count_objects: counts,
+        memsize: memsize,
+        rails_cache_entries: cache_size,
+        snapshot: snapshot,
+        history: history,  # newest-first, NOT including current snapshot
+      }
+    rescue => e
+      Rails.logger.warn("Process memory info failed: #{e.message}")
+      nil
+    end
+
 
     def fetch_disk_info
       vfs = %w[tmpfs devtmpfs squashfs proc sysfs cgroup cgroup2 devpts mqueue hugetlbfs autofs securityfs pstore debugfs tracefs fusectl configfs binfmt_misc nsfs]

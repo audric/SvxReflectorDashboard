@@ -56,6 +56,9 @@
         %button.tab-btn.pb-3.text-sm.font-medium.text-ghmuted.hover:text-gray-200.cursor-pointer.border-b-2.border-transparent{type: "button", onclick: "switchTab('debug')", id: "tab-debug", class: @active_tab == 'debug' ? 'active' : ''}
           %i.bi.bi-bug.mr-1
           Redis
+        %button.tab-btn.pb-3.text-sm.font-medium.text-ghmuted.hover:text-gray-200.cursor-pointer.border-b-2.border-transparent{type: "button", onclick: "switchTab('memory')", id: "tab-memory", class: @active_tab == 'memory' ? 'active' : ''}
+          %i.bi.bi-memory.mr-1
+          Memory
         %button.tab-btn.pb-3.text-sm.font-medium.text-ghmuted.hover:text-gray-200.cursor-pointer.border-b-2.border-transparent{type: "button", onclick: "switchTab('settings')", id: "tab-settings", class: @active_tab == 'settings' ? 'active' : ''}
           %i.bi.bi-gear.mr-1
           Settings
@@ -368,6 +371,185 @@
                   %th.py-2 Size
                   %th.py-2 Value
               %tbody#keys-tbody
+
+      -# ════════════════════════════════════════════════
+      -# TAB: Memory (in-process Puma heap introspection)
+      -# ════════════════════════════════════════════════
+      #panel-memory.tab-panel{class: @active_tab == 'memory' ? 'active' : ''}
+        - if @process_mem
+          - pm = @process_mem
+          - fmt_kb = ->(kb) { kb > 1024*1024 ? "%.2f GB" % (kb/1024.0/1024.0) : kb > 1024 ? "%.1f MB" % (kb/1024.0) : "#{kb} kB" }
+          - fmt_b  = ->(b)  { b  > 1024*1024*1024 ? "%.2f GB" % (b/1024.0/1024.0/1024.0) : b > 1024*1024 ? "%.1f MB" % (b/1024.0/1024.0) : "%.1f kB" % (b/1024.0) }
+          - fmt_num = ->(n) { n.to_s.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse }
+          - fmt_delta = ->(d, bytes: false) do
+            -   next '' if d.nil? || d == 0
+            -   sign  = d > 0 ? '+' : ''
+            -   color = d > 0 ? 'text-amber-400' : 'text-emerald-400'
+            -   val   = bytes ? fmt_b.call(d.abs) : fmt_num.call(d.abs)
+            -   "<span class=\"text-xs ml-2 #{color}\">#{sign}#{d > 0 ? val : '-' + val}</span>".html_safe
+          - prev = pm[:history].first
+          - delta = ->(key) { prev ? (pm[:snapshot][key].to_i - prev[key].to_i) : nil }
+
+          .flex.items-center.justify-between.mb-4.flex-wrap.gap-2
+            %h5.text-lg.font-semibold.text-gray-100
+              %i.bi.bi-memory.mr-2
+              Process Memory (live Puma worker)
+            .flex.items-center.gap-2
+              %label.text-xs.text-ghmuted.flex.items-center.gap-1.cursor-pointer
+                %input#mem-autorefresh{type: "checkbox"}
+                Auto-refresh
+                %select#mem-autorefresh-interval.bg-ghbg.border.border-ghborder.rounded.px-1.text-xs{style: "margin-left:4px"}
+                  %option{value: "5"} 5s
+                  %option{value: "10", selected: true} 10s
+                  %option{value: "30"} 30s
+                  %option{value: "60"} 60s
+              %a.text-xs.px-3.py-1.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.cursor-pointer{href: admin_system_info_path(tab: "memory", reset_mem_history: 1)}
+                %i.bi.bi-trash.mr-1
+                Reset history
+              %button.text-xs.px-3.py-1.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.cursor-pointer{onclick: "location.reload()"}
+                %i.bi.bi-arrow-clockwise.mr-1
+                Refresh
+
+          -# ── Snapshot trend (last 30, newest at top) ──
+          - if pm[:history].any?
+            .rounded-lg.border.border-ghborder.bg-ghcard.mb-6.overflow-x-auto
+              .px-4.py-3.border-b.border-ghborder.flex.items-center.justify-between
+                %h6.text-sm.font-semibold.text-gray-100
+                  %i.bi.bi-graph-up-arrow.mr-2
+                  Trend (last #{pm[:history].size + 1} snapshots, newest first)
+                %span.text-xs.text-ghmuted Δ shown vs previous snapshot
+              %table.w-full.text-xs.font-mono
+                %thead.text-ghmuted
+                  %tr.border-b.border-ghborder2
+                    %th.text-left.py-2.px-3 Time
+                    %th.text-right.py-2.px-3 VmRSS
+                    %th.text-right.py-2.px-3 live obj
+                    %th.text-right.py-2.px-3 T_STRING
+                    %th.text-right.py-2.px-3 T_HASH
+                    %th.text-right.py-2.px-3 T_ARRAY
+                    %th.text-right.py-2.px-3 T_OBJECT
+                    %th.text-right.py-2.px-3 T_DATA
+                    %th.text-right.py-2.px-3 Object mem
+                %tbody
+                  -# Current snapshot
+                  - cur = pm[:snapshot]
+                  %tr.border-b.border-ghborder2.bg-ghbg
+                    %td.py-2.px-3.text-gray-200= Time.at(cur[:ts]).strftime('%H:%M:%S')
+                    %td.py-2.px-3.text-right.text-gray-200
+                      = fmt_kb.call(cur[:rss_kb])
+                      = fmt_delta.call(delta.call(:rss_kb))
+                    %td.py-2.px-3.text-right.text-gray-200
+                      = fmt_num.call(cur[:live])
+                      = fmt_delta.call(delta.call(:live))
+                    %td.py-2.px-3.text-right.text-gray-200
+                      = fmt_num.call(cur[:t_str])
+                      = fmt_delta.call(delta.call(:t_str))
+                    %td.py-2.px-3.text-right.text-gray-200
+                      = fmt_num.call(cur[:t_hsh])
+                      = fmt_delta.call(delta.call(:t_hsh))
+                    %td.py-2.px-3.text-right.text-gray-200
+                      = fmt_num.call(cur[:t_arr])
+                      = fmt_delta.call(delta.call(:t_arr))
+                    %td.py-2.px-3.text-right.text-gray-200
+                      = fmt_num.call(cur[:t_obj])
+                      = fmt_delta.call(delta.call(:t_obj))
+                    %td.py-2.px-3.text-right.text-gray-200
+                      = fmt_num.call(cur[:t_data])
+                      = fmt_delta.call(delta.call(:t_data))
+                    %td.py-2.px-3.text-right.text-gray-200
+                      = fmt_b.call(cur[:mem_obj])
+                      = fmt_delta.call(delta.call(:mem_obj), bytes: true)
+                  -# Previous snapshots
+                  - pm[:history].each do |h|
+                    %tr.border-b.border-ghborder2
+                      %td.py-2.px-3.text-ghmuted= Time.at(h[:ts]).strftime('%H:%M:%S')
+                      %td.py-2.px-3.text-right.text-ghmuted= fmt_kb.call(h[:rss_kb])
+                      %td.py-2.px-3.text-right.text-ghmuted= fmt_num.call(h[:live])
+                      %td.py-2.px-3.text-right.text-ghmuted= fmt_num.call(h[:t_str])
+                      %td.py-2.px-3.text-right.text-ghmuted= fmt_num.call(h[:t_hsh])
+                      %td.py-2.px-3.text-right.text-ghmuted= fmt_num.call(h[:t_arr])
+                      %td.py-2.px-3.text-right.text-ghmuted= fmt_num.call(h[:t_obj])
+                      %td.py-2.px-3.text-right.text-ghmuted= fmt_num.call(h[:t_data])
+                      %td.py-2.px-3.text-right.text-ghmuted= fmt_b.call(h[:mem_obj])
+
+          .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-6
+            -# ── RSS / Peak / Threads ──
+            .rounded-lg.border.border-ghborder.bg-ghcard
+              .px-4.py-3.border-b.border-ghborder
+                %h6.text-sm.font-semibold.text-gray-100
+                  %i.bi.bi-pc-display-horizontal.mr-2
+                  Process
+              %table.w-full.text-sm
+                %tbody
+                  %tr.border-b.border-ghborder2
+                    %td.px-4.py-2.text-ghmuted{style: "width: 200px"} VmRSS (resident)
+                    %td.px-4.py-2.text-gray-200.font-mono= fmt_kb.call(pm[:vm_rss_kb])
+                  %tr.border-b.border-ghborder2
+                    %td.px-4.py-2.text-ghmuted VmPeak
+                    %td.px-4.py-2.text-gray-200.font-mono= fmt_kb.call(pm[:vm_peak_kb])
+                  %tr.border-b.border-ghborder2
+                    %td.px-4.py-2.text-ghmuted VmSize (virtual)
+                    %td.px-4.py-2.text-gray-200.font-mono= fmt_kb.call(pm[:vm_size_kb])
+                  %tr.border-b.border-ghborder2
+                    %td.px-4.py-2.text-ghmuted Threads
+                    %td.px-4.py-2.text-gray-200.font-mono= pm[:threads]
+                  %tr.border-b.border-ghborder2
+                    %td.px-4.py-2.text-ghmuted Process uptime
+                    %td.px-4.py-2.text-gray-200.font-mono= "#{pm[:pid_uptime] / 3600}h #{(pm[:pid_uptime] % 3600) / 60}m"
+                  - if pm[:rails_cache_entries]
+                    %tr.border-b.border-ghborder2
+                      %td.px-4.py-2.text-ghmuted Rails.cache entries
+                      %td.px-4.py-2.text-gray-200.font-mono= pm[:rails_cache_entries]
+
+            -# ── GC stats ──
+            .rounded-lg.border.border-ghborder.bg-ghcard
+              .px-4.py-3.border-b.border-ghborder
+                %h6.text-sm.font-semibold.text-gray-100
+                  %i.bi.bi-recycle.mr-2
+                  Garbage Collector
+              %table.w-full.text-sm
+                %tbody
+                  - pm[:gc].each do |k, v|
+                    %tr.border-b.border-ghborder2
+                      %td.px-4.py-2.text-ghmuted{style: "width: 230px"}= k.to_s.tr('_', ' ')
+                      %td.px-4.py-2.text-gray-200.font-mono
+                        - if k.to_s.include?('bytes')
+                          = fmt_b.call(v.to_i)
+                        - else
+                          = v
+                  %tr.border-b.border-ghborder2
+                    %td.px-4.py-2.text-ghmuted live objects (alloc - freed)
+                    %td.px-4.py-2.text-gray-200.font-mono= pm[:gc][:total_allocated_objects].to_i - pm[:gc][:total_freed_objects].to_i
+
+          -# ── ObjectSpace.count_objects ──
+          .rounded-lg.border.border-ghborder.bg-ghcard.mb-6
+            .px-4.py-3.border-b.border-ghborder.flex.items-center.justify-between
+              %h6.text-sm.font-semibold.text-gray-100
+                %i.bi.bi-list-ol.mr-2
+                ObjectSpace.count_objects
+              %span.text-xs.text-ghmuted Cheap; refreshes every page load
+            %table.w-full.text-sm
+              %tbody
+                - pm[:count_objects].sort_by { |_, n| -n }.each do |type, count|
+                  %tr.border-b.border-ghborder2
+                    %td.px-4.py-2.text-ghmuted{style: "width: 200px"}= type
+                    %td.px-4.py-2.text-gray-200.font-mono= count.to_s.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse
+
+          -# ── memsize_of_all by class ──
+          .rounded-lg.border.border-ghborder.bg-ghcard
+            .px-4.py-3.border-b.border-ghborder
+              %h6.text-sm.font-semibold.text-gray-100
+                %i.bi.bi-hdd-stack.mr-2
+                Memory by class (memsize_of_all)
+            %table.w-full.text-sm
+              %tbody
+                - pm[:memsize].sort_by { |_, b| -b }.each do |klass, bytes|
+                  %tr.border-b.border-ghborder2
+                    %td.px-4.py-2.text-ghmuted{style: "width: 200px"}= klass
+                    %td.px-4.py-2.text-gray-200.font-mono= fmt_b.call(bytes)
+        - else
+          .text-center.text-ghmuted.py-12
+            Process memory introspection unavailable.
 
       -# ════════════════════════════════════════════════
       -# TAB: Settings
@@ -866,6 +1048,12 @@
         document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
         document.getElementById('tab-' + tab).classList.add('active');
         document.getElementById('panel-' + tab).classList.add('active');
+        // Persist tab in URL so F5 keeps you on the same tab.
+        try {
+          var url = new URL(window.location.href);
+          url.searchParams.set('tab', tab);
+          history.replaceState(null, '', url);
+        } catch (e) {}
         // Start/stop debug polling based on tab
         if (tab === 'debug' && !debugStarted) { startDebug(); }
         if (tab === 'changelog') { loadChangelog(); }
@@ -873,7 +1061,45 @@
         if (tab !== 'mqtt') { stopMqttAuto(); }
         // Stop log auto-refresh when leaving logs tab
         if (tab !== 'logs') { stopLogAuto(); }
+        // Stop memory auto-refresh when leaving memory tab
+        if (tab !== 'memory') { stopMemAuto(); }
       }
+
+      // ── Memory tab auto-refresh ──
+      var memAutoTimer = null;
+      function stopMemAuto() {
+        if (memAutoTimer) { clearTimeout(memAutoTimer); memAutoTimer = null; }
+      }
+      function scheduleMemAuto() {
+        stopMemAuto();
+        var cb = document.getElementById('mem-autorefresh');
+        var sel = document.getElementById('mem-autorefresh-interval');
+        if (!cb || !cb.checked) return;
+        var secs = parseInt(sel.value, 10) || 10;
+        memAutoTimer = setTimeout(function() { location.reload(); }, secs * 1000);
+      }
+      (function() {
+        var cb = document.getElementById('mem-autorefresh');
+        var sel = document.getElementById('mem-autorefresh-interval');
+        if (!cb || !sel) return;
+        // Restore from localStorage
+        try {
+          cb.checked = localStorage.getItem('mem_autorefresh') === '1';
+          var savedInterval = localStorage.getItem('mem_autorefresh_interval');
+          if (savedInterval) sel.value = savedInterval;
+        } catch (e) {}
+        cb.addEventListener('change', function() {
+          try { localStorage.setItem('mem_autorefresh', cb.checked ? '1' : '0'); } catch (e) {}
+          scheduleMemAuto();
+        });
+        sel.addEventListener('change', function() {
+          try { localStorage.setItem('mem_autorefresh_interval', sel.value); } catch (e) {}
+          scheduleMemAuto();
+        });
+        // Kick off if memory tab is active on load
+        var url = new URL(window.location.href);
+        if ((url.searchParams.get('tab') || 'info') === 'memory') scheduleMemAuto();
+      })();
 
       // ── Flash auto-dismiss ──
       (function() {
