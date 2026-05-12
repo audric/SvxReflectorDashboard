@@ -4,17 +4,7 @@ module Admin
     before_action :require_admin
 
     DOCKER_SOCKET = "/var/run/docker.sock"
-    BOOT_ORDER = %w[init-reflector-conf redis mqtt svxreflector web updater audio_bridge caddy].freeze
-    SERVICE_DEPS = {
-      "init-reflector-conf" => [],
-      "redis" => [],
-      "mqtt" => [],
-      "svxreflector" => %w[init-reflector-conf],
-      "web" => %w[init-reflector-conf redis svxreflector],
-      "updater" => %w[web redis svxreflector],
-      "audio_bridge" => %w[redis svxreflector],
-      "caddy" => %w[web],
-    }.freeze
+    BOOT_ORDER = %w[init-reflector-conf redis mqtt svxreflector web updater jobs audio_bridge caddy].freeze
 
     def show
       @active_tab = params[:tab] || "info"
@@ -320,7 +310,8 @@ module Admin
           bridge_id = container_name&.match(/(\d+)\z/)&.[](1)&.to_i
           label = bridge_names[bridge_id] ? "bridge: #{bridge_names[bridge_id]}" : container_name
           { service: label, image: c["Image"], state: c["State"], status: c["Status"],
-            created: (Time.at(c["Created"]).strftime("%Y-%m-%d %H:%M") rescue nil) }
+            created: (Time.at(c["Created"]).strftime("%Y-%m-%d %H:%M") rescue nil),
+            depends_on: ["svxreflector"], graph_id: container_name }
         }
 
       compose_services + bridge_containers
@@ -329,38 +320,54 @@ module Admin
       []
     end
 
+    # Build the Mermaid dependency graph directly from live Compose
+    # `com.docker.compose.depends_on` labels — single source of truth that
+    # stays in sync with docker-compose.yml without a separate constant.
+    # DB-configured Bridge rows are added after the live pass so bridges
+    # without a running container still appear (styled as stopped/missing).
     def build_mermaid_graph
-      state_map = @services.each_with_object({}) { |s, h| h[s[:service]] = s[:state] }
-      lines = ["graph LR"]
-      SERVICE_DEPS.each do |svc, deps|
-        id = svc.tr("-", "_")
-        lines << "  #{id}[\"#{svc}\"]"
-        deps.each do |dep|
+      # ELK renderer + top-bottom direction gives layered layout with minimal
+      # edge crossings, far cleaner than the default dagre LR for this DAG.
+      lines = [
+        "%%{init: {'flowchart': {'defaultRenderer': 'elk'}}}%%",
+        "flowchart LR",
+      ]
+
+      rendered = {}
+      @services.each do |svc|
+        node_label = svc[:service]
+        node_label = "#{node_label}<br/><small>one-shot</small>" if svc[:service] == "init-reflector-conf"
+        node_id    = (svc[:graph_id] || svc[:service]).to_s.tr("-", "_")
+        rendered[node_id] = true
+        lines << "  #{node_id}[\"#{node_label}\"]"
+
+        Array(svc[:depends_on]).each do |dep|
           dep_id = dep.tr("-", "_")
-          lines << "  #{dep_id} --> #{id}"
+          lines << "  #{dep_id} --> #{node_id}"
         end
+
+        # init-reflector-conf exiting is the expected end-state; don't paint it red.
+        state = svc[:state]
+        state = "running" if svc[:service] == "init-reflector-conf" && state == "exited"
+        style = case state
+                when "running" then "fill:#238636,stroke:#3fb950,color:#fff"
+                when "exited"  then "fill:#6e2b2b,stroke:#f85149,color:#fff"
+                else                "fill:#30363d,stroke:#6e7681,color:#8b949e"
+                end
+        lines << "  style #{node_id} #{style}"
       end
 
-      # Add dynamic bridge nodes from database
+      # Configured bridges whose container isn't reported by the Docker API
+      # (stopped, removed, or never created). Render in muted gray so it's
+      # visually clear they exist as config but aren't currently running.
       Bridge.find_each do |bridge|
-        id = bridge.container_name.tr("-", "_")
-        lines << "  #{id}[\"#{bridge.name}\"]"
-        lines << "  svxreflector --> #{id}"
+        node_id = bridge.container_name.to_s.tr("-", "_")
+        next if rendered[node_id]
+        lines << "  #{node_id}[\"#{bridge.name} (stopped)\"]"
+        lines << "  svxreflector --> #{node_id}"
+        lines << "  style #{node_id} fill:#30363d,stroke:#6e7681,color:#8b949e"
       end
 
-      # Style all nodes by state
-      all_services = SERVICE_DEPS.keys + Bridge.all.map(&:container_name)
-      all_services.each do |svc|
-        id = svc.tr("-", "_")
-        case state_map[svc]
-        when "running"
-          lines << "  style #{id} fill:#238636,stroke:#3fb950,color:#fff"
-        when "exited"
-          lines << "  style #{id} fill:#6e2b2b,stroke:#f85149,color:#fff"
-        else
-          lines << "  style #{id} fill:#30363d,stroke:#6e7681,color:#8b949e" unless state_map[svc]
-        end
-      end
       lines.join("\n")
     end
 
@@ -371,12 +378,17 @@ module Admin
       image = c["Image"]
       created = Time.at(c["Created"]).strftime("%Y-%m-%d %H:%M") rescue nil
 
+      # Parse Compose dependency label: "svc:condition:restart,svc:condition:restart"
+      deps_raw = c.dig("Labels", "com.docker.compose.depends_on").to_s
+      depends_on = deps_raw.split(",").filter_map { |s| s.split(":").first.presence }
+
       {
         service: service,
         image: image,
         state: state,
         status: status,
         created: created,
+        depends_on: depends_on,
       }
     end
 
