@@ -1598,6 +1598,7 @@
         // Walk all remote commits in order — everything before localSha is deployed
         var deployedShas = {};
         var missingCount = 0;
+        var newestMissingTs = null;
         if (hasRemote && localSha) {
           var foundDeployed = false;
           // Commits are newest first — count until we find the deployed SHA
@@ -1605,13 +1606,30 @@
             day.commits.forEach(function(c) {
               if (c.sha === localSha) foundDeployed = true;
               if (foundDeployed) { deployedShas[c.sha] = true; }
-              else { missingCount++; }
+              else {
+                missingCount++;
+                // First missing commit we encounter is the newest
+                if (!newestMissingTs && c.ts) newestMissingTs = c.ts;
+              }
             });
           });
           if (missingCount > 0) {
-            html += '<div class="p-3 rounded border text-sm mb-4 border-yellow-700/50 text-yellow-400 bg-yellow-900/20">' +
-                    '<div class="flex items-center gap-2"><i class="bi bi-arrow-up-circle"></i> ' +
-                    '<span><strong>' + missingCount + ' update' + (missingCount === 1 ? '' : 's') + '</strong> available. Run <code>./update.sh</code> to update.</span></div></div>';
+            // GitHub Actions takes ~5–15 min to build images. Suppress the
+            // "run ./update.sh" prompt until the newest missing commit is at
+            // least an hour old, so updates can't be applied before the image
+            // is published.
+            var ageMin = newestMissingTs ? (Date.now() - new Date(newestMissingTs).getTime()) / 60000 : Infinity;
+            if (ageMin >= 60) {
+              html += '<div class="p-3 rounded border text-sm mb-4 border-yellow-700/50 text-yellow-400 bg-yellow-900/20">' +
+                      '<div class="flex items-center gap-2"><i class="bi bi-arrow-up-circle"></i> ' +
+                      '<span><strong>' + missingCount + ' update' + (missingCount === 1 ? '' : 's') + '</strong> available. Run <code>./update.sh</code> to update.</span></div></div>';
+            } else {
+              var waitMin = Math.max(1, Math.ceil(60 - ageMin));
+              html += '<div class="p-3 rounded border text-sm mb-4 border-sky-700/50 text-sky-400 bg-sky-900/20">' +
+                      '<div class="flex items-center gap-2"><i class="bi bi-hourglass-split"></i> ' +
+                      '<span><strong>' + missingCount + ' update' + (missingCount === 1 ? '' : 's') + '</strong> in flight. ' +
+                      'Suggest waiting ~' + waitMin + ' more minute' + (waitMin === 1 ? '' : 's') + ' to give the GitHub Actions workflow time to finish building the image.</span></div></div>';
+            }
           } else {
             html += '<div class="p-3 rounded border text-sm mb-4 flex items-center gap-2 border-green-700/50 text-green-400 bg-green-900/20">' +
                     '<i class="bi bi-check-circle"></i> You are up to date.</div>';
@@ -1679,12 +1697,13 @@
               if (!c.commit) return;
               // Skip merge commits (they have 2+ parents)
               if (c.parents && c.parents.length > 1) return;
-              var date = (c.commit.author && c.commit.author.date || '').substring(0, 10);
+              var ts = c.commit.author && c.commit.author.date || '';
+              var date = ts.substring(0, 10);
               var sha = (c.sha || '').substring(0, 7);
               var msg = c.commit.message.split('\n')[0];
               if (!date || !sha) return;
               if (!grouped[date]) grouped[date] = [];
-              grouped[date].push({ sha: sha, message: msg });
+              grouped[date].push({ sha: sha, message: msg, ts: ts });
             });
             remoteChangelog = Object.keys(grouped).sort().reverse().map(function(d) {
               return { date: d, commits: grouped[d] };
