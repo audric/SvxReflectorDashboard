@@ -284,6 +284,10 @@
             if (!msg.nodes) return;
             var nodes = msg.nodes;
 
+            // First broadcast after (re)load: prime prevNodes without synthesizing
+            // a 'connected' event for every currently-connected node.
+            if (Object.keys(prevNodes).length === 0) { prevNodes = nodes; return; }
+
             // Detect events from state changes
             Object.keys(nodes).forEach(function(cs) {
               var node = nodes[cs];
