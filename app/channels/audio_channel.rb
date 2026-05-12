@@ -19,9 +19,8 @@ class AudioChannel < ApplicationCable::Channel
       stream_from "audio:tg:#{tg}"
       stream_from "audio:user:#{callsign}"
 
-      redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
       ref_key = "web_node_refs:#{callsign}"
-      ref = redis.incr(ref_key)
+      redis.incr(ref_key)
       redis.expire(ref_key, 120)
       # Always publish connect — the audio_bridge deduplicates via session
       # refCount. Skipping on ref > 1 caused stale keys (after audio_bridge
@@ -32,9 +31,8 @@ class AudioChannel < ApplicationCable::Channel
         node_class: params[:node_class].to_s, node_location: params[:node_location].to_s,
         sysop: params[:sysop].to_s
       }.to_json)
-      update_web_node_info(redis, callsign)
+      update_web_node_info(callsign)
       @ref_key = ref_key
-      redis.close
     else
       reject
     end
@@ -43,7 +41,6 @@ class AudioChannel < ApplicationCable::Channel
   def unsubscribed
     return if @web_callsign.blank?
 
-    redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
     ref = redis.decr("web_node_refs:#{@web_callsign}")
     # Always publish disconnect so the bridge refCount stays in sync
     # (subscribed always publishes connect, so we must always publish disconnect)
@@ -53,18 +50,16 @@ class AudioChannel < ApplicationCable::Channel
       redis.hdel("web_node_info", @web_callsign)
     end
   ensure
-    redis&.close
+    @redis&.close
+    @redis = nil
   end
 
   def select_tg(data)
     tg = data["tg"].to_i
     return unless tg > 0
 
-    redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
-    refresh_ttl(redis)
+    refresh_ttl
     redis.publish("audio:commands", { action: "select_tg", tg: tg, callsign: @web_callsign }.to_json)
-  ensure
-    redis&.close
   end
 
   def ptt_start(data)
@@ -73,13 +68,10 @@ class AudioChannel < ApplicationCable::Channel
     tg = data["tg"].to_i
     return unless tg > 0
 
-    redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
-    refresh_ttl(redis)
+    refresh_ttl
     redis.publish("audio:tx", { action: "ptt_start", tg: tg, callsign: @web_callsign }.to_json)
-    update_web_node_info(redis, @web_callsign)
+    update_web_node_info(@web_callsign)
     broadcast_talker_hint(@web_callsign, tg, true)
-  ensure
-    redis&.close
   end
 
   def ptt_stop(data)
@@ -88,12 +80,9 @@ class AudioChannel < ApplicationCable::Channel
     tg = data["tg"].to_i
     return unless tg > 0
 
-    redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
-    refresh_ttl(redis)
+    refresh_ttl
     redis.publish("audio:tx", { action: "ptt_stop", tg: tg, callsign: @web_callsign }.to_json)
     broadcast_talker_hint(@web_callsign, tg, false)
-  ensure
-    redis&.close
   end
 
   def tx_audio(data)
@@ -115,22 +104,24 @@ class AudioChannel < ApplicationCable::Channel
     end
     @last_tx_at = now
 
-    redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
     redis.publish("audio:tx", { action: "audio", audio: audio, callsign: @web_callsign }.to_json)
-  ensure
-    redis&.close
   end
 
   def keepalive(_data = nil)
-    redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
-    refresh_ttl(redis)
-  ensure
-    redis&.close
+    refresh_ttl
   end
 
   private
 
-  def refresh_ttl(redis)
+  # One Redis client per channel instance (== one WebSocket connection).
+  # Reused across every method invocation; closed in unsubscribed. Replaces the
+  # previous per-call `Redis.new`/`close` pattern that was leaking T_DATA in the
+  # hot tx_audio path (~50 frames/sec).
+  def redis
+    @redis ||= Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
+  end
+
+  def refresh_ttl
     return if @ref_key.blank?
     redis.expire(@ref_key, 120)
   end
@@ -144,7 +135,7 @@ class AudioChannel < ApplicationCable::Channel
     ActionCable.server.broadcast("updates", patch)
   end
 
-  def update_web_node_info(redis, callsign)
+  def update_web_node_info(callsign)
     return if callsign.blank?
     meta = { sw: params[:sw].to_s, swVer: params[:sw_ver].to_s,
              nodeClass: params[:node_class].to_s, nodeLocation: params[:node_location].to_s,
