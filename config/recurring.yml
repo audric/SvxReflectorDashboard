@@ -1,5 +1,5 @@
 production:
-  prune_tg_join_leave:
+  prune_node_events:
     class: PruneNodeEventsJob
-    args: [tg_join, tg_leave]
+    args: [tg_join, tg_leave, connected, disconnected, remote_talk_start, remote_talk_stop]
     schedule: every day at 4am
