@@ -1,6 +1,8 @@
 class DashboardController < ApplicationController
   layout false
 
+  after_action :close_redis
+
   SOURCE_FILTERS = %w[all network local trunk svx].freeze
 
   def index
@@ -154,10 +156,8 @@ class DashboardController < ApplicationController
 
     # ── Web users ─ Redis SCAN (non-blocking) + 30s cache ──────────────
     users = Rails.cache.fetch("stats:users", expires_in: 30.seconds) do
-      redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379/1"))
       sessions = redis.scan_each(match: "session:*").to_a
       online   = sessions.count { |k| redis.get(k).to_s.include?("user_id") }
-      redis.close
       { total_users: User.where(approved: true).count,
         online_users: online,
         anonymous_sessions: sessions.size - online }
@@ -178,7 +178,6 @@ class DashboardController < ApplicationController
     # Read remote peer status from Redis (cached by trunk status threads)
     # Falls back to direct fetch if Redis key is missing (e.g. after restart)
     @remote_configs = {}
-    redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://redis:6379/1'))
     @local_trunks.each do |name, cfg|
       data = redis.get("reflector:trunk_status:#{name}")
       if data
@@ -300,7 +299,6 @@ class DashboardController < ApplicationController
 
   def fetch_nodes
     begin
-      redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
       data  = redis.get('reflector:snapshot')
       @nodes = data ? JSON.parse(data) : {}
     rescue => e
@@ -311,7 +309,6 @@ class DashboardController < ApplicationController
 
   def fetch_extended
     begin
-      redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
       @trunks          = JSON.parse(redis.get('reflector:trunks') || '{}')
       @satellites       = JSON.parse(redis.get('reflector:satellites') || '{}')
       @cluster_tgs      = JSON.parse(redis.get('reflector:cluster_tgs') || '[]')
@@ -324,6 +321,17 @@ class DashboardController < ApplicationController
       @reflector_config = {}
       @reflector_mode   = 'reflector'
     end
+  end
+
+  # One Redis client per request, lazy. Closed in close_redis (after_action).
+  # Replaces per-call Redis.new which leaked T_DATA + malloc fragmentation.
+  def redis
+    @redis ||= Redis.new(url: ENV.fetch('REDIS_URL', 'redis://redis:6379/1'))
+  end
+
+  def close_redis
+    @redis&.close
+    @redis = nil
   end
 
   # Net::HTTP needs bare IPv6 addresses without brackets;
