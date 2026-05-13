@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_11_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_13_171547) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -209,6 +209,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_150000) do
     t.string "portal_url"
     t.string "status_url", null: false
     t.datetime "updated_at", null: false
+  end
+
+  create_table "info_pages", force: :cascade do |t|
+    t.text "body", default: "", null: false
+    t.datetime "created_at", null: false
+    t.integer "position", default: 0, null: false
+    t.boolean "published", default: true, null: false
+    t.string "slug", null: false
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.index ["position"], name: "index_info_pages_on_position"
+    t.index ["slug"], name: "index_info_pages_on_slug", unique: true
   end
 
   create_table "node_classes", force: :cascade do |t|

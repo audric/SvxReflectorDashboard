@@ -5,7 +5,7 @@
   %head
     %meta{charset: "UTF-8"}
     %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
-    %title= "SVXReflector #{@reflector_host} · Info"
+    %title= "SVXReflector #{@reflector_host} · Info#{@page ? " · #{@page.title}" : ''}"
     = csrf_meta_tags
     = csp_meta_tag
     %script{src: "/vendor/tailwind/tailwind.js"}
@@ -28,6 +28,10 @@
     %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
     :css
       body { background: #0d1117; }
+      .info-tabs { display: flex; gap: .25rem; flex-wrap: wrap; border-bottom: 1px solid #30363d; margin-bottom: 1.25rem; }
+      .info-tab { padding: .5rem .9rem; border-radius: .4rem .4rem 0 0; font-size: .9rem; color: #8b949e; border: 1px solid transparent; border-bottom: none; text-decoration: none; }
+      .info-tab:hover { color: #c9d1d9; background: #161b22; }
+      .info-tab.active { color: #c9d1d9; background: #0d1117; border-color: #30363d; position: relative; top: 1px; }
       .info-content h1 { font-size: 1.75rem; font-weight: 600; margin: 1.25rem 0 .75rem; color: #c9d1d9; }
       .info-content h2 { font-size: 1.35rem; font-weight: 600; margin: 1.1rem 0 .6rem; color: #c9d1d9; }
       .info-content h3 { font-size: 1.1rem; font-weight: 600; margin: 1rem 0 .5rem; color: #c9d1d9; }
@@ -50,10 +54,41 @@
       .info-content ul.task-list li.task-list-item { margin: .25rem 0; }
       .info-content ul.task-list input.task-list-item-checkbox { margin-right: .5rem; vertical-align: middle; }
       .info-content del { color: #8b949e; }
+      .info-content details { border: 1px solid #30363d; border-radius: .4rem; margin: .5rem 0; background: #0d1117; }
+      .info-content details + details { margin-top: .35rem; }
+      .info-content details > summary { padding: .7rem .9rem; cursor: pointer; font-weight: 700; font-size: 1.02rem; color: #f0f6fc; list-style: none; display: flex; align-items: center; gap: .55rem; }
+      .info-content details > summary::-webkit-details-marker { display: none; }
+      .info-content details > summary::before { content: "▸"; display: inline-block; transition: transform .12s ease; color: #8b949e; }
+      .info-content details[open] > summary::before { transform: rotate(90deg); }
+      .info-content details[open] > summary { border-bottom: 1px solid #30363d; }
+      .info-content details > :not(summary) { padding: 0 .9rem; }
+      .info-content details > :first-child:not(summary) { padding-top: .5rem; }
+      .info-content details > :last-child:not(summary) { padding-bottom: .65rem; }
   %body.text-ghtext
     = render 'shared/navbar', active: 'info'
     .max-w-3xl.mx-auto.px-4.py-8
-      - if @body.present?
+      - if @pages.any?
+        %nav.info-tabs
+          - @pages.each do |p|
+            - is_active = (@page && p.id == @page.id)
+            = link_to p.title, info_page_path(p.slug), class: "info-tab#{' active' if is_active}"
+          - if logged_in? && current_user&.admin?
+            = link_to admin_info_pages_path, class: "info-tab ml-auto", title: "Manage info pages" do
+              %i.bi.bi-pencil-square
+              \ Manage
+      - if @page && @body.present?
         .info-content= render_markdown(@body)
+        :javascript
+          (function(){
+            var panels = document.querySelectorAll('.info-content details');
+            panels.forEach(function(d){
+              d.addEventListener('toggle', function(){
+                if (!d.open) return;
+                panels.forEach(function(o){ if (o !== d) o.open = false; });
+              });
+            });
+          })();
+      - elsif @pages.empty?
+        %p.text-ghmuted No info pages yet.
       - else
-        %p.text-ghmuted No description yet.
+        %p.text-ghmuted This page is empty.

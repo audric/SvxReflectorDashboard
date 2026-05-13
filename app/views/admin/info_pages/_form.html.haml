@@ -1,0 +1,23 @@
+= form_with model: [:admin, @page], local: true, html: { id: 'info-form' } do |f|
+  - if @page.errors.any?
+    .mb-4.px-3.py-2.rounded.bg-red-900.text-red-100
+      %strong Could not save:
+      %ul.list-disc.ml-5
+        - @page.errors.full_messages.each do |msg|
+          %li= msg
+  .grid.grid-cols-1.md:grid-cols-2.gap-4.mb-4
+    %div
+      = f.label :title, class: "block text-sm text-ghmuted mb-1"
+      = f.text_field :title, class: "w-full px-3 py-2 rounded bg-ghcard border border-ghborder text-ghtext", required: true, autofocus: @page.new_record?
+    %div
+      = f.label :slug, class: "block text-sm text-ghmuted mb-1"
+      = f.text_field :slug, class: "w-full px-3 py-2 rounded bg-ghcard border border-ghborder text-ghtext font-mono text-sm", required: true, placeholder: "lowercase-with-dashes"
+  .mb-4
+    %label.inline-flex.items-center.gap-2.text-sm.text-ghmuted
+      = f.check_box :published, class: "rounded"
+      Published
+  %textarea#info-body{name: "info_page[body]", style: "display:none;"}= @page.body
+  #editor
+  .mt-4.flex.gap-2
+    = f.submit (@page.new_record? ? "Create" : "Save"), class: "px-4 py-2 rounded bg-blue-700 hover:bg-blue-600 text-white cursor-pointer"
+    = link_to "Cancel", admin_info_pages_path, class: "px-4 py-2 rounded bg-ghcard border border-ghborder text-ghtext"

@@ -6,7 +6,8 @@ Rails.application.routes.draw do
   get 'radio_programming', to: 'dashboard#radio', as: :radio
   get 'events', to: 'dashboard#events', as: :events
   get 'trunks', to: 'dashboard#trunks', as: :trunks
-  get 'info',   to: 'info#show',        as: :info
+  get 'info',          to: 'info#show',  as: :info
+  get 'info/:slug',    to: 'info#show',  as: :info_page, constraints: { slug: /[a-z0-9-]+/ }
   get 'status', to: 'status#show'
 
   get    "login",    to: "sessions#new"
@@ -45,8 +46,15 @@ Rails.application.routes.draw do
       post :revoke_cert, on: :collection
     end
     resources :external_reflectors
-    resource :info, only: %i[edit update], controller: "info" do
-      post :upload_image, on: :collection
+    resources :info_pages, controller: "info_pages" do
+      collection do
+        post :upload_image
+      end
+      member do
+        patch :toggle_published
+        patch :move_up
+        patch :move_down
+      end
     end
     resources :bridges, controller: "bridge" do
       collection do

@@ -1,0 +1,32 @@
+!!!
+%html{lang: "en"}
+  :javascript
+    (function(){var t=localStorage.getItem('theme')||'auto';var r=(t==='auto'?(window.matchMedia('(prefers-color-scheme:light)').matches?'light':'auto'):t);document.documentElement.setAttribute('data-theme',r);})();
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title= "SVXReflector #{@reflector_host} · New page"
+    = csrf_meta_tags
+    = csp_meta_tag
+    %script{src: "/vendor/tailwind/tailwind.js"}
+    :javascript
+      tailwind.config = { theme: { extend: { colors: { ghbg: '#0d1117', ghcard: '#161b22', ghborder: '#30363d', ghborder2: '#21262d', ghtext: '#c9d1d9', ghmuted: '#8b949e', ghdim: '#6e7681' } } } }
+    %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
+    %link{rel: "stylesheet", href: "/vendor/toastui-editor/toastui-editor.min.css"}
+    %link{rel: "stylesheet", href: "/vendor/toastui-editor/toastui-editor-dark.min.css"}
+    %script{src: "/vendor/toastui-editor/toastui-editor-all.min.js"}
+    :css
+      body { background: #0d1117; }
+      .toastui-editor-defaultUI { border-color: #30363d !important; border-radius: .4rem; }
+  %body.text-ghtext
+    = render 'shared/navbar', active: 'info'
+    .max-w-5xl.mx-auto.px-4.py-8
+      .flex.items-center.justify-between.mb-4
+        %h1.text-2xl.font-semibold
+          %i.bi.bi-plus-circle.mr-2
+          New page
+        = link_to admin_info_pages_path, class: "text-sm text-ghmuted hover:text-ghtext" do
+          %i.bi.bi-arrow-left.mr-1
+          All pages
+      = render 'form'
+    = render 'editor_init'

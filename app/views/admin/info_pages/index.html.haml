@@ -1,0 +1,113 @@
+!!!
+%html{lang: "en"}
+  :javascript
+    (function(){var t=localStorage.getItem('theme')||'auto';var r=(t==='auto'?(window.matchMedia('(prefers-color-scheme:light)').matches?'light':'auto'):t);document.documentElement.setAttribute('data-theme',r);})();
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title= "SVXReflector #{@reflector_host} · Info pages"
+    = csrf_meta_tags
+    %script{src: "/vendor/tailwind/tailwind.js"}
+    :javascript
+      tailwind.config = { theme: { extend: { colors: { ghbg: '#0d1117', ghcard: '#161b22', ghborder: '#30363d', ghborder2: '#21262d', ghtext: '#c9d1d9', ghmuted: '#8b949e', ghdim: '#6e7681' } } } }
+    %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
+    :css
+      body { background: #0d1117; }
+  %body.text-ghtext
+    = render 'shared/navbar', active: 'info'
+
+    #confirm-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
+      .bg-ghcard.border.border-gray-600.rounded-lg.p-5.max-w-sm.w-full.mx-4.shadow-xl
+        .flex.items-center.gap-3.mb-3
+          .w-10.h-10.rounded-full.flex.items-center.justify-center.shrink-0{class: "bg-red-500/15"}
+            %i.bi.bi-exclamation-triangle.text-red-400
+          %h6.text-base.font-semibold.text-gray-100#confirm-title Delete this page?
+        %p.text-sm.text-gray-400.mb-4 This action cannot be undone.
+        .flex.justify-end.gap-2
+          %button#confirm-cancel.px-3.py-1.5.rounded-md.border.border-gray-600.text-sm.text-gray-300.hover:text-gray-100.cursor-pointer{type: "button"} Cancel
+          %button#confirm-delete.px-3.py-1.5.rounded-md.bg-red-600.hover:bg-red-700.text-sm.text-white.font-semibold.cursor-pointer{type: "button"}
+            %i.bi.bi-trash3.mr-1
+            Delete
+
+    .max-w-4xl.mx-auto.px-4.py-8
+      .flex.items-center.justify-between.mb-4
+        %h1.text-2xl.font-semibold
+          %i.bi.bi-pencil-square.mr-2
+          Info pages
+        = link_to new_admin_info_page_path, class: "px-3 py-2 rounded bg-blue-700 hover:bg-blue-600 text-white text-sm" do
+          %i.bi.bi-plus-lg.mr-1
+          New page
+      - if flash[:notice]
+        .mb-4.px-3.py-2.rounded.bg-green-900.text-green-100= flash[:notice]
+      - if flash[:alert]
+        .mb-4.px-3.py-2.rounded.bg-red-900.text-red-100= flash[:alert]
+      .border.border-ghborder.rounded.overflow-hidden
+        %table.w-full.text-sm
+          %thead.bg-ghcard.text-ghmuted
+            %tr
+              %th.text-left.px-3.py-2 Order
+              %th.text-left.px-3.py-2 Title
+              %th.text-left.px-3.py-2 Slug
+              %th.text-left.px-3.py-2 Status
+              %th.text-right.px-3.py-2 Actions
+          %tbody
+            - if @pages.empty?
+              %tr
+                %td.px-3.py-4.text-ghmuted{colspan: 5} No pages yet. Create the first one.
+            - @pages.each_with_index do |page, idx|
+              %tr.border-t.border-ghborder
+                %td.px-3.py-2.text-ghmuted
+                  - if idx > 0
+                    = button_to move_up_admin_info_page_path(page), method: :patch, class: "inline-block text-ghmuted hover:text-ghtext", form: { class: 'inline' } do
+                      %i.bi.bi-chevron-up
+                  - if idx < @pages.size - 1
+                    = button_to move_down_admin_info_page_path(page), method: :patch, class: "inline-block ml-1 text-ghmuted hover:text-ghtext", form: { class: 'inline' } do
+                      %i.bi.bi-chevron-down
+                %td.px-3.py-2= page.title
+                %td.px-3.py-2.text-ghmuted
+                  %code.text-xs= page.slug
+                %td.px-3.py-2
+                  - if page.published
+                    %span.px-2.py-0.5.rounded.bg-green-900.text-green-100.text-xs Published
+                  - else
+                    %span.px-2.py-0.5.rounded.bg-ghborder2.text-ghmuted.text-xs Draft
+                %td.px-3.py-2.text-right.whitespace-nowrap
+                  = link_to info_page_path(page.slug), class: "text-ghmuted hover:text-ghtext mr-3", target: "_blank", title: "View" do
+                    %i.bi.bi-eye
+                  = button_to toggle_published_admin_info_page_path(page), method: :patch, class: "inline text-ghmuted hover:text-ghtext mr-3", form: { class: 'inline' }, title: (page.published ? "Unpublish" : "Publish") do
+                    %i.bi{class: (page.published ? 'bi-toggle-on' : 'bi-toggle-off')}
+                  = link_to edit_admin_info_page_path(page), class: "text-ghmuted hover:text-ghtext mr-3", title: "Edit" do
+                    %i.bi.bi-pencil
+                  %button.text-red-400.hover:text-red-300.cursor-pointer{type: "button", title: "Delete", onclick: "confirmDelete('#{j page.title}', '#{admin_info_page_path(page)}')"}
+                    %i.bi.bi-trash
+    :javascript
+      var _deleteUrl = null;
+      function confirmDelete(name, url) {
+        _deleteUrl = url;
+        document.getElementById('confirm-title').textContent = 'Delete page "' + name + '"?';
+        document.getElementById('confirm-modal').style.display = 'flex';
+      }
+      document.getElementById('confirm-delete').addEventListener('click', function() {
+        if (!_deleteUrl) return;
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = _deleteUrl;
+        var method = document.createElement('input');
+        method.type = 'hidden'; method.name = '_method'; method.value = 'delete';
+        form.appendChild(method);
+        var token = document.querySelector('meta[name="csrf-token"]');
+        if (token) {
+          var csrf = document.createElement('input');
+          csrf.type = 'hidden'; csrf.name = 'authenticity_token'; csrf.value = token.content;
+          form.appendChild(csrf);
+        }
+        document.body.appendChild(form);
+        form.submit();
+      });
+      document.getElementById('confirm-cancel').addEventListener('click', function() {
+        _deleteUrl = null;
+        document.getElementById('confirm-modal').style.display = 'none';
+      });
+      document.getElementById('confirm-modal').addEventListener('click', function(e) {
+        if (e.target === this) { _deleteUrl = null; this.style.display = 'none'; }
+      });

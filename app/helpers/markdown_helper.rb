@@ -7,9 +7,10 @@ module MarkdownHelper
     a img
     table thead tbody tr th td
     input
+    details summary
   ].freeze
 
-  ALLOWED_ATTRS = %w[href src alt title type checked disabled class].freeze
+  ALLOWED_ATTRS = %w[href src alt title type checked disabled class open].freeze
 
   def render_markdown(text)
     return "".html_safe if text.blank?
