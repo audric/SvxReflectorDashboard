@@ -5,7 +5,10 @@ module Admin
     before_action :set_user, only: %i[edit update destroy approve]
 
     def index
-      @users = User.order(:callsign)
+      users = User.order(:callsign).to_a
+      @admins  = users.select(&:admin?)
+      @pending = users.reject(&:admin?).reject(&:approved?)
+      @others  = users.reject(&:admin?).select(&:approved?)
     end
 
     def new

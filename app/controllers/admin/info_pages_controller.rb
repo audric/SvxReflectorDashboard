@@ -66,7 +66,54 @@ module Admin
       render json: { error: e.message }, status: :internal_server_error
     end
 
+    def blobs
+      pages = InfoPage.pluck(:slug, :title, :body)
+      blobs = ActiveStorage::Blob.order(created_at: :desc).to_a
+      @references = blobs.each_with_object({}) do |b, h|
+        sig = b.signed_id
+        h[b.id] = pages.each_with_object([]) do |(slug, title, body), acc|
+          acc << [slug, title] if body.to_s.include?(sig)
+        end
+      end
+      @used_blobs   = blobs.select { |b| @references[b.id].any? }
+      @orphan_blobs = blobs.reject { |b| @references[b.id].any? }
+      @orphan_bytes = @orphan_blobs.sum(&:byte_size)
+    end
+
+    def purge_blob
+      blob = ActiveStorage::Blob.find(params[:blob_id])
+      if blob_referenced?(blob)
+        redirect_to blobs_admin_info_pages_path, alert: "Blob ##{blob.id} (#{blob.filename}) is still referenced by a page — not deleted."
+      else
+        name = blob.filename.to_s
+        size = blob.byte_size
+        blob.purge
+        redirect_to blobs_admin_info_pages_path, notice: "Deleted #{name} (#{format_bytes(size)})."
+      end
+    end
+
+    def purge_orphan_blobs
+      orphans = ActiveStorage::Blob.all.reject { |b| blob_referenced?(b) }
+      count = orphans.size
+      total = orphans.sum(&:byte_size)
+      orphans.each(&:purge)
+      redirect_to blobs_admin_info_pages_path, notice: "Deleted #{count} orphan blob(s) — freed #{format_bytes(total)}."
+    end
+
     private
+
+    def blob_referenced?(blob)
+      sig = blob.signed_id
+      InfoPage.where("body LIKE ?", "%#{sig}%").exists?
+    end
+
+    def format_bytes(n)
+      return "#{n} B" if n < 1024
+      kib = n / 1024.0
+      return "#{kib.round(1)} KiB" if kib < 1024
+      "#{(kib / 1024).round(2)} MiB"
+    end
+    helper_method :format_bytes
 
     def set_page
       @page = InfoPage.find_by!(slug: params[:id])

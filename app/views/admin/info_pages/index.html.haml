@@ -34,9 +34,13 @@
         %h1.text-2xl.font-semibold
           %i.bi.bi-pencil-square.mr-2
           Info pages
-        = link_to new_admin_info_page_path, class: "px-3 py-2 rounded bg-blue-700 hover:bg-blue-600 text-white text-sm" do
-          %i.bi.bi-plus-lg.mr-1
-          New page
+        .flex.gap-2
+          = link_to blobs_admin_info_pages_path, class: "px-3 py-2 rounded border border-ghborder text-ghtext hover:bg-ghcard text-sm" do
+            %i.bi.bi-images.mr-1
+            Images
+          = link_to new_admin_info_page_path, class: "px-3 py-2 rounded bg-blue-700 hover:bg-blue-600 text-white text-sm" do
+            %i.bi.bi-plus-lg.mr-1
+            New page
       - if flash[:notice]
         .mb-4.px-3.py-2.rounded.bg-green-900.text-green-100= flash[:notice]
       - if flash[:alert]

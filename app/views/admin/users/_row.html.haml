@@ -1,0 +1,53 @@
+%tr.border-b.border-ghborder2.hover:bg-ghcard
+  %td.py-2.px-3.font-mono.font-bold= user.callsign
+  %td.py-2= user.name
+  %td.py-2
+    - if user.email.present?
+      %a.text-cyan-400.hover:underline{href: "mailto:#{user.email}"}= user.email
+  %td.py-2= user.mobile
+  %td.py-2
+    - if user.telegram.present?
+      %span.text-cyan-400= user.telegram
+  %td.py-2
+    - if user.admin?
+      %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-yellow-600.text-yellow-100 admin
+    - else
+      %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-gray-600.text-gray-200 user
+  %td.py-2
+    - if user.reflector_admin?
+      %i.bi.bi-broadcast.text-yellow-400{title: "Reflector admin"}
+  %td.py-2
+    - if user.can_monitor?
+      %i.bi.bi-headphones.text-green-400{title: "Can monitor"}
+  %td.py-2
+    - if user.can_transmit?
+      %i.bi.bi-mic-fill.text-green-400{title: "Can transmit"}
+  %td.py-2
+    - if user.oauth?
+      %span.inline-block.px-2.py-0.5.text-xs.rounded-full{class: "bg-blue-900/50 text-blue-300 border border-blue-700/50"}
+        %i.bi.bi-google.mr-1{style: "font-size: 0.6rem"}
+        Google
+    - else
+      %span.inline-block.px-2.py-0.5.text-xs.rounded-full.text-ghmuted
+        %i.bi.bi-key.mr-1{style: "font-size: 0.6rem"}
+        Password
+  %td.py-2
+    - if user.approved?
+      %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-green-700.text-green-100 approved
+    - else
+      %span.inline-block.px-2.py-0.5.text-xs.rounded-full.bg-orange-600.text-orange-100 pending
+  %td.py-2.text-sm.text-ghmuted
+    - if user.last_sign_in_at.present?
+      %span{title: user.last_sign_in_at.strftime("%Y-%m-%d %H:%M:%S UTC")}= time_ago_in_words(user.last_sign_in_at) + " ago"
+    - else
+      %span.text-ghdim never
+  %td.py-2.text-right.pr-3
+    .inline-flex.gap-1.justify-end
+      - unless user.approved?
+        = button_to approve_admin_user_path(user), method: :patch, class: "inline-block text-sm px-2 py-1 rounded border border-green-700 text-green-400 hover:text-green-300", form_class: "inline" do
+          %i.bi.bi-check-lg
+      = link_to edit_admin_user_path(user), class: "inline-block text-sm px-2 py-1 rounded border border-gray-600 text-gray-400 hover:text-gray-200" do
+        %i.bi.bi-pencil
+      - unless user == current_user
+        %button.inline-block.text-sm.px-2.py-1.rounded.border.border-red-700.text-red-400.hover:text-red-300.cursor-pointer{type: "button", onclick: "confirmDelete('#{user.callsign}', '#{admin_user_path(user)}')"}
+          %i.bi.bi-trash

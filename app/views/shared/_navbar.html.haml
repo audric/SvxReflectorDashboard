@@ -6,6 +6,17 @@
   nav::-webkit-scrollbar-track { background: transparent; }
   nav::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
   nav::-webkit-scrollbar-thumb:hover { background: #484f58; }
+  .overflow-x-auto, .overflow-y-auto, .overflow-auto { scrollbar-width: thin; scrollbar-color: #30363d #161b22; }
+  .overflow-x-auto::-webkit-scrollbar, .overflow-y-auto::-webkit-scrollbar, .overflow-auto::-webkit-scrollbar { width: 10px; height: 10px; }
+  .overflow-x-auto::-webkit-scrollbar-track, .overflow-y-auto::-webkit-scrollbar-track, .overflow-auto::-webkit-scrollbar-track { background: #161b22; }
+  .overflow-x-auto::-webkit-scrollbar-thumb, .overflow-y-auto::-webkit-scrollbar-thumb, .overflow-auto::-webkit-scrollbar-thumb { background: #30363d; border-radius: 5px; border: 2px solid #161b22; }
+  .overflow-x-auto::-webkit-scrollbar-thumb:hover, .overflow-y-auto::-webkit-scrollbar-thumb:hover, .overflow-auto::-webkit-scrollbar-thumb:hover { background: #484f58; }
+  .overflow-x-auto::-webkit-scrollbar-corner, .overflow-y-auto::-webkit-scrollbar-corner, .overflow-auto::-webkit-scrollbar-corner { background: #161b22; }
+  [data-theme="light"] .overflow-x-auto, [data-theme="light"] .overflow-y-auto, [data-theme="light"] .overflow-auto { scrollbar-color: #d0d7de #f6f8fa; }
+  [data-theme="light"] .overflow-x-auto::-webkit-scrollbar-track, [data-theme="light"] .overflow-y-auto::-webkit-scrollbar-track, [data-theme="light"] .overflow-auto::-webkit-scrollbar-track { background: #f6f8fa; }
+  [data-theme="light"] .overflow-x-auto::-webkit-scrollbar-thumb, [data-theme="light"] .overflow-y-auto::-webkit-scrollbar-thumb, [data-theme="light"] .overflow-auto::-webkit-scrollbar-thumb { background: #d0d7de; border-color: #f6f8fa; }
+  [data-theme="light"] .overflow-x-auto::-webkit-scrollbar-thumb:hover, [data-theme="light"] .overflow-y-auto::-webkit-scrollbar-thumb:hover, [data-theme="light"] .overflow-auto::-webkit-scrollbar-thumb:hover { background: #b0b8c1; }
+  [data-theme="light"] .overflow-x-auto::-webkit-scrollbar-corner, [data-theme="light"] .overflow-y-auto::-webkit-scrollbar-corner, [data-theme="light"] .overflow-auto::-webkit-scrollbar-corner { background: #f6f8fa; }
   .toast-item {
     pointer-events: auto;
     padding: .6rem 1rem;

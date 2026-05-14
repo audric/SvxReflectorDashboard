@@ -49,6 +49,9 @@ Rails.application.routes.draw do
     resources :info_pages, controller: "info_pages" do
       collection do
         post :upload_image
+        get  :blobs
+        delete 'blobs/orphans', action: :purge_orphan_blobs, as: :purge_orphan_blobs
+        delete 'blobs/:blob_id', action: :purge_blob, as: :purge_blob
       end
       member do
         patch :toggle_published

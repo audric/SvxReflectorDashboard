@@ -1,0 +1,25 @@
+- users = local_assigns[:users] || []
+- empty_label = local_assigns[:empty_label] || "No users."
+.overflow-x-auto
+  %table.w-full.text-left.admin-table
+    %thead
+      %tr.border-b.border-ghborder2
+        %th.py-2.px-3 Callsign
+        %th.py-2 Name
+        %th.py-2 Email
+        %th.py-2 Mobile
+        %th.py-2 Telegram
+        %th.py-2 Role
+        %th.py-2 Refl. Admin
+        %th.py-2 Monitor
+        %th.py-2 TX
+        %th.py-2 Auth
+        %th.py-2 Status
+        %th.py-2 Last Login
+        %th.py-2.text-right.pr-3 Actions
+    %tbody
+      - if users.empty?
+        %tr
+          %td.py-3.px-3.text-ghmuted{colspan: 13}= empty_label
+      - users.each do |user|
+        = render 'row', user: user
