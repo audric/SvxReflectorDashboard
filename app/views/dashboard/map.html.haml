@@ -736,7 +736,6 @@
             if (envelope.type === 'confirm_subscription') { return; }
             var msg = envelope.message;
             if (!msg || !msg.nodes) return;
-            if (window.audioPlayerUpdateTgs) window.audioPlayerUpdateTgs(msg.nodes);
             (msg.removed || []).forEach(function (cs) {
               if (markersByCs[cs]) { markersByCs[cs].remove(); delete markersByCs[cs]; delete markerMeta[cs]; }
               // Remove associated receiver markers
@@ -748,6 +747,7 @@
             (msg.changed || []).forEach(function (cs) {
               if (msg.nodes[cs]) { nodes[cs] = msg.nodes[cs]; addOrUpdateMarker(cs, msg.nodes[cs]); }
             });
+            if (window.audioPlayerUpdateTgs) window.audioPlayerUpdateTgs(nodes);
             applyMapFilters();
             updateOffMap();
           };

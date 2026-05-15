@@ -241,6 +241,7 @@ class DashboardController < ApplicationController
 
   def events
     @recent_events = NodeEvent.order(created_at: :desc).limit(100)
+    fetch_nodes
 
     # Durations for talker-stop events. Prefer the reflector-supplied
     # duration_ms (from MQTT, sub-second precision); fall back to the

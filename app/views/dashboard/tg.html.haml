@@ -425,10 +425,11 @@
             if (envelope.type === 'confirm_subscription') { return; }
             var msg = envelope.message;
             if (!msg || !msg.nodes) return;
-            _tgNodes = msg.nodes;
-            rebuildMatrix(msg.nodes);
-            rebuildTgMap(msg.nodes);
-            if (window.audioPlayerUpdateTgs) window.audioPlayerUpdateTgs(msg.nodes);
+            (msg.removed || []).forEach(function (cs) { delete _tgNodes[cs]; });
+            Object.keys(msg.nodes).forEach(function (cs) { _tgNodes[cs] = msg.nodes[cs]; });
+            rebuildMatrix(_tgNodes);
+            rebuildTgMap(_tgNodes);
+            if (window.audioPlayerUpdateTgs) window.audioPlayerUpdateTgs(_tgNodes);
           };
           ws.onclose = function () { setWs('disconnected'); setTimeout(connectTgWs, 5000); };
           ws.onerror = function () { setWs('disconnected'); };

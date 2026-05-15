@@ -282,7 +282,7 @@ class ReflectorListener
     anything_changed = !changed.empty? || !removed.empty? || trunks_changed || satellites_changed || cluster_changed
     return unless anything_changed
 
-    payload = { nodes: curr, changed: changed.keys, removed: removed,
+    payload = { nodes: changed, changed: changed.keys, removed: removed,
                 _ts: Time.now.iso8601 }
     payload[:trunks]      = curr_trunks      if trunks_changed || !changed.empty? || !removed.empty?
     payload[:satellites]  = curr_satellites   if satellites_changed || !changed.empty? || !removed.empty?

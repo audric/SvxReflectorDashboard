@@ -136,7 +136,7 @@
     :javascript
       (function() {
         'use strict';
-        var prevNodes = {};
+        var prevNodes = #{(@nodes || {}).to_json.html_safe};
         var talkStartAt = {};
         var listEl = document.getElementById('events-list');
         var emptyEl = document.querySelector('#events-container .text-center');
@@ -284,16 +284,13 @@
             if (!msg.nodes) return;
             var nodes = msg.nodes;
 
-            // First broadcast after (re)load: prime prevNodes without synthesizing
-            // a 'connected' event for every currently-connected node.
-            if (Object.keys(prevNodes).length === 0) { prevNodes = nodes; return; }
-
-            // Detect events from state changes
+            // Synthesize events from the slim delta (msg.nodes = changed only).
+            // Compare each changed node against prevNodes (the accumulated state).
             Object.keys(nodes).forEach(function(cs) {
               var node = nodes[cs];
               var prev = prevNodes[cs];
-              if (!prev) { addEvent('connected', cs, node); return; }
-              if (node.isTalker !== prev.isTalker) {
+              if (!prev) { addEvent('connected', cs, node); }
+              else if (node.isTalker !== prev.isTalker) {
                 if (node.isTalker) {
                   talkStartAt[cs] = Date.now();
                   addEvent('talking_start', cs, node);
@@ -308,13 +305,14 @@
               } else if (node.tg !== prev.tg) {
                 addEvent(node.tg ? 'tg_join' : 'tg_leave', cs, node);
               }
+              prevNodes[cs] = node;
             });
             if (msg.removed) {
               msg.removed.forEach(function(cs) {
                 addEvent('disconnected', cs, prevNodes[cs] || {});
+                delete prevNodes[cs];
               });
             }
-            prevNodes = nodes;
           };
           ws.onclose = function() { setTimeout(connect, 3000); };
         }
