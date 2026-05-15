@@ -368,7 +368,7 @@
                 userZoomingEnabled: true,
                 userPanningEnabled: true,
                 boxSelectionEnabled: false,
-                minZoom: 0.3,
+                minZoom: 0.5,
                 maxZoom: 3,
                 style: [
                   {
@@ -383,12 +383,12 @@
                       'text-valign': 'center',
                       'text-halign': 'center',
                       'font-family': 'ui-monospace, monospace',
-                      'font-size': '11px',
+                      'font-size': '14px',
                       'color': '#c9d1d9',
                       'width': 'label',
                       'height': 'label',
-                      'padding': '14px',
-                      'text-max-width': '200px'
+                      'padding': '22px',
+                      'text-max-width': '240px'
                     }
                   },
                   {
@@ -438,8 +438,10 @@
                 ],
                 layout: hasSaved
                   ? { name: 'preset' }
-                  : { name: 'circle', fit: true, padding: 40, animate: false }
+                  : { name: 'circle', fit: true, padding: 60, animate: false }
               });
+
+              if (!hasSaved) cy.fit(undefined, 60);
 
               cy.on('tap', 'node', function(evt) {
                 var host = evt.target.data('host');
@@ -467,10 +469,10 @@
           })();
 
         .relative.mb-4
-          %button.absolute.top-2.right-2.z-10.px-2.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.rounded.border.border-ghborder.bg-ghcard.transition-colors{type: "button", onclick: "if(window._cyInstance){window._cyInstance.layout({name:'circle',fit:true,padding:40,animate:true,animationDuration:300}).run()}",title: "Auto-layout"}
+          %button.absolute.top-2.right-2.z-10.px-2.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.rounded.border.border-ghborder.bg-ghcard.transition-colors{type: "button", onclick: "if(window._cyInstance){window._cyInstance.layout({name:'circle',fit:true,padding:60,animate:true,animationDuration:300}).run()}",title: "Auto-layout"}
             %i.bi.bi-diagram-3.mr-1
             Layout
-          #topology-canvas.w-full.rounded-lg.border.border-ghborder.bg-ghcard{style: "height: 500px"}
+          #topology-canvas.w-full.rounded-lg.border.border-ghborder.bg-ghcard{style: "height: 70vh; min-height: 600px"}
 
       #trunk-tab-list
 
