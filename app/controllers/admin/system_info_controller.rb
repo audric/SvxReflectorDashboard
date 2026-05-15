@@ -192,6 +192,25 @@ module Admin
         memsize[klass.to_s] = bytes
       end
 
+      # Top 20 largest live strings (>= 4 KB). Previews escape binary via
+      # String#dump so they render safely.
+      top_strings = []
+      begin
+        pairs = []
+        ObjectSpace.each_object(String) do |s|
+          bs = s.bytesize
+          pairs << [bs, s] if bs >= 4096
+        end
+        pairs.sort_by!(&:first)
+        top_strings = pairs.last(20).reverse.map do |bs, s|
+          dumped = (s.byteslice(0, 160).dump rescue '"(binary)"')
+          preview = dumped.delete_prefix('"').delete_suffix('"')[0, 240].to_s
+          { bytesize: bs, encoding: s.encoding.to_s, frozen: s.frozen?, preview: preview }
+        end
+      rescue => e
+        Rails.logger.warn("Top strings scan failed: #{e.message}")
+      end
+
       cache_size = (Rails.cache.respond_to?(:instance_variable_get) ? Rails.cache.instance_variable_get(:@data)&.size : nil) rescue nil
 
       pid_uptime_sec = (Time.now - File.stat("/proc/self").mtime).to_i rescue 0
@@ -243,6 +262,7 @@ module Admin
         },
         count_objects: counts,
         memsize: memsize,
+        top_strings: top_strings,
         rails_cache_entries: cache_size,
         snapshot: snapshot,
         history: history,  # newest-first, NOT including current snapshot

@@ -547,6 +547,29 @@
                   %tr.border-b.border-ghborder2
                     %td.px-4.py-2.text-ghmuted{style: "width: 200px"}= klass
                     %td.px-4.py-2.text-gray-200.font-mono= fmt_b.call(bytes)
+
+          -# ── Top live strings (leak hunt) ──
+          - if pm[:top_strings].present?
+            .rounded-lg.border.border-ghborder.bg-ghcard
+              .px-4.py-3.border-b.border-ghborder
+                %h6.text-sm.font-semibold.text-gray-100
+                  %i.bi.bi-search.mr-2
+                  Largest live strings (top #{pm[:top_strings].size}, ≥ 4 kB only)
+              %div{style: "max-height: 480px; overflow-y: auto;"}
+                %table.w-full.text-xs
+                  %thead.bg-ghcard.sticky.top-0
+                    %tr.border-b.border-ghborder
+                      %th.px-3.py-2.text-left.text-ghdim{style: "width: 100px"} Size
+                      %th.px-3.py-2.text-left.text-ghdim{style: "width: 110px"} Encoding
+                      %th.px-3.py-2.text-left.text-ghdim{style: "width: 60px"} Frozen
+                      %th.px-3.py-2.text-left.text-ghdim Preview
+                  %tbody
+                    - pm[:top_strings].each do |row|
+                      %tr.border-b.border-ghborder2
+                        %td.px-3.py-2.text-gray-200.font-mono= fmt_b.call(row[:bytesize])
+                        %td.px-3.py-2.text-ghmuted= row[:encoding]
+                        %td.px-3.py-2.text-ghmuted= row[:frozen] ? "yes" : ""
+                        %td.px-3.py-2.text-gray-200.font-mono{style: "word-break: break-all; white-space: pre-wrap;"}= row[:preview]
         - else
           .text-center.text-ghmuted.py-12
             Process memory introspection unavailable.
