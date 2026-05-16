@@ -88,6 +88,88 @@
               return false;
             }
 
+            // Radial layout: local at center, direct peers in a ring, sub-trees fanning out
+            function radialLayout(cy) {
+              var local = cy.nodes('[nodeType="local"]')[0];
+              if (!local) {
+                cy.layout({ name: 'circle', fit: true, padding: 40, animate: false }).run();
+                return;
+              }
+
+              // BFS from local to assign depth and parent
+              var depth = {}, parent = {};
+              depth[local.id()] = 0;
+              var queue = [local];
+              while (queue.length) {
+                var n = queue.shift();
+                n.connectedEdges().connectedNodes().forEach(function(nb) {
+                  if (depth[nb.id()] !== undefined) return;
+                  depth[nb.id()] = depth[n.id()] + 1;
+                  parent[nb.id()] = n.id();
+                  queue.push(nb);
+                });
+              }
+
+              var directPeers = cy.nodes().filter(function(n) { return depth[n.id()] === 1; }).toArray();
+              directPeers.sort(function(a, b) { return a.id().localeCompare(b.id()); });
+              var n1 = Math.max(directPeers.length, 1);
+
+              local.position({ x: 0, y: 0 });
+              var r1 = Math.max(360, 80 * n1);
+              var angleByPeer = {};
+              directPeers.forEach(function(peer, i) {
+                var a = (i / n1) * 2 * Math.PI - Math.PI / 2;
+                peer.position({ x: r1 * Math.cos(a), y: r1 * Math.sin(a) });
+                angleByPeer[peer.id()] = a;
+              });
+
+              // Group depth >= 2 nodes under their direct-peer ancestor
+              var kidsByParent = {};
+              cy.nodes().forEach(function(n) {
+                var d = depth[n.id()];
+                if (d === undefined || d <= 1) return;
+                var p = parent[n.id()];
+                while (p && depth[p] > 1) p = parent[p];
+                if (p === undefined) return;
+                if (!kidsByParent[p]) kidsByParent[p] = [];
+                kidsByParent[p].push({ node: n, depth: d });
+              });
+
+              // Per-peer arc width — keep at most 70% of the slice between adjacent peers so that
+              // neighbouring sub-trees don't collide at the boundary (~15° gap on each side).
+              var sectorMax = Math.min(Math.PI / 2, (2 * Math.PI) / Math.max(n1, 2) * 0.7);
+              Object.keys(kidsByParent).forEach(function(parentId) {
+                var kids = kidsByParent[parentId];
+                var baseAngle = angleByPeer[parentId];
+                if (baseAngle === undefined) return;
+                var byDepth = {};
+                kids.forEach(function(item) {
+                  if (!byDepth[item.depth]) byDepth[item.depth] = [];
+                  byDepth[item.depth].push(item.node);
+                });
+                Object.keys(byDepth).sort(function(a, b) { return Number(a) - Number(b); }).forEach(function(dKey) {
+                  var arr = byDepth[dKey];
+                  var d = Number(dKey);
+                  var r = r1 + (d - 1) * 340;
+                  var c = arr.length;
+                  arr.forEach(function(node, j) {
+                    var offset = c === 1 ? 0 : (j - (c - 1) / 2) * (sectorMax / Math.max(c - 1, 1));
+                    var a = baseAngle + offset;
+                    node.position({ x: r * Math.cos(a), y: r * Math.sin(a) });
+                  });
+                });
+              });
+
+              cy.layout({ name: 'preset', fit: true, padding: 30, animate: false }).run();
+              // Keep labels readable: never zoom below 0.7 even if the graph extends off-screen
+              // (the user can pan to reach the periphery).
+              if (cy.zoom() < 0.7) {
+                cy.zoom(0.7);
+                cy.center(local);
+              }
+            }
+            window._radialLayout = radialLayout;
+
             function drawTopology() {
               var container = document.getElementById('topology-canvas');
               if (!container) return;
@@ -289,7 +371,9 @@
 
               // ── Build Cytoscape elements ──
               var cyNodes = allNodes.map(function(nd) {
-                var lines = [nd.host.toUpperCase()];
+                // HA-pair hostnames are joined with commas; split onto separate lines
+                var hostParts = String(nd.host || '').toUpperCase().split(',').map(function(h) { return h.trim(); }).filter(Boolean);
+                var lines = hostParts.length ? hostParts : [String(nd.host || '').toUpperCase()];
                 if (nd.prefix) lines.push('prefix: ' + nd.prefix);
                 if (nd.isLocal) lines.push(satelliteMode ? 'SATELLITE' : 'LOCAL');
                 else if (nd.isParent) lines.push('PARENT');
@@ -368,7 +452,7 @@
                 userZoomingEnabled: true,
                 userPanningEnabled: true,
                 boxSelectionEnabled: false,
-                minZoom: 0.5,
+                minZoom: 0.1,
                 maxZoom: 3,
                 style: [
                   {
@@ -383,12 +467,12 @@
                       'text-valign': 'center',
                       'text-halign': 'center',
                       'font-family': 'ui-monospace, monospace',
-                      'font-size': '14px',
+                      'font-size': '18px',
                       'color': '#c9d1d9',
                       'width': 'label',
                       'height': 'label',
-                      'padding': '22px',
-                      'text-max-width': '240px'
+                      'padding': '16px',
+                      'text-max-width': '280px'
                     }
                   },
                   {
@@ -426,7 +510,7 @@
                       'curve-style': 'bezier',
                       'label': 'data(label)',
                       'font-family': 'ui-monospace, monospace',
-                      'font-size': '8px',
+                      'font-size': '12px',
                       'color': '#8b949e',
                       'text-background-color': '#0d1117',
                       'text-background-opacity': 0.9,
@@ -436,12 +520,10 @@
                     }
                   }
                 ],
-                layout: hasSaved
-                  ? { name: 'preset' }
-                  : { name: 'circle', fit: true, padding: 60, animate: false }
+                layout: { name: 'preset' }
               });
 
-              if (!hasSaved) cy.fit(undefined, 60);
+              if (!hasSaved) radialLayout(cy);
 
               cy.on('tap', 'node', function(evt) {
                 var host = evt.target.data('host');
@@ -469,10 +551,10 @@
           })();
 
         .relative.mb-4
-          %button.absolute.top-2.right-2.z-10.px-2.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.rounded.border.border-ghborder.bg-ghcard.transition-colors{type: "button", onclick: "if(window._cyInstance){window._cyInstance.layout({name:'circle',fit:true,padding:60,animate:true,animationDuration:300}).run()}",title: "Auto-layout"}
+          %button.absolute.top-2.right-2.z-10.px-2.py-1.text-xs.text-ghmuted.hover:text-gray-200.cursor-pointer.rounded.border.border-ghborder.bg-ghcard.transition-colors{type: "button", onclick: "if(window._cyInstance && window._radialLayout){window._radialLayout(window._cyInstance);}", title: "Auto-layout"}
             %i.bi.bi-diagram-3.mr-1
             Layout
-          #topology-canvas.w-full.rounded-lg.border.border-ghborder.bg-ghcard{style: "height: 70vh; min-height: 600px"}
+          #topology-canvas.w-full.rounded-lg.border.border-ghborder.bg-ghcard{style: "height: 82vh; min-height: 720px"}
 
       #trunk-tab-list
 
