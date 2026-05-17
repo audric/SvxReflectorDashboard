@@ -196,8 +196,10 @@ func (c *YSFClient) RunReader() {
 				continue
 			}
 
-			// Only process voice frames (VD Mode 2)
-			if frame.FI == YSF_FI_COMM && frame.DT == YSF_DT_VD2 {
+			// Forward all VD Mode 2 frames (HEADER/COMM/TERM) — the caller
+			// discriminates by FI so it can drive TalkerStart/Stop on stream
+			// boundaries even when only the HEADER or only the TERM arrives.
+			if frame.DT == YSF_DT_VD2 {
 				if c.onVoiceFrame != nil {
 					c.onVoiceFrame(frame)
 				}

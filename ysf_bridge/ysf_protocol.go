@@ -125,12 +125,15 @@ func BuildYSFD(srcGW, srcRadio, dest string, counter byte, eot bool,
 
 	copy(pkt[35:40], ysfSync[:])
 
-	// Build FICH (6 bytes: FI/CM/BN/BT/FN/FT/DT/MR/VoIP/Dev/DGId + CRC) and encode.
+	// Build FICH (6 bytes: FI/CS/CM/BN/BT/FN/FT/Dev/MR/VoIP/DT/SQL/SQ + CRC) and encode.
+	// Bridge always transmits as a VoIP gateway, so bit 2 of byte 2 is set —
+	// Yaesu firmware uses this to enable network-audio decode. Without it the
+	// receiver opens squelch on FICH but mutes the voice path.
 	var fich [6]byte
-	fich[0] = (fi & 0x03) << 6 // FI in bits 7:6, CM/BN zero
-	fich[1] = (fn & 0x07) << 3 // FN in bits 5:3
-	fich[1] |= ft & 0x07       // FT in bits 2:0
-	fich[2] = dt & 0x03        // DT in bits 1:0
+	fich[0] = (fi & 0x03) << 6   // FI in bits 7:6, CS/CM/BN zero
+	fich[1] = (fn & 0x07) << 3   // FN in bits 5:3
+	fich[1] |= ft & 0x07         // FT in bits 2:0
+	fich[2] = (dt & 0x03) | 0x04 // DT in bits 1:0, VoIP=1 in bit 2
 	fich[3] = dgid & 0x7F
 	encodeFICH(fich[:], pkt[40:65])
 

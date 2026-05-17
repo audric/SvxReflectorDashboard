@@ -236,7 +236,45 @@ func runBridge(
 	})
 
 	// --- YSF → SVXReflector audio path ---
-	var ysfStreamActive bool
+	var (
+		ysfStreamActive bool
+		ysfRxLastFrame  time.Time
+	)
+
+	// stopYsfRxStream finishes the YSF→SVX transmission: flushes the last
+	// partial OPUS frame, clears the state flags, and tells SVX the talker
+	// has dropped. Safe to call when no stream is active (no-op).
+	stopYsfRxStream := func() {
+		ysfTalkMu.Lock()
+		if !ysfStreamActive {
+			ysfTalkMu.Unlock()
+			return
+		}
+		ysfStreamActive = false
+		ysfTalking = false
+		ysfTalkMu.Unlock()
+
+		log.Println("[YSF→SVX] Voice end")
+
+		pcmBufMu.Lock()
+		if len(pcmBuffer) > 0 {
+			samples := pcmBuffer
+			pcmBuffer = nil
+			pcmBufMu.Unlock()
+			for len(samples) < 480 {
+				samples = append(samples, 0)
+			}
+			opusBuf := make([]byte, 256)
+			n, err := opusEnc.Encode(samples[:480], opusBuf)
+			if err == nil {
+				svx.SendAudio(opusBuf[:n])
+			}
+		} else {
+			pcmBufMu.Unlock()
+		}
+
+		svx.SendTalkerStop(svxTG, callsign)
+	}
 
 	ysf.SetVoiceCallback(func(frame *YSFVoiceFrame) {
 		svxTalkMu.Lock()
@@ -246,14 +284,17 @@ func runBridge(
 		}
 		svxTalkMu.Unlock()
 
-		// Detect new transmission
+		// Open a new RX stream on HEADER, or on a COMM frame that arrives
+		// while we're idle (in case the HEADER was lost in transit).
 		ysfTalkMu.Lock()
-		if !ysfStreamActive {
+		ysfRxLastFrame = time.Now()
+		if !ysfStreamActive && (frame.FI == YSF_FI_HEADER || frame.FI == YSF_FI_COMM) {
 			ysfStreamActive = true
+			ysfTalking = true
 			ysfTalkMu.Unlock()
 
 			srcCS := strings.TrimSpace(frame.SrcRadio)
-			log.Printf("[YSF→SVX] Voice from %s", srcCS)
+			log.Printf("[YSF→SVX] Voice from %s (FI=%d)", srcCS, frame.FI)
 			svx.SendTalkerStart(svxTG, callsign)
 			filterYsfToSvx.Reset()
 			agcYsfToSvx.Reset()
@@ -265,69 +306,70 @@ func runBridge(
 			ysfTalkMu.Unlock()
 		}
 
-		// Extract and decode 5 AMBE frames
-		ambeFrames := ExtractVD2AMBE(frame.Payload)
-		for _, ambe := range ambeFrames {
-			pcm := vocDec.Decode(ambe)
-			pcmSlice := pcm[:]
-			filterYsfToSvx.Process(pcmSlice)
-			agcYsfToSvx.Process(pcmSlice)
+		// Only COMM frames carry voice. HEADER/TERM payloads are call-setup
+		// data, not AMBE, so feeding them to the vocoder produces garbage.
+		if frame.FI == YSF_FI_COMM {
+			ambeFrames := ExtractVD2AMBE(frame.Payload)
+			for _, ambe := range ambeFrames {
+				pcm := vocDec.Decode(ambe)
+				pcmSlice := pcm[:]
+				filterYsfToSvx.Process(pcmSlice)
+				agcYsfToSvx.Process(pcmSlice)
 
-			pcmBufMu.Lock()
-			pcmBuffer = append(pcmBuffer, pcmSlice...)
+				pcmBufMu.Lock()
+				pcmBuffer = append(pcmBuffer, pcmSlice...)
 
-			// Encode to OPUS in 60ms chunks (480 samples)
-			if len(pcmBuffer) >= 480 {
-				samples := make([]int16, 480)
-				copy(samples, pcmBuffer[:480])
-				pcmBuffer = pcmBuffer[480:]
-				pcmBufMu.Unlock()
+				// Encode to OPUS in 60ms chunks (480 samples)
+				if len(pcmBuffer) >= 480 {
+					samples := make([]int16, 480)
+					copy(samples, pcmBuffer[:480])
+					pcmBuffer = pcmBuffer[480:]
+					pcmBufMu.Unlock()
 
-				opusBuf := make([]byte, 256)
-				n, err := opusEnc.Encode(samples, opusBuf)
-				if err != nil {
-					log.Printf("[YSF→SVX] OPUS encode error: %v", err)
-					continue
+					opusBuf := make([]byte, 256)
+					n, err := opusEnc.Encode(samples, opusBuf)
+					if err != nil {
+						log.Printf("[YSF→SVX] OPUS encode error: %v", err)
+						continue
+					}
+
+					if err := svx.SendAudio(opusBuf[:n]); err != nil {
+						log.Printf("[YSF→SVX] SendAudio error: %v", err)
+					}
+				} else {
+					pcmBufMu.Unlock()
 				}
-
-				if err := svx.SendAudio(opusBuf[:n]); err != nil {
-					log.Printf("[YSF→SVX] SendAudio error: %v", err)
-				}
-			} else {
-				pcmBufMu.Unlock()
 			}
 		}
 
-		// Check for end of transmission
-		if frame.EOT {
-			ysfTalkMu.Lock()
-			ysfStreamActive = false
-			ysfTalking = false
-			ysfTalkMu.Unlock()
-
-			log.Println("[YSF→SVX] Voice end")
-
-			// Flush remaining PCM
-			pcmBufMu.Lock()
-			if len(pcmBuffer) > 0 {
-				samples := pcmBuffer
-				pcmBuffer = nil
-				pcmBufMu.Unlock()
-				for len(samples) < 480 {
-					samples = append(samples, 0)
-				}
-				opusBuf := make([]byte, 256)
-				n, err := opusEnc.Encode(samples[:480], opusBuf)
-				if err == nil {
-					svx.SendAudio(opusBuf[:n])
-				}
-			} else {
-				pcmBufMu.Unlock()
-			}
-
-			svx.SendTalkerStop(svxTG, callsign)
+		// End on TERM or EOT bit.
+		if frame.FI == YSF_FI_TERM || frame.EOT {
+			stopYsfRxStream()
 		}
 	})
+
+	// RX watchdog: real radios sometimes drop the TERM packet, leaving the
+	// bridge stuck "talking" on SVX forever. Force-stop after 1s of silence.
+	rxWatchdogStop := make(chan struct{})
+	defer close(rxWatchdogStop)
+	go func() {
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				ysfTalkMu.Lock()
+				stale := ysfStreamActive && !ysfRxLastFrame.IsZero() && time.Since(ysfRxLastFrame) > time.Second
+				ysfTalkMu.Unlock()
+				if stale {
+					log.Println("[YSF→SVX] RX timeout (no frames for 1s)")
+					stopYsfRxStream()
+				}
+			case <-rxWatchdogStop:
+				return
+			}
+		}
+	}()
 
 	// --- Connect both sides ---
 	if err := svx.Connect(); err != nil {
