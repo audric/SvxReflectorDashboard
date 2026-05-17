@@ -162,7 +162,7 @@ func runBridge(
 
 		// YSF sends 5 AMBE frames per packet (5 x 160 = 800 samples)
 		for len(ambeBuffer) >= 5*PCMFrameSize {
-			var frames [5][9]byte
+			var frames [5][YSFAMBEFrameSize]byte
 			for i := 0; i < 5; i++ {
 				var chunk [PCMFrameSize]int16
 				copy(chunk[:], ambeBuffer[i*PCMFrameSize:(i+1)*PCMFrameSize])
@@ -217,7 +217,7 @@ func runBridge(
 			for len(ambeBuffer) < 5*PCMFrameSize {
 				ambeBuffer = append(ambeBuffer, 0)
 			}
-			var frames [5][9]byte
+			var frames [5][YSFAMBEFrameSize]byte
 			for i := 0; i < 5; i++ {
 				var chunk [PCMFrameSize]int16
 				copy(chunk[:], ambeBuffer[i*PCMFrameSize:(i+1)*PCMFrameSize])

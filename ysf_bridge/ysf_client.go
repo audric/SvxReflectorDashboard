@@ -110,7 +110,7 @@ func (c *YSFClient) StartTX() {
 }
 
 // SendVoice sends 5 AMBE frames as a single YSFD communication packet.
-func (c *YSFClient) SendVoice(ambeFrames [5][9]byte) error {
+func (c *YSFClient) SendVoice(ambeFrames [5][YSFAMBEFrameSize]byte) error {
 	c.mu.Lock()
 	counter := c.txCounter
 	c.txCounter = (c.txCounter + 1) & 0x7F
