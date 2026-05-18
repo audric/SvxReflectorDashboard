@@ -1,0 +1,3 @@
+fixtures/*.wav
+out/
+pcap/

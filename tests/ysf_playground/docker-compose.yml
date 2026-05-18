@@ -1,0 +1,51 @@
+services:
+  ysfparrot:
+    build: ./ysfparrot
+    container_name: ysf_playground_parrot
+    networks:
+      - ysflab
+
+  pcap:
+    image: nicolaka/netshoot:latest
+    container_name: ysf_playground_pcap
+    network_mode: "service:ysfparrot"
+    # tcpdump needs CAP_NET_RAW to open AF_PACKET sockets; -U flushes the
+    # pcap header immediately so the file is non-empty even before the
+    # first packet arrives.
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    command: >
+      tcpdump -i any -U -nn -s 0 -w /pcap/ysf.pcap 'udp port 42000'
+    volumes:
+      - ./pcap:/pcap
+    depends_on:
+      - ysfparrot
+
+  ysf_loopback:
+    build:
+      context: ../../ysf_bridge
+      dockerfile: Dockerfile
+      target: builder
+    container_name: ysf_playground_loopback
+    working_dir: /app
+    command: ["go", "test", "-run", "TestLoopback", "-v", "."]
+    environment:
+      YSF_PARROT_HOST: ysfparrot
+      YSF_PARROT_PORT: "42000"
+      WAV_IN: /fixtures/test.wav
+      WAV_OUT: /out/result.wav
+      CALLSIGN: LOOPTEST
+    volumes:
+      - ./fixtures:/fixtures:ro
+      - ./out:/out
+    networks:
+      - ysflab
+    depends_on:
+      - ysfparrot
+    profiles:
+      - test
+
+networks:
+  ysflab:
+    driver: bridge
