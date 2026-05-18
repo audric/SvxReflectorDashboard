@@ -440,7 +440,7 @@
                       %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[satellite_secret_values][]", value: secret, placeholder: "secret"}
                     .col-span-1.flex.items-center
                       %button.text-red-400.hover:text-red-300.cursor-pointer{type: "button", onclick: "removeSatelliteSecret(this, #{id.to_json})", title: "Remove"}
-                        %i.bi.bi-trash
+                        %i.bi.bi-x-lg
               %button.mt-2.px-3.py-1.text-xs.rounded.border.border-gray-600.text-gray-300.hover:bg-gray-700.cursor-pointer{type: "button", onclick: "addSatelliteSecret()"}
                 %i.bi.bi-plus-lg.mr-1
                 Add satellite secret
