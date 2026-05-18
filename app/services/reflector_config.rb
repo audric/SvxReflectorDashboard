@@ -17,6 +17,14 @@ class ReflectorConfig
     @redis_section = {} # { "HOST" => ..., "PORT" => ..., "PASSWORD" => ..., "DB" => ..., ... }
   end
 
+  # Returns { "id" => "secret" } for SECRET_<id>= entries in [SATELLITE].
+  # The base SECRET (fallback) is intentionally excluded.
+  def satellite_per_id_secrets
+    satellite.each_with_object({}) do |(k, v), h|
+      h[$1] = v if k =~ /\ASECRET_(.+)\z/
+    end
+  end
+
   def self.config_path
     Rails.root.join("reflector", "svxreflector.conf")
   end
