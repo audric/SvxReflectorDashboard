@@ -432,15 +432,15 @@ module Admin
         # Satellite server section (reflector mode only).
         # Writes [SATELLITE] when LISTEN_PORT is set AND a usable secret exists
         # (either the fallback SECRET= or at least one SECRET_<id>= entry).
-        sat_port    = cfg.dig(:satellite, :LISTEN_PORT).to_s.strip
-        sat_secret  = cfg.dig(:satellite, :SECRET).to_s.strip
-        sat_ids     = Array(cfg[:satellite_secret_ids]).map { |s| s.to_s.strip }
-        sat_values  = Array(cfg[:satellite_secret_values]).map { |s| s.to_s.strip }
+        sat_port = cfg.dig(:satellite, :LISTEN_PORT).to_s.strip
+        sat_secret = cfg.dig(:satellite, :SECRET).to_s.strip
+        sat_ids = Array(cfg[:satellite_secret_ids]).map { |s| s.to_s.strip }
+        sat_values = Array(cfg[:satellite_secret_values]).map { |s| s.to_s.strip }
 
         per_id = {}
         sat_ids.zip(sat_values).each do |id, val|
           next if id.blank? || val.blank?
-          unless id =~ /\A[A-Za-z0-9\-]+\z/
+          unless id =~ /\A[A-Za-z0-9-]+\z/
             redirect_to(edit_admin_reflector_path,
                         alert: "Invalid satellite id #{id.inspect}: only A-Z, a-z, 0-9, and dash allowed.") and return
           end
