@@ -184,6 +184,11 @@
           %span= flash[:notice]
           %button.text-green-400.hover:text-green-200.cursor-pointer{type: "button", onclick: "this.parentElement.remove()"}
             %i.bi.bi-x
+      - if flash[:alert]
+        %div.p-2.rounded.border.border-red-700.text-red-400.text-sm.mb-4.flex.items-center.justify-between{class: "bg-red-900/30", id: "flash-alert"}
+          %span= flash[:alert]
+          %button.text-red-400.hover:text-red-200.cursor-pointer{type: "button", onclick: "this.parentElement.remove()"}
+            %i.bi.bi-x
 
       -# ── Tab bar ──
       .flex.border-b.border-gray-600.mb-6

@@ -451,7 +451,18 @@ module Admin
           per_id[id] = val
         end
 
-        if sat_port.present? && (sat_secret.present? || per_id.any?)
+        sat_has_secret = sat_secret.present? || per_id.any?
+        sat_has_any = sat_port.present? || sat_has_secret
+
+        if sat_has_any && (sat_port.blank? || !sat_has_secret)
+          missing = []
+          missing << "LISTEN_PORT (default 5303)" if sat_port.blank?
+          missing << "a fallback SECRET or at least one per-id secret" unless sat_has_secret
+          redirect_to(edit_admin_reflector_path,
+                      alert: "Cannot save satellite listener: missing #{missing.join(' and ')}.") and return
+        end
+
+        if sat_port.present? && sat_has_secret
           config.satellite["LISTEN_PORT"] = sat_port
           config.satellite["SECRET"] = sat_secret if sat_secret.present?
           per_id.each { |id, val| config.satellite["SECRET_#{id}"] = val }
