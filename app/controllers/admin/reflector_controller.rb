@@ -429,12 +429,32 @@ module Admin
           config.trunks[section] = trunk_data
         end
 
-        # Satellite server section (reflector mode only, requires both port and secret)
-        sat_port = cfg.dig(:satellite, :LISTEN_PORT).to_s.strip
-        sat_secret = cfg.dig(:satellite, :SECRET).to_s.strip
-        if sat_port.present? && sat_secret.present?
+        # Satellite server section (reflector mode only).
+        # Writes [SATELLITE] when LISTEN_PORT is set AND a usable secret exists
+        # (either the fallback SECRET= or at least one SECRET_<id>= entry).
+        sat_port    = cfg.dig(:satellite, :LISTEN_PORT).to_s.strip
+        sat_secret  = cfg.dig(:satellite, :SECRET).to_s.strip
+        sat_ids     = Array(cfg[:satellite_secret_ids]).map { |s| s.to_s.strip }
+        sat_values  = Array(cfg[:satellite_secret_values]).map { |s| s.to_s.strip }
+
+        per_id = {}
+        sat_ids.zip(sat_values).each do |id, val|
+          next if id.blank? || val.blank?
+          unless id =~ /\A[A-Za-z0-9\-]+\z/
+            redirect_to(edit_admin_reflector_path,
+                        alert: "Invalid satellite id #{id.inspect}: only A-Z, a-z, 0-9, and dash allowed.") and return
+          end
+          if per_id.key?(id)
+            redirect_to(edit_admin_reflector_path,
+                        alert: "Duplicate satellite id #{id.inspect} — each id may only appear once.") and return
+          end
+          per_id[id] = val
+        end
+
+        if sat_port.present? && (sat_secret.present? || per_id.any?)
           config.satellite["LISTEN_PORT"] = sat_port
-          config.satellite["SECRET"] = sat_secret
+          config.satellite["SECRET"] = sat_secret if sat_secret.present?
+          per_id.each { |id, val| config.satellite["SECRET_#{id}"] = val }
         end
 
         # Twin section (reflector mode only)
