@@ -1206,6 +1206,31 @@
         if (!body.classList.contains('open')) toggleSection('trunking');
       }
 
+      function addSatelliteSecret() {
+        var container = document.getElementById('satellite-secret-rows');
+        var row = document.createElement('div');
+        row.className = 'satellite-secret-row grid grid-cols-12 gap-2 mb-2';
+        row.innerHTML =
+          '<div class="col-span-4"><input class="w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[satellite_secret_ids][]" pattern="[A-Za-z0-9\\-]+" placeholder="satellite-id"></div>' +
+          '<div class="col-span-7"><input class="w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[satellite_secret_values][]" placeholder="secret"></div>' +
+          '<div class="col-span-1 flex items-center"><button type="button" class="text-red-400 hover:text-red-300 cursor-pointer" onclick="removeSatelliteSecret(this, null)" title="Remove"><i class="bi bi-x-lg"></i></button></div>';
+        container.appendChild(row);
+      }
+
+      function removeSatelliteSecret(btn, id) {
+        var row = btn.closest('.satellite-secret-row');
+        if (!id) {
+          row.parentNode.removeChild(row);
+          return;
+        }
+        showDanger(
+          'Remove SECRET_' + id + '?',
+          'The "' + id + '" satellite will be unable to reconnect after the next reflector restart unless a fallback SECRET is configured.',
+          'Remove',
+          function() { row.parentNode.removeChild(row); }
+        );
+      }
+
       // Auto-prefill satellite parent status URL from SATELLITE_OF
       (function() {
         var satHost = document.getElementById('satellite-of-input');
