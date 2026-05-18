@@ -21,7 +21,7 @@ class ReflectorConfig
   # The base SECRET (fallback) is intentionally excluded.
   def satellite_per_id_secrets
     satellite.each_with_object({}) do |(k, v), h|
-      h[$1] = v if k =~ /\ASECRET_(.+)\z/
+      h[Regexp.last_match(1)] = v if k =~ /\ASECRET_(.+)\z/
     end
   end
 
