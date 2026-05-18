@@ -422,8 +422,28 @@
                   %label.block.text-sm.text-gray-500.mb-1 LISTEN_PORT
                   %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[satellite][LISTEN_PORT]", value: @config.satellite['LISTEN_PORT'], placeholder: "5303"}
                 .mb-1
-                  %label.block.text-sm.text-gray-500.mb-1 SECRET
+                  %label.block.text-sm.text-gray-500.mb-1 SECRET (fallback)
                   %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[satellite][SECRET]", value: @config.satellite['SECRET']}
+                  %small.text-gray-500.block.mt-1
+                    Used when no per-id secret matches the connecting satellite. Optional if per-id secrets are configured below.
+
+              %h6.text-sm.font-semibold.text-gray-400.mb-3.mt-4 Per-satellite secrets
+              .p-2.rounded.border.text-xs.mb-3{class: "border-gray-700 text-ghmuted bg-ghbg"}
+                %i.bi.bi-info-circle.mr-1
+                Match by the satellite's SATELLITE_ID. Per-id secrets take precedence over the fallback; if a satellite's id has no entry here, it uses the fallback SECRET (or is rejected if no fallback is set). Allowed id characters: A-Z, a-z, 0-9, dash.
+              #satellite-secret-rows
+                - @config.satellite_per_id_secrets.each do |id, secret|
+                  .satellite-secret-row.grid.grid-cols-12.gap-2.mb-2
+                    .col-span-4
+                      %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[satellite_secret_ids][]", value: id, pattern: "[A-Za-z0-9\\-]+", placeholder: "satellite-id"}
+                    .col-span-7
+                      %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[satellite_secret_values][]", value: secret, placeholder: "secret"}
+                    .col-span-1.flex.items-center
+                      %button.text-red-400.hover:text-red-300.cursor-pointer{type: "button", onclick: "removeSatelliteSecret(this, #{id.to_json})", title: "Remove"}
+                        %i.bi.bi-trash
+              %button.mt-2.px-3.py-1.text-xs.rounded.border.border-gray-600.text-gray-300.hover:bg-gray-700.cursor-pointer{type: "button", onclick: "addSatelliteSecret()"}
+                %i.bi.bi-plus-lg.mr-1
+                Add satellite secret
 
             -# ════════════════════════════════════════════════════════════════
             -# SATELLITE MODE sections
