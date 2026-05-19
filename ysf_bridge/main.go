@@ -39,6 +39,8 @@ func main() {
 	nodeLocation := envDefault("NODE_LOCATION", "")
 	sysop := envDefault("SYSOP", "")
 
+	redisURL := os.Getenv("REDIS_URL")
+
 	log.Printf("Config: SVX=%s:%d TG=%d | YSF=%s:%d callsign=%s DG-ID=%d | svx_cs=%s",
 		svxHost, svxPort, svxTG, ysfHost, ysfPort, ysfCallsign, ysfDGID, callsign)
 
@@ -78,7 +80,7 @@ func main() {
 	for {
 		err := runBridge(svxHost, svxPort, svxAuthKey, svxTG, callsign, nodeLocation, sysop,
 			ysfHost, ysfPort, ysfCallsign, ysfDGID,
-			vocEnc, vocDec, opusDec, opusEnc, sigCh)
+			redisURL, vocEnc, vocDec, opusDec, opusEnc, sigCh)
 
 		if err == errShutdown {
 			log.Println("Goodbye")
@@ -109,7 +111,7 @@ var errShutdown = fmt.Errorf("shutdown")
 func runBridge(
 	svxHost string, svxPort int, svxAuthKey string, svxTG uint32, callsign string, nodeLocation string, sysop string,
 	ysfHost string, ysfPort int, ysfCallsign string, ysfDGID byte,
-	vocEnc *Vocoder, vocDec *Vocoder, opusDec *opus.Decoder, opusEnc *opus.Encoder,
+	redisURL string, vocEnc *Vocoder, vocDec *Vocoder, opusDec *opus.Decoder, opusEnc *opus.Encoder,
 	sigCh <-chan os.Signal,
 ) error {
 
@@ -131,6 +133,21 @@ func runBridge(
 		filterSvxToYsf = NewVoiceFilterFromEnv("FILTER_SVX_TO_EXT_", PCMSampleRate)
 		filterYsfToSvx = NewVoiceFilterFromEnv("FILTER_EXT_TO_SVX_", PCMSampleRate)
 	)
+
+	// --- Redis client for YSF RX metadata (events page, dashboard talker chips) ---
+	var redisCli *RedisClient
+	if redisURL != "" {
+		rc, err := ParseRedisURL(redisURL)
+		if err != nil {
+			log.Printf("[Redis] URL parse error: %v (YSF RX publishing disabled)", err)
+		} else if err := rc.Connect(); err != nil {
+			log.Printf("[Redis] Connect error: %v (YSF RX publishing disabled)", err)
+		} else {
+			redisCli = rc
+			log.Println("[Redis] Connected for YSF RX publishing")
+		}
+	}
+	redisKey := "ysf_rx:" + strings.TrimSpace(callsign)
 
 	svx := NewSVXLinkClient(svxHost, svxPort, svxAuthKey, callsign, nodeLocation, sysop)
 	svx.SetExtraNodeInfo(map[string]interface{}{
@@ -242,6 +259,13 @@ func runBridge(
 		ysfRxLastFrame  time.Time
 	)
 
+	// ysfRxJSON renders the talker metadata picked up by reflector_listener and
+	// rendered as the pink "src_radio" pill on /events.
+	ysfRxJSON := func(srcRadio, srcGateway string, dgid byte) string {
+		return fmt.Sprintf(`{"src_radio":%q,"src_gateway":%q,"dgid":%d}`,
+			strings.TrimSpace(srcRadio), strings.TrimSpace(srcGateway), dgid)
+	}
+
 	// stopYsfRxStream finishes the YSF→SVX transmission: flushes the last
 	// partial OPUS frame, clears the state flags, and tells SVX the talker
 	// has dropped. Safe to call when no stream is active (no-op).
@@ -275,6 +299,12 @@ func runBridge(
 		}
 
 		svx.SendTalkerStop(svxTG, callsign)
+
+		if redisCli != nil {
+			if err := redisCli.Del(redisKey); err != nil {
+				log.Printf("[Redis] DEL error: %v", err)
+			}
+		}
 	}
 
 	ysf.SetVoiceCallback(func(frame *YSFVoiceFrame) {
@@ -295,7 +325,8 @@ func runBridge(
 			ysfTalkMu.Unlock()
 
 			srcCS := strings.TrimSpace(frame.SrcRadio)
-			log.Printf("[YSF→SVX] Voice from %s (FI=%d)", srcCS, frame.FI)
+			srcGW := strings.TrimSpace(frame.SrcGateway)
+			log.Printf("[YSF→SVX] Voice from %s (FI=%d gw=%s)", srcCS, frame.FI, srcGW)
 			svx.SendTalkerStart(svxTG, callsign)
 			filterYsfToSvx.Reset()
 			agcYsfToSvx.Reset()
@@ -303,6 +334,12 @@ func runBridge(
 			pcmBufMu.Lock()
 			pcmBuffer = pcmBuffer[:0]
 			pcmBufMu.Unlock()
+
+			if redisCli != nil && srcCS != "" {
+				if err := redisCli.SetEX(redisKey, 30, ysfRxJSON(srcCS, srcGW, ysfDGID)); err != nil {
+					log.Printf("[Redis] SETEX error: %v", err)
+				}
+			}
 		} else {
 			ysfTalkMu.Unlock()
 		}
@@ -310,6 +347,16 @@ func runBridge(
 		// Only COMM frames carry voice. HEADER/TERM payloads are call-setup
 		// data, not AMBE, so feeding them to the vocoder produces garbage.
 		if frame.FI == YSF_FI_COMM {
+			// Refresh ysf_rx TTL so a long QSO doesn't expire mid-call.
+			if redisCli != nil {
+				srcCS := strings.TrimSpace(frame.SrcRadio)
+				if srcCS != "" {
+					if err := redisCli.SetEX(redisKey, 30, ysfRxJSON(srcCS, strings.TrimSpace(frame.SrcGateway), ysfDGID)); err != nil {
+						log.Printf("[Redis] SETEX refresh error: %v", err)
+					}
+				}
+			}
+
 			ambeFrames := ExtractVD2AMBE(frame.Payload)
 			for _, ambe := range ambeFrames {
 				pcm := vocDec.Decode(ambe)
@@ -412,6 +459,10 @@ func runBridge(
 
 	ysf.Close()
 	svx.Close()
+	if redisCli != nil {
+		redisCli.Del(redisKey)
+		redisCli.Close()
+	}
 
 	return result
 }
