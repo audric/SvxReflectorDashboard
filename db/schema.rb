@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_13_171547) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_19_160000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -182,6 +182,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_13_171547) do
     t.string "xlx_reflector_name"
     t.string "ysf_callsign"
     t.string "ysf_description"
+    t.integer "ysf_dgid", default: 0
     t.string "ysf_host"
     t.integer "ysf_port"
     t.string "zello_channel"

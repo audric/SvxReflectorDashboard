@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"math/rand"
+	"strings"
 	"testing"
 )
 
@@ -109,6 +110,68 @@ func TestCRCCCITT16Vector(t *testing.T) {
 	addCRCCCITT162(data)
 	if !checkCRCCCITT162(data) {
 		t.Errorf("CRC round-trip failed: %x", data)
+	}
+}
+
+func TestYSFOptionBytes(t *testing.T) {
+	// pYSF3 (and YCS) parse the trailing 26-byte options string as the
+	// requested DG-ID in ASCII decimal. Any deviation from this exact
+	// byte layout silently fails — the reflector parks us on its default
+	// stream and the dashboard reports "Movable" status with no DG-ID
+	// activation. Lock down the layout here.
+	tests := []struct {
+		name    string
+		cs      string
+		dgid    byte
+		wantOpt string
+	}{
+		{"piemonte", "IW1GEU/SVX", 12, "12"},
+		{"default_no_subscription", "IW1GEU/SVX", 0, ""},
+		{"three_digit", "TEST", 127, "127"},
+		{"long_callsign_truncated", "ABCDEFGHIJK", 5, "5"}, // 11-char CS truncated to 10
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pkt := BuildYSFOption(tt.cs, tt.dgid)
+			if len(pkt) != YSFOptionSize {
+				t.Fatalf("length = %d, want %d", len(pkt), YSFOptionSize)
+			}
+			if string(pkt[0:4]) != "YSFO" {
+				t.Errorf("magic = %q, want YSFO", pkt[0:4])
+			}
+			wantCS := tt.cs
+			if len(wantCS) > YSFCallsignLen {
+				wantCS = wantCS[:YSFCallsignLen]
+			}
+			// Callsign zone (10 bytes) — left-justified, space-padded.
+			gotCS := string(pkt[4:14])
+			padded := wantCS + strings.Repeat(" ", YSFCallsignLen-len(wantCS))
+			if gotCS != padded {
+				t.Errorf("callsign zone = %q, want %q", gotCS, padded)
+			}
+			// Options zone (26 bytes) — DG-ID as ASCII decimal, left-justified, space-padded.
+			gotOpt := string(pkt[14:40])
+			wantOpt := tt.wantOpt + strings.Repeat(" ", YSFOptionStrLen-len(tt.wantOpt))
+			if gotOpt != wantOpt {
+				t.Errorf("options zone = %q, want %q", gotOpt, wantOpt)
+			}
+		})
+	}
+}
+
+func TestYSFDDGIDInFICH(t *testing.T) {
+	// The DG-ID also has to make it into the FICH on outgoing voice frames,
+	// otherwise multi-stream reflectors route to the wrong room. Round-trip
+	// a YSFD with DG-ID=12 and assert it survives the FICH encode/decode.
+	var emptyPayload [YSFPayloadLen]byte
+	pkt := BuildYSFD("GW", "RAD", "ALL", 1, false,
+		YSF_FI_COMM, 0, YSFFramesPerSuper-1, YSF_DT_VD2, 12, emptyPayload)
+	parsed := ParseYSFD(pkt)
+	if parsed == nil {
+		t.Fatal("ParseYSFD returned nil")
+	}
+	if parsed.DGId != 12 {
+		t.Errorf("DGId = %d, want 12", parsed.DGId)
 	}
 }
 

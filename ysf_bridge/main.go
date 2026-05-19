@@ -34,12 +34,13 @@ func main() {
 	ysfHost := envRequired("YSF_HOST")
 	ysfPort := envInt("YSF_PORT", YSFPort)
 	ysfCallsign := envDefault("YSF_CALLSIGN", callsign)
+	ysfDGID := byte(envInt("YSF_DGID", 0) & 0x7F)
 
 	nodeLocation := envDefault("NODE_LOCATION", "")
 	sysop := envDefault("SYSOP", "")
 
-	log.Printf("Config: SVX=%s:%d TG=%d | YSF=%s:%d callsign=%s | svx_cs=%s",
-		svxHost, svxPort, svxTG, ysfHost, ysfPort, ysfCallsign, callsign)
+	log.Printf("Config: SVX=%s:%d TG=%d | YSF=%s:%d callsign=%s DG-ID=%d | svx_cs=%s",
+		svxHost, svxPort, svxTG, ysfHost, ysfPort, ysfCallsign, ysfDGID, callsign)
 
 	// --- Initialize vocoders (separate for encode/decode) ---
 	vocEnc, err := NewVocoder()
@@ -76,7 +77,7 @@ func main() {
 
 	for {
 		err := runBridge(svxHost, svxPort, svxAuthKey, svxTG, callsign, nodeLocation, sysop,
-			ysfHost, ysfPort, ysfCallsign,
+			ysfHost, ysfPort, ysfCallsign, ysfDGID,
 			vocEnc, vocDec, opusDec, opusEnc, sigCh)
 
 		if err == errShutdown {
@@ -107,7 +108,7 @@ var errShutdown = fmt.Errorf("shutdown")
 
 func runBridge(
 	svxHost string, svxPort int, svxAuthKey string, svxTG uint32, callsign string, nodeLocation string, sysop string,
-	ysfHost string, ysfPort int, ysfCallsign string,
+	ysfHost string, ysfPort int, ysfCallsign string, ysfDGID byte,
 	vocEnc *Vocoder, vocDec *Vocoder, opusDec *opus.Decoder, opusEnc *opus.Encoder,
 	sigCh <-chan os.Signal,
 ) error {
@@ -135,7 +136,7 @@ func runBridge(
 	svx.SetExtraNodeInfo(map[string]interface{}{
 		"remoteHost": ysfHost,
 	})
-	ysf := NewYSFClient(ysfHost, ysfPort, ysfCallsign)
+	ysf := NewYSFClient(ysfHost, ysfPort, ysfCallsign, ysfDGID)
 
 	// --- SVXReflector → YSF audio path ---
 	// OPUS → PCM → AMBE+2 (5 frames per YSF packet)

@@ -1,5 +1,7 @@
 package main
 
+import "strconv"
+
 // YSF protocol — packet parsing/building plus FICH and VD Mode 2 voice codec.
 //
 // Channel coding follows the YSF spec as implemented in G4KLX's MMDVMHost
@@ -16,6 +18,8 @@ package main
 const (
 	YSFPort         = 42000
 	YSFPollSize     = 14
+	YSFOptionSize   = 40
+	YSFOptionStrLen = 26 // bytes available for the options string in a YSFO
 	YSFFrameSize    = 155
 	YSFSyncLen      = 5
 	YSFFICHLen      = 25
@@ -63,6 +67,33 @@ func BuildYSFUnlink(callsign string) []byte {
 	pkt := make([]byte, YSFPollSize)
 	copy(pkt[0:4], []byte("YSFU"))
 	copy(pkt[4:14], padCallsign(callsign, YSFCallsignLen))
+	return pkt
+}
+
+// BuildYSFOption builds a 40-byte YSFO option packet used to subscribe a
+// gateway to a specific DG-ID on multi-stream reflectors (pYSF3, YCS).
+// Stock G4KLX YSFReflector silently ignores YSFO, so it is safe to send
+// always. Layout matches G4KLX YSFGateway:
+//
+//	"YSFO" (4) + callsign (10, space-padded) + options (26, space-padded)
+//
+// pYSF3 parses the options string as the DG-ID in ASCII decimal.
+// dgid == 0 produces an empty options field, which leaves the gateway on
+// the reflector's default stream (legacy behaviour).
+func BuildYSFOption(callsign string, dgid byte) []byte {
+	pkt := make([]byte, YSFOptionSize)
+	copy(pkt[0:4], []byte("YSFO"))
+	copy(pkt[4:14], padCallsign(callsign, YSFCallsignLen))
+	for i := 14; i < YSFOptionSize; i++ {
+		pkt[i] = ' '
+	}
+	if dgid > 0 {
+		s := strconv.Itoa(int(dgid))
+		if len(s) > YSFOptionStrLen {
+			s = s[:YSFOptionStrLen]
+		}
+		copy(pkt[14:14+len(s)], s)
+	}
 	return pkt
 }
 

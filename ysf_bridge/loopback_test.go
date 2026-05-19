@@ -65,7 +65,7 @@ func TestLoopback(t *testing.T) {
 	}
 	defer vocDec.Close()
 
-	client := NewYSFClient(host, port, callsign)
+	client := NewYSFClient(host, port, callsign, 0)
 	defer client.Close()
 
 	if err := client.Connect(); err != nil {

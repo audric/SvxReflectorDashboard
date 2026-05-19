@@ -211,7 +211,7 @@ module Admin
         :echolink_servers, :default_active,
         :xlx_host, :xlx_port, :xlx_module, :xlx_callsign, :xlx_callsign_suffix, :xlx_mycall, :xlx_mycall_suffix, :xlx_reflector_name, :xlx_protocol,
         :dmr_host, :dmr_port, :dmr_id, :dmr_password, :dmr_talkgroup, :dmr_timeslot, :dmr_color_code, :dmr_callsign,
-        :ysf_host, :ysf_port, :ysf_callsign, :ysf_description,
+        :ysf_host, :ysf_port, :ysf_callsign, :ysf_description, :ysf_dgid,
         :allstar_node, :allstar_password, :allstar_server, :allstar_port,
         :iax_username, :iax_password, :iax_server, :iax_port,
         :iax_extension, :iax_context, :iax_mode, :iax_idle_timeout, :iax_codecs,
@@ -399,6 +399,7 @@ module Admin
           "YSF_PORT=#{bridge.ysf_port || 42000}",
           "YSF_CALLSIGN=#{bridge.ysf_callsign.presence || bridge.local_callsign}",
           "YSF_DESCRIPTION=#{bridge.ysf_description}",
+          "YSF_DGID=#{bridge.ysf_dgid || 0}",
           "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
           "SYSOP=#{bridge.sysop}",
           "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"

@@ -14,6 +14,7 @@ type YSFClient struct {
 	host     string
 	port     int
 	callsign string
+	dgid     byte // requested DG-ID, 0 = default (legacy reflectors)
 
 	conn *net.UDPConn
 
@@ -29,11 +30,12 @@ type YSFClient struct {
 	closed bool
 }
 
-func NewYSFClient(host string, port int, callsign string) *YSFClient {
+func NewYSFClient(host string, port int, callsign string, dgid byte) *YSFClient {
 	return &YSFClient{
 		host:     host,
 		port:     port,
 		callsign: callsign,
+		dgid:     dgid,
 	}
 }
 
@@ -83,6 +85,14 @@ func (c *YSFClient) Connect() error {
 	if len(resp) >= 4 && string(resp[0:4]) == "YSFP" {
 		name := strings.TrimSpace(string(resp[4:]))
 		log.Printf("[YSF] Connected to %s", name)
+		// Send YSFO to subscribe to the requested DG-ID. Multi-stream reflectors
+		// (pYSF3) need this to route traffic; stock YSFReflector ignores it.
+		if _, err := c.conn.Write(BuildYSFOption(c.callsign, c.dgid)); err != nil {
+			return fmt.Errorf("send option: %w", err)
+		}
+		if c.dgid > 0 {
+			log.Printf("[YSF] Requested DG-ID %d via YSFO", c.dgid)
+		}
 		return nil
 	}
 
@@ -99,7 +109,7 @@ func (c *YSFClient) StartTX() {
 	// Send header frame
 	var emptyPayload [90]byte
 	pkt := BuildYSFD(c.callsign, c.callsign, "ALL", 0, false,
-		YSF_FI_HEADER, 0, YSFFramesPerSuper-1, YSF_DT_VD2, 0, emptyPayload)
+		YSF_FI_HEADER, 0, YSFFramesPerSuper-1, YSF_DT_VD2, c.dgid, emptyPayload)
 	c.conn.Write(pkt)
 
 	c.mu.Lock()
@@ -120,7 +130,7 @@ func (c *YSFClient) SendVoice(ambeFrames [5][YSFAMBEFrameSize]byte) error {
 
 	payload := PackVD2AMBE(ambeFrames)
 	pkt := BuildYSFD(c.callsign, c.callsign, "ALL", counter, false,
-		YSF_FI_COMM, fn, YSFFramesPerSuper-1, YSF_DT_VD2, 0, payload)
+		YSF_FI_COMM, fn, YSFFramesPerSuper-1, YSF_DT_VD2, c.dgid, payload)
 	_, err := c.conn.Write(pkt)
 	return err
 }
@@ -134,7 +144,7 @@ func (c *YSFClient) StopTX() error {
 
 	var emptyPayload [90]byte
 	pkt := BuildYSFD(c.callsign, c.callsign, "ALL", counter, true,
-		YSF_FI_TERM, 0, YSFFramesPerSuper-1, YSF_DT_VD2, 0, emptyPayload)
+		YSF_FI_TERM, 0, YSFFramesPerSuper-1, YSF_DT_VD2, c.dgid, emptyPayload)
 	_, err := c.conn.Write(pkt)
 	if err != nil {
 		return err
@@ -209,10 +219,13 @@ func (c *YSFClient) RunReader() {
 	}
 }
 
-// RunKeepalive sends periodic poll packets.
+// RunKeepalive sends periodic poll packets, and a YSFO option refresh every
+// 12 polls (~60 s). Multi-stream reflectors decay non-default subscriptions
+// when the gateway goes idle, so the periodic YSFO keeps us pinned.
 func (c *YSFClient) RunKeepalive() {
 	ticker := time.NewTicker(time.Duration(YSFKeepaliveInterval) * time.Second)
 	defer ticker.Stop()
+	var tick int
 	for range ticker.C {
 		if c.isClosed() {
 			return
@@ -220,6 +233,13 @@ func (c *YSFClient) RunKeepalive() {
 		if _, err := c.conn.Write(BuildYSFPoll(c.callsign)); err != nil {
 			log.Printf("[YSF] Keepalive error: %v", err)
 			return
+		}
+		tick++
+		if c.dgid > 0 && tick%12 == 0 {
+			if _, err := c.conn.Write(BuildYSFOption(c.callsign, c.dgid)); err != nil {
+				log.Printf("[YSF] Option refresh error: %v", err)
+				return
+			}
 		}
 	}
 }

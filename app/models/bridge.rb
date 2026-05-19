@@ -51,6 +51,7 @@ class Bridge < ApplicationRecord
   # YSF-specific validations
   with_options if: :ysf? do
     validates :ysf_host, presence: true
+    validates :ysf_dgid, numericality: { only_integer: true, greater_than_or_equal_to: 0, less_than_or_equal_to: 127 }, allow_nil: true
   end
 
   # AllStar-specific validations
@@ -364,6 +365,7 @@ class Bridge < ApplicationRecord
     lines << "YSF_PORT=#{ysf_port || 42000}"
     lines << "YSF_CALLSIGN=#{ysf_callsign.presence || local_callsign}"
     lines << "YSF_DESCRIPTION=#{ysf_description}" if ysf_description.present?
+    lines << "YSF_DGID=#{ysf_dgid || 0}"
     lines << "NODE_LOCATION=#{node_location.presence || name}"
     lines << "SYSOP=#{sysop}" if sysop.present?
     lines.concat(agc_env_lines)
