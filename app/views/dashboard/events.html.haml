@@ -123,9 +123,9 @@
                 - has_dur = (%w[talking_stop remote_talk_stop].include?(ev.event_type) && @durations[ev.id])
                 - if has_dur
                   - dur = @durations[ev.id]
-                  %span.text-gray-500.text-xs.font-mono.shrink-0.ml-auto= dur >= 60 ? "#{dur / 60}m#{dur % 60}s" : "#{dur}s"
+                  %span.text-ghmuted.text-xs.font-mono.shrink-0.ml-auto= dur >= 60 ? "#{dur / 60}m#{dur % 60}s" : "#{dur}s"
                 - if ev.node_location.present?
-                  %span.text-gray-500.text-xs.shrink-0{class: (has_dur ? nil : 'ml-auto')}
+                  %span.text-ghmuted.text-xs.shrink-0{class: (has_dur ? nil : 'ml-auto')}
                     %i.bi.bi-geo-alt.mr-1
                     = ev.node_location
         - else
@@ -142,7 +142,7 @@
         var emptyEl = document.querySelector('#events-container .text-center');
 
         // ── Filtering ──
-        var currentFilter = 'all';
+        var currentFilter = 'talking';
         var searchText = '';
         var filterBtns = document.querySelectorAll('.evt-filter-btn');
         var searchInput = document.getElementById('events-search');
@@ -248,9 +248,9 @@
           if (node && type.indexOf('talking') === 0) h += renderRxMeta(node);
           var hasDur = (type === 'talking_stop' && durationSec != null);
           if (hasDur) {
-            h += '<span class="text-gray-500 text-xs font-mono shrink-0 ml-auto">' + fmtDur(durationSec) + '</span>';
+            h += '<span class="text-ghmuted text-xs font-mono shrink-0 ml-auto">' + fmtDur(durationSec) + '</span>';
           }
-          if (loc) h += '<span class="text-gray-500 text-xs shrink-0' + (hasDur ? '' : ' ml-auto') + '"><i class="bi bi-geo-alt mr-1"></i>' + esc(loc) + '</span>';
+          if (loc) h += '<span class="text-ghmuted text-xs shrink-0' + (hasDur ? '' : ' ml-auto') + '"><i class="bi bi-geo-alt mr-1"></i>' + esc(loc) + '</span>';
           h += '</div>';
 
           if (!listEl) {
