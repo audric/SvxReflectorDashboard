@@ -8,7 +8,7 @@ class DashboardController < ApplicationController
   def index
     fetch_nodes
     fetch_extended
-    @nodes_source = cookies[:nodes_source].presence_in(SOURCE_FILTERS) || 'network'
+    @nodes_source = cookies[:nodes_source].presence_in(SOURCE_FILTERS) || 'local'
     if %w[all svx].include?(@nodes_source)
       fetch_external_reflectors
       merge_external_nodes

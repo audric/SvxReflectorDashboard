@@ -59,48 +59,55 @@
             - @user.errors.full_messages.each do |msg|
               %li= msg
 
-      = form_with model: @user, url: register_path, method: :post, local: true do |f|
+      - if plain_registration_enabled?
+        = form_with model: @user, url: register_path, method: :post, local: true do |f|
 
-        -# Account section
-        .rounded-md.border.border-ghborder.bg-ghcard.mb-4
-          .px-4.py-3.border-b.border-ghborder
-            %h2.text-xs.font-semibold.uppercase.tracking-wider.text-ghmuted
-              %i.bi.bi-shield-lock.mr-1
-              Account
-          .p-4.md:p-5
-            .mb-4
-              %label.block.text-sm.text-gray-400.mb-1{for: "user_callsign"}
-                Callsign
-                %span.text-red-400 *
-              = f.text_field :callsign, class: "w-full md:w-48 px-3 py-2 rounded-md border border-ghborder bg-ghbg text-gray-100 placeholder-ghdim focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition", autofocus: true, autocapitalize: "characters", placeholder: "e.g. KA1ABC", maxlength: 8
-            .grid.grid-cols-1.md:grid-cols-2.md:gap-4
+          -# Account section
+          .rounded-md.border.border-ghborder.bg-ghcard.mb-4
+            .px-4.py-3.border-b.border-ghborder
+              %h2.text-xs.font-semibold.uppercase.tracking-wider.text-ghmuted
+                %i.bi.bi-shield-lock.mr-1
+                Account
+            .p-4.md:p-5
               .mb-4
-                %label.block.text-sm.text-gray-400.mb-1{for: "user_password"}
-                  Password
+                %label.block.text-sm.text-gray-400.mb-1{for: "user_callsign"}
+                  Callsign
                   %span.text-red-400 *
-                = f.password_field :password, class: "w-full px-3 py-2 rounded-md border border-ghborder bg-ghbg text-gray-100 placeholder-ghdim focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition"
-                %p.text-xs.text-ghdim.mt-1
-                  %i.bi.bi-info-circle.mr-1
-                  Minimum 8 characters
-              .mb-4.md:mb-4
-                %label.block.text-sm.text-gray-400.mb-1{for: "user_password_confirmation"}
-                  Confirm password
-                  %span.text-red-400 *
-                = f.password_field :password_confirmation, class: "w-full px-3 py-2 rounded-md border border-ghborder bg-ghbg text-gray-100 placeholder-ghdim focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition"
+                = f.text_field :callsign, class: "w-full md:w-48 px-3 py-2 rounded-md border border-ghborder bg-ghbg text-gray-100 placeholder-ghdim focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition", autofocus: true, autocapitalize: "characters", placeholder: "e.g. KA1ABC", maxlength: 8
+              .grid.grid-cols-1.md:grid-cols-2.md:gap-4
+                .mb-4
+                  %label.block.text-sm.text-gray-400.mb-1{for: "user_password"}
+                    Password
+                    %span.text-red-400 *
+                  = f.password_field :password, class: "w-full px-3 py-2 rounded-md border border-ghborder bg-ghbg text-gray-100 placeholder-ghdim focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition"
+                  %p.text-xs.text-ghdim.mt-1
+                    %i.bi.bi-info-circle.mr-1
+                    Minimum 8 characters
+                .mb-4.md:mb-4
+                  %label.block.text-sm.text-gray-400.mb-1{for: "user_password_confirmation"}
+                    Confirm password
+                    %span.text-red-400 *
+                  = f.password_field :password_confirmation, class: "w-full px-3 py-2 rounded-md border border-ghborder bg-ghbg text-gray-100 placeholder-ghdim focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition"
 
-        -# Submit
-        = f.submit "Create account", class: "w-full px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold cursor-pointer transition text-sm"
+          -# Submit
+          = f.submit "Create account", class: "w-full px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold cursor-pointer transition text-sm"
 
       - if google_oauth_enabled?
-        .flex.items-center.gap-3.my-4
-          .flex-1.border-t.border-ghborder
-          %span.text-xs.text-ghdim or
-          .flex-1.border-t.border-ghborder
+        - if plain_registration_enabled?
+          .flex.items-center.gap-3.my-4
+            .flex-1.border-t.border-ghborder
+            %span.text-xs.text-ghdim or
+            .flex-1.border-t.border-ghborder
 
         = form_tag("/auth/google_oauth2", method: :post) do
           %button.w-full.px-4.py-2.rounded-md.border.border-ghborder.bg-ghcard.hover:bg-ghborder2.text-sm.font-medium.text-gray-200.cursor-pointer.transition.flex.items-center.justify-center.gap-2{type: "submit"}
             %i.bi.bi-google
             Sign up with Google
+
+      - unless plain_registration_enabled? || google_oauth_enabled?
+        .rounded-md.border.border-ghborder.bg-ghcard.px-4.py-6.text-center.text-sm.text-ghmuted
+          %i.bi.bi-slash-circle.mr-1
+          No registration available at this time.
 
       -# Footer link
       .text-center.mt-4.text-sm.text-ghdim

@@ -87,9 +87,10 @@
             Sign in with Google
 
       -# Footer link
-      .text-center.mt-4.text-sm.text-ghdim
-        Don't have an account?
-        %a.text-blue-400.hover:text-blue-300.ml-1{href: register_path} Register
+      - if plain_registration_enabled? || google_oauth_enabled?
+        .text-center.mt-4.text-sm.text-ghdim
+          Don't have an account?
+          %a.text-blue-400.hover:text-blue-300.ml-1{href: register_path} Register
 
     :javascript
       document.querySelectorAll('[id^="flash-"]').forEach(function(el) {

@@ -6,6 +6,9 @@ class RegistrationsController < ApplicationController
   end
 
   def create
+    unless plain_registration_enabled?
+      redirect_to login_path, alert: "Registration is currently disabled." and return
+    end
     @user = User.new(registration_params.merge(role: "user", approved: false))
     if @user.save
       redirect_to login_path, notice: "Account created. An admin will review your registration."

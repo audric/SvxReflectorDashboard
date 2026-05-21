@@ -1,5 +1,5 @@
 class ApplicationController < ActionController::Base
-  helper_method :current_user, :logged_in?, :reflector_mode, :google_oauth_enabled?
+  helper_method :current_user, :logged_in?, :reflector_mode, :google_oauth_enabled?, :plain_registration_enabled?
   before_action :set_brand_name
 
   private
@@ -34,6 +34,13 @@ class ApplicationController < ActionController::Base
 
   def google_oauth_enabled?
     ENV['GOOGLE_CLIENT_ID'].present? && ENV['GOOGLE_CLIENT_SECRET'].present?
+  end
+
+  # Plain (password) registration form. Env var sets the default; an admin can
+  # override it at runtime via the Settings tab (Setting key 'plain_registration').
+  def plain_registration_enabled?
+    val = Setting.get('plain_registration', ENV.fetch('PLAIN_REGISTRATION', 'true'))
+    ActiveModel::Type::Boolean.new.cast(val)
   end
 
   def require_admin
