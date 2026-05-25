@@ -139,7 +139,7 @@ class DashboardController < ApplicationController
     # Heavy work (LAG-window airtime SQL + group/count queries) runs once per
     # cache window; the airtime LAG query is materialized exactly once and
     # the six derived aggregates are computed in Ruby.
-    @period = params[:period].presence_in(%w[day month year]) || 'all'
+    @period = params[:period].presence_in(%w[all day week month year]) || 'day'
     cache_key = "stats:hist:#{@period}:#{Array(@cluster_tgs).sort.join(',')}"
     hist = Rails.cache.fetch(cache_key, expires_in: 30.seconds) do
       compute_historical_stats(@period, Array(@cluster_tgs))

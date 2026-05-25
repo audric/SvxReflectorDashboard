@@ -27,6 +27,7 @@ class NodeEvent < ApplicationRecord
   scope :by_period, ->(period) {
     case period
     when 'day'   then where('created_at >= ?', 1.day.ago)
+    when 'week'  then where('created_at >= ?', 1.week.ago)
     when 'month' then where('created_at >= ?', 1.month.ago)
     when 'year'  then where('created_at >= ?', 1.year.ago)
     else all
@@ -59,6 +60,7 @@ class NodeEvent < ApplicationRecord
     since_clause =
       case period
       when 'day'   then "AND created_at >= datetime('now','-1 day')"
+      when 'week'  then "AND created_at >= datetime('now','-7 day')"
       when 'month' then "AND created_at >= datetime('now','-1 month')"
       when 'year'  then "AND created_at >= datetime('now','-1 year')"
       else ''

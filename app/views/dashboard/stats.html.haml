@@ -165,84 +165,6 @@
                 %i.bi{class: s[:icon]}
                 = s[:label]
 
-      .grid.grid-cols-1.md:grid-cols-3.gap-4.mb-5
-
-        -# Node class breakdown
-        .rounded-lg.border.border-ghborder.h-full
-          .p-4
-            .section-label
-              %i.bi.bi-pie-chart.mr-1
-              Node Types
-            - if @by_class.any?
-              - @by_class.each do |cls, count|
-                - pct     = @total > 0 ? (count.to_f / @total * 100).round : 0
-                - cls_col  = { 'repeater' => 'blue', 'bridge' => 'yellow', 'simplex' => 'green' }.fetch(cls, 'gray')
-                - cls_icon = { 'repeater' => 'bi-broadcast', 'bridge' => 'bi-link-45deg', 'simplex' => 'bi-broadcast' }.fetch(cls, 'bi-broadcast')
-                .mb-3
-                  .flex.justify-between.items-center.mb-1
-                    %span.text-gray-500.text-sm.capitalize
-                      %i.bi.mr-1{class: "#{cls_icon} text-#{cls_col}-500"}
-                      = cls
-                    %span.text-gray-100.font-semibold.text-sm
-                      = count
-                      %span.text-gray-500.font-normal= "(#{pct}%)"
-                  .cls-progress-wrap
-                    .cls-progress-fill{class: "bg-#{cls_col}-500", style: "width:#{pct}%"}
-            - else
-              %p.text-gray-500.text-sm.mb-0 No nodes connected.
-
-        -# Active talkgroups
-        .rounded-lg.border.border-ghborder.h-full
-          .p-4
-            .section-label
-              %i.bi.bi-collection.mr-1
-              Active Talkgroups
-            - if @active_tgs.any?
-              .rounded.overflow-hidden
-                - @active_tgs.each do |tg, callsigns|
-                  .tg-row.px-2.py-2.border-b
-                    .flex.items-center.justify-between
-                      %span.font-bold.font-mono.text-yellow-500= "TG #{tg}"
-                      .flex.flex-wrap.gap-1.justify-end
-                        - callsigns.each do |cs|
-                          - n = @nodes[cs]
-                          %span.tg-badge{class: (n&.dig('isTalker') ? 'active' : nil)}
-                            - if n&.dig('isTalker')
-                              %i.bi.bi-mic-fill.mr-1.text-green-500{style: "font-size:.65rem"}
-                            = cs
-            - else
-              %p.text-gray-500.text-sm.mb-0 No talkgroups currently active.
-
-        -# Signal strength
-        .rounded-lg.border.border-ghborder.h-full
-          .p-4
-            .section-label
-              %i.bi.bi-reception-4.mr-1
-              Signal Levels
-            - if @nodes.reject { |_, n| n['hidden'] }.sort_by { |cs, _| cs }.any?
-              - node_sigs = @nodes.reject { |_, n| n['hidden'] }.sort_by { |cs, _| cs }.map { |cs, n| [cs, n, (n['qth'] || []).flat_map { |q| (q['rx'] || {}).select { |_, r| r.is_a?(Hash) }.map { |p, r| [p, r] } }.map { |_, r| r['siglev'] }.compact.max] }
-              - node_sigs = node_sigs.sort_by { |_, _, sig| -(sig || -999) }
-              .thin-scroll.pr-2{style: "max-height:320px;overflow-y:auto"}
-                - node_sigs.each do |cs, n, best_sig|
-                  - tg        = n['tg'].to_i
-                  - is_talker = n['isTalker']
-                  - dot_cls   = is_talker ? 'dot-talking' : (tg != 0 ? 'dot-active' : 'dot-idle')
-                  - pct       = best_sig.nil? ? nil : (best_sig < 0 ? [[((best_sig + 120) / 100.0 * 100).round, 0].max, 100].min : [[best_sig.to_i, 0].max, 100].min)
-                  - bar_col   = pct ? (pct > 66 ? 'green' : (pct > 33 ? 'yellow' : 'red')) : 'gray'
-                  .flex.items-center.gap-2.mb-2
-                    %span.status-dot{class: dot_cls}
-                    %span.font-mono.text-gray-100{style: "min-width:90px;font-size:.82rem"}= cs
-                    - if pct
-                      .sig-bar-wrap.grow
-                        .sig-bar-fill{class: "bg-#{bar_col}-500", style: "width:#{pct}%"}
-                      %span.font-mono.text-gray-500{style: "font-size:.75rem;min-width:60px;text-align:right"}
-                        = "#{best_sig.round}#{best_sig < 0 ? ' dBm' : '%'}"
-                    - else
-                      .grow
-                      %span.text-gray-500{style: "font-size:.75rem"} —
-            - else
-              %p.text-gray-500.text-sm.mb-0 No nodes connected.
-
       -# ════════════════════════════════════════════════════════════════════
       -# HISTORICAL USAGE
       -# ════════════════════════════════════════════════════════════════════
@@ -254,7 +176,7 @@
           Usage History
         .flex.items-center.gap-2
           %span.text-gray-500.text-sm.mr-1 Period:
-          - [['all', 'All time'], ['day', 'Today'], ['month', 'Month'], ['year', 'Year']].each do |val, label|
+          - [['day', 'Today'], ['week', 'Week'], ['month', 'Month'], ['year', 'Year'], ['all', 'All time']].each do |val, label|
             %a.period-pill{href: stats_path(period: val), class: (@period == val ? 'active' : nil)}
               = label
 
@@ -367,7 +289,7 @@
                     %i.bi.bi-collection.block.text-xl.mb-2
                     = "No talkgroup activity recorded#{@period != 'all' ? ' for this period' : ''}."
 
-      .grid.grid-cols-1.md:grid-cols-3.gap-4.mb-4
+      .grid.grid-cols-1.md:grid-cols-2.lg:grid-cols-4.gap-4.mb-4
 
         -# Top nodes (non-bridge)
         .rounded-lg.border.border-ghborder.h-full
@@ -447,6 +369,30 @@
               .text-center.text-gray-500.py-4.text-sm
                 %i.bi.bi-diagram-3.block.text-xl.mb-2
                 No bridges connected.
+
+        -# Node class breakdown
+        .rounded-lg.border.border-ghborder.h-full
+          .p-4
+            .section-label
+              %i.bi.bi-pie-chart.mr-1
+              Node Types
+            - if @by_class.any?
+              - @by_class.each do |cls, count|
+                - pct     = @total > 0 ? (count.to_f / @total * 100).round : 0
+                - cls_col  = { 'repeater' => 'blue', 'bridge' => 'yellow', 'simplex' => 'green' }.fetch(cls, 'gray')
+                - cls_icon = { 'repeater' => 'bi-broadcast', 'bridge' => 'bi-link-45deg', 'simplex' => 'bi-broadcast' }.fetch(cls, 'bi-broadcast')
+                .mb-3
+                  .flex.justify-between.items-center.mb-1
+                    %span.text-gray-500.text-sm.capitalize
+                      %i.bi.mr-1{class: "#{cls_icon} text-#{cls_col}-500"}
+                      = cls
+                    %span.text-gray-100.font-semibold.text-sm
+                      = count
+                      %span.text-gray-500.font-normal= "(#{pct}%)"
+                  .cls-progress-wrap
+                    .cls-progress-fill{class: "bg-#{cls_col}-500", style: "width:#{pct}%"}
+            - else
+              %p.text-gray-500.text-sm.mb-0 No nodes connected.
 
       -# ── Trunk & Cluster stats ─────────────────────────────────────────────
       - if @trunk_traffic.any? || @cluster_tg_usage.any? || @trunks.any?
