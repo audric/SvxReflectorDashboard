@@ -102,6 +102,7 @@ class Bridge < ApplicationRecord
     "%-7s%s" % [xlx_callsign.to_s.upcase, xlx_callsign_suffix.to_s.upcase]
   end
 
+  before_validation :ensure_mumble_bot_password
   after_save :generate_config
   after_destroy :cleanup
 
@@ -213,12 +214,14 @@ class Bridge < ApplicationRecord
       generate_iax_config
     elsif sip?
       generate_sip_config
+    elsif mumble?
+      generate_mumble_config
     elsif echolink?
       generate_echolink_config
     else
       generate_reflector_config
     end
-    write_node_info unless xlx? || dmr? || ysf? || allstar? || zello? || iax? || sip?
+    write_node_info unless xlx? || dmr? || ysf? || allstar? || zello? || iax? || sip? || mumble?
   end
 
   def echolink_conf_path
@@ -295,6 +298,12 @@ class Bridge < ApplicationRecord
   end
 
   private
+
+  def ensure_mumble_bot_password
+    if mumble? && mumble_bot_password.blank?
+      self.mumble_bot_password = SecureRandom.alphanumeric(24)
+    end
+  end
 
   def reflector_logic_lines
     write_ca_bundle
@@ -431,6 +440,26 @@ class Bridge < ApplicationRecord
       File.write(path, zello_private_key.to_s)
       FileUtils.chmod(0o600, path)
     end
+  end
+
+  def generate_mumble_config
+    lines = []
+    lines << "# Mumble Bridge configuration (passed as env vars to container)"
+    lines << "REFLECTOR_HOST=#{local_host}"
+    lines << "REFLECTOR_PORT=#{local_port}"
+    lines << "REFLECTOR_AUTH_KEY=#{local_auth_key}"
+    lines << "REFLECTOR_TG=#{local_default_tg}"
+    lines << "CALLSIGN=#{local_callsign}"
+    lines << "MUMBLE_HOST=#{mumble_host}"
+    lines << "MUMBLE_PORT=#{mumble_port}"
+    lines << "MUMBLE_USERNAME=#{local_callsign}"
+    lines << "MUMBLE_PASSWORD=#{mumble_bot_password}"
+    lines << "MUMBLE_CHANNEL=#{mumble_channel}"
+    lines << "NODE_LOCATION=#{node_location.presence || name}"
+    lines << "SYSOP=#{sysop}" if sysop.present?
+    lines.concat(agc_env_lines)
+    lines << ""
+    File.write(config_dir.join("mumble_bridge.env"), lines.join("\n"))
   end
 
   def generate_iax_config
@@ -730,7 +759,8 @@ class Bridge < ApplicationRecord
              config_dir.join("ysf_bridge.env"), config_dir.join("allstar_bridge.env"),
              config_dir.join("zello_bridge.env"), config_dir.join("zello_private_key.pem"),
              config_dir.join("iax_bridge.env"),
-             config_dir.join("sip_bridge.env")].select(&:exist?)
+             config_dir.join("sip_bridge.env"),
+             config_dir.join("mumble_bridge.env")].select(&:exist?)
     return if files.empty?
 
     migrate_legacy_backups if Dir.glob(config_dir.join("*.bak")).any?
