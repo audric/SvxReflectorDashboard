@@ -1,7 +1,7 @@
 class Bridge < ApplicationRecord
   has_many :bridge_tg_mappings, dependent: :destroy
 
-  ALL_BRIDGE_TYPES = %w[reflector echolink xlx dmr ysf allstar zello iax sip].freeze
+  ALL_BRIDGE_TYPES = %w[reflector echolink xlx dmr ysf allstar zello iax sip mumble].freeze
   BRIDGE_TYPES = (ENV.fetch('BRIDGE_TYPES', 'reflector').split(',').map(&:strip) & ALL_BRIDGE_TYPES).freeze
 
   validates :name, presence: true, uniqueness: true
@@ -87,6 +87,16 @@ class Bridge < ApplicationRecord
     validates :sip_transport, inclusion: { in: %w[udp tcp tls], message: "must be udp, tcp, or tls" }
   end
 
+  # Mumble-specific validations
+  with_options if: :mumble? do
+    validates :local_callsign, presence: true
+    validates :local_auth_key, presence: true
+    validates :local_default_tg, presence: true
+    validates :mumble_host, presence: true
+    validates :mumble_port, presence: true
+    validates :mumble_channel, presence: true
+  end
+
   # Returns the 8-char DCS callsign: base callsign (space-padded to 7) + suffix letter.
   def dcs_callsign
     "%-7s%s" % [xlx_callsign.to_s.upcase, xlx_callsign_suffix.to_s.upcase]
@@ -131,8 +141,12 @@ class Bridge < ApplicationRecord
     bridge_type == "sip"
   end
 
+  def mumble?
+    bridge_type == "mumble"
+  end
+
   def has_agc?
-    xlx? || dmr? || ysf? || allstar? || zello? || iax? || sip?
+    xlx? || dmr? || ysf? || allstar? || zello? || iax? || sip? || mumble?
   end
 
   AGC_DEFAULTS = {
@@ -172,6 +186,8 @@ class Bridge < ApplicationRecord
       "iax-bridge-#{id}"
     elsif sip?
       "sip-bridge-#{id}"
+    elsif mumble?
+      "mumble-bridge-#{id}"
     else
       "svxlink-bridge-#{id}"
     end
