@@ -105,6 +105,8 @@ class Bridge < ApplicationRecord
   before_validation :ensure_mumble_bot_password
   after_save :generate_config
   after_destroy :cleanup
+  after_save :sync_mumble_users, if: :mumble_sync_needed?
+  after_destroy :sync_mumble_users, if: :mumble?
 
   def reflector?
     bridge_type == "reflector"
@@ -303,6 +305,19 @@ class Bridge < ApplicationRecord
     if mumble? && mumble_bot_password.blank?
       self.mumble_bot_password = SecureRandom.alphanumeric(24)
     end
+  end
+
+  # Re-sync the Mumble server when a mumble bridge is created or its bot
+  # identity changes, so the bot account exists before it tries to connect.
+  def mumble_sync_needed?
+    mumble? && (saved_change_to_id? || saved_change_to_local_callsign? ||
+      saved_change_to_mumble_bot_password? || saved_change_to_bridge_type?)
+  end
+
+  def sync_mumble_users
+    MumbleSync.sync_users
+  rescue => e
+    Rails.logger.error "[Bridge] Failed to sync mumble users: #{e.message}"
   end
 
   def reflector_logic_lines

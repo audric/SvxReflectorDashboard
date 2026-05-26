@@ -23,7 +23,12 @@ type MumbleClient struct {
 	channel string
 
 	client *gumble.Client
-	out    chan<- gumble.AudioBuffer
+
+	// out is the current outgoing audio stream. It is opened per over
+	// (StartTransmit) and closed at end-of-over (StopTransmit) so gumble emits
+	// the stream terminator and resets the Opus encoder between overs.
+	out   chan<- gumble.AudioBuffer
+	outMu sync.Mutex
 
 	// Callbacks
 	onStreamStart func(sender string)
@@ -78,7 +83,6 @@ func (m *MumbleClient) Connect() error {
 		return err
 	}
 	m.client = client
-	m.out = client.AudioOutgoing()
 	return nil
 }
 
@@ -101,13 +105,40 @@ func (m *MumbleClient) OnAudioStream(e *gumble.AudioStreamEvent) {
 	}
 }
 
-// SendPCM transmits one frame of 48kHz mono int16 PCM to the channel.
-func (m *MumbleClient) SendPCM(pcm []int16) {
-	if m.out == nil {
+// StartTransmit opens a fresh outgoing audio stream. Call at the start of an over.
+func (m *MumbleClient) StartTransmit() {
+	m.outMu.Lock()
+	defer m.outMu.Unlock()
+	if m.out != nil || m.client == nil {
 		return
 	}
-	defer func() { recover() }() // guard against send on closed channel during shutdown
-	m.out <- gumble.AudioBuffer(pcm)
+	m.out = m.client.AudioOutgoing()
+}
+
+// StopTransmit closes the outgoing audio stream so gumble flushes the stream
+// terminator and resets the Opus encoder. Call at end-of-over.
+func (m *MumbleClient) StopTransmit() {
+	m.outMu.Lock()
+	out := m.out
+	m.out = nil
+	m.outMu.Unlock()
+	if out == nil {
+		return
+	}
+	defer func() { recover() }() // tolerate a close racing with shutdown
+	close(out)
+}
+
+// SendPCM transmits one frame of 48kHz mono int16 PCM, if a transmission is open.
+func (m *MumbleClient) SendPCM(pcm []int16) {
+	m.outMu.Lock()
+	out := m.out
+	m.outMu.Unlock()
+	if out == nil {
+		return
+	}
+	defer func() { recover() }() // guard against send on a closed channel during shutdown
+	out <- gumble.AudioBuffer(pcm)
 }
 
 func (m *MumbleClient) signalDone() {
@@ -120,6 +151,7 @@ func (m *MumbleClient) signalDone() {
 }
 
 func (m *MumbleClient) Close() {
+	m.StopTransmit()
 	m.signalDone()
 	if m.client != nil {
 		m.client.Disconnect()

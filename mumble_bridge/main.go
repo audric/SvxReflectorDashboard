@@ -154,6 +154,7 @@ func runBridge(
 		talkMu.Unlock()
 		filtSvxToMum.Reset()
 		agcSvxToMum.Reset()
+		mum.StartTransmit()
 		log.Printf("[SVX->Mumble] Talker start: %s on TG %d", cs, tg)
 	})
 	svx.SetTalkerStopCallback(func(tg uint32, cs string) {
@@ -163,6 +164,7 @@ func runBridge(
 		talkMu.Lock()
 		svxTalking = false
 		talkMu.Unlock()
+		mum.StopTransmit()
 		log.Printf("[SVX->Mumble] Talker stop: %s", cs)
 	})
 

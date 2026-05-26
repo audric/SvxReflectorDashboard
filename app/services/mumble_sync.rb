@@ -22,6 +22,9 @@ class MumbleSync
 
     db = SQLite3::Database.new(db_path)
     db.results_as_hash = true
+    # The mumble-server holds the DB open in rollback-journal mode; wait for its
+    # brief write locks instead of failing immediately with SQLITE_BUSY.
+    db.busy_timeout = 5000
     begin
       admin_group_id = group_id(db, "admin")
       tx_group_id    = group_id(db, "tx")
@@ -68,14 +71,18 @@ class MumbleSync
           db.execute("DELETE FROM group_members WHERE server_id = ? AND user_id = ?", [SERVER_ID, info[:id]])
           db.execute("INSERT INTO group_members (group_id, server_id, user_id, addit) VALUES (?, ?, ?, 1)",
                      [admin_group_id, SERVER_ID, info[:id]]) if info[:admin] && admin_group_id
+          # admins can always speak (the root Speak deny applies to non-tx); the tx
+          # group grants Speak, so admins and can_transmit users both belong to it.
           db.execute("INSERT INTO group_members (group_id, server_id, user_id, addit) VALUES (?, ?, ?, 1)",
-                     [tx_group_id, SERVER_ID, info[:id]]) if info[:tx] && tx_group_id
+                     [tx_group_id, SERVER_ID, info[:id]]) if (info[:tx] || info[:admin]) && tx_group_id
         end
       end
     ensure
       db.close
     end
 
+    # Reached only if the transaction committed (an exception above propagates
+    # past this point), so we never restart on a failed write.
     restart_mumble
   end
 
