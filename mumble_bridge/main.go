@@ -108,6 +108,7 @@ func runBridge(
 
 	svx := NewSVXLinkClient(svxHost, svxPort, svxAuthKey, callsign, nodeLocation, sysop)
 	svx.SetExtraNodeInfo(map[string]interface{}{
+		"nodeClass": "mumble",
 		"links": []map[string]interface{}{
 			{"localTg": svxTG, "remoteTg": mumbleChannel},
 		},
