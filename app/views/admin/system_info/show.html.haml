@@ -71,6 +71,10 @@
         %button.tab-btn.pb-3.text-sm.font-medium.text-ghmuted.hover:text-gray-200.cursor-pointer.border-b-2.border-transparent{type: "button", onclick: "switchTab('mqtt')", id: "tab-mqtt", class: @active_tab == 'mqtt' ? 'active' : ''}
           %i.bi.bi-broadcast-pin.mr-1
           MQTT
+        - if @mumble_enabled
+          %button.tab-btn.pb-3.text-sm.font-medium.text-ghmuted.hover:text-gray-200.cursor-pointer.border-b-2.border-transparent{type: "button", onclick: "switchTab('mumble')", id: "tab-mumble", class: @active_tab == 'mumble' ? 'active' : ''}
+            %i.bi.bi-mic.mr-1
+            Mumble
 
       -# ════════════════════════════════════════════════
       -# TAB: System Info
@@ -1069,6 +1073,138 @@
 
         #changelog-content
           %span.text-ghmuted.text-sm Loading changelog…
+
+      -# ════════════════════════════════════════════════
+      -# TAB: Mumble (read-only view of the Mumble server DB)
+      -# ════════════════════════════════════════════════
+      - if @mumble_enabled
+        #panel-mumble.tab-panel{class: @active_tab == 'mumble' ? 'active' : ''}
+
+          .flex.items-center.justify-between.mb-4
+            %h5.text-lg.font-semibold.text-gray-100
+              %i.bi.bi-mic.mr-2
+              Mumble
+            %a.text-xs.px-3.py-1.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.cursor-pointer{href: admin_system_info_path(tab: "mumble")}
+              %i.bi.bi-arrow-clockwise.mr-1
+              Refresh
+
+          - unless @mumble[:available]
+            .rounded-lg.border.border-ghborder.bg-ghcard.p-4.text-sm.text-ghmuted
+              %i.bi.bi-info-circle.mr-2
+              Mumble server not initialised yet — no database found. It is created the first time the server starts and a user or bridge is synced.
+          - else
+            %p.text-xs.text-ghmuted.mb-4
+              %i.bi.bi-info-circle.mr-1
+              Stored server state. “Last seen” / “Last room” reflect the last known session — not who is connected right now.
+
+            -# ── Rooms ──
+            .rounded-lg.border.border-ghborder.bg-ghcard.mb-6
+              .px-4.py-3.border-b.border-ghborder
+                %h6.text-sm.font-semibold.text-gray-100
+                  %i.bi.bi-door-open.mr-2
+                  Rooms
+                  %span.text-ghmuted.font-normal.ml-2= @mumble[:rooms].size
+              .overflow-x-auto
+                %table.w-full.debug-table
+                  %thead
+                    %tr.border-b.border-ghborder2
+                      %th.py-2.px-3 Channel
+                      %th.py-2 Parent
+                      %th.py-2 Inherits ACL
+                      %th.py-2 Users last seen here
+                  %tbody
+                    - if @mumble[:rooms].empty?
+                      %tr
+                        %td.px-3.py-3.text-ghmuted{colspan: 4} No channels.
+                    - @mumble[:rooms].each do |r|
+                      %tr.border-b.border-ghborder2
+                        %td.py-2.px-3.text-gray-200
+                          - if r[:root]
+                            %i.bi.bi-house.mr-1.text-ghmuted
+                          = r[:name]
+                        %td.py-2.text-ghmuted= r[:parent] || "—"
+                        %td.py-2.text-ghmuted= r[:inherit_acl] ? "yes" : "no"
+                        %td.py-2.text-ghmuted= r[:last_seen_count]
+
+            -# ── Users ──
+            .rounded-lg.border.border-ghborder.bg-ghcard
+              .px-4.py-3.border-b.border-ghborder
+                %h6.text-sm.font-semibold.text-gray-100
+                  %i.bi.bi-people.mr-2
+                  Registered users
+                  %span.text-ghmuted.font-normal.ml-2= @mumble[:users].size
+              .overflow-x-auto
+                %table.w-full.debug-table
+                  %thead
+                    %tr.border-b.border-ghborder2
+                      %th.py-2.px-3 Name
+                      %th.py-2 Type
+                      %th.py-2 Speak
+                      %th.py-2 Admin
+                      %th.py-2 Last room
+                      %th.py-2 Last active
+                      %th.py-2 Last disconnect
+                  %tbody
+                    - if @mumble[:users].empty?
+                      %tr
+                        %td.px-3.py-3.text-ghmuted{colspan: 7} No registered users.
+                    - @mumble[:users].each do |u|
+                      %tr.border-b.border-ghborder2
+                        %td.py-2.px-3.text-gray-200.font-mono= u[:name]
+                        %td.py-2.text-ghmuted= u[:type]
+                        %td.py-2
+                          - if u[:can_speak]
+                            %i.bi.bi-check-lg.text-green-400
+                          - else
+                            %span.text-ghdim —
+                        %td.py-2
+                          - if u[:admin]
+                            %i.bi.bi-check-lg.text-green-400
+                          - else
+                            %span.text-ghdim —
+                        %td.py-2.text-ghmuted= u[:last_room] || "—"
+                        %td.py-2.text-ghmuted= u[:last_active] || "—"
+                        %td.py-2.text-ghmuted= u[:last_disconnect] || "—"
+
+            -# ── ACL ──
+            .rounded-lg.border.border-ghborder.bg-ghcard.mt-6
+              .px-4.py-3.border-b.border-ghborder
+                %h6.text-sm.font-semibold.text-gray-100
+                  %i.bi.bi-shield-lock.mr-2
+                  Access control (ACL)
+                  %span.text-ghmuted.font-normal.ml-2= @mumble[:acls].size
+              .overflow-x-auto
+                %table.w-full.debug-table
+                  %thead
+                    %tr.border-b.border-ghborder2
+                      %th.py-2.px-3 Channel
+                      %th.py-2 Applies to
+                      %th.py-2 Scope
+                      %th.py-2 Allow
+                      %th.py-2 Deny
+                  %tbody
+                    - if @mumble[:acls].empty?
+                      %tr
+                        %td.px-3.py-3.text-ghmuted{colspan: 5} No ACL rules.
+                    - @mumble[:acls].each do |a|
+                      %tr.border-b.border-ghborder2
+                        %td.py-2.px-3.text-gray-200= a[:channel]
+                        %td.py-2.text-gray-300.font-mono= a[:subject]
+                        %td.py-2.text-ghmuted= a[:scope]
+                        %td.py-2
+                          - if a[:allow].any?
+                            .flex.flex-wrap.gap-1
+                              - a[:allow].each do |perm|
+                                %span.text-xs.px-1.5.py-0.5.rounded.text-green-300{class: "bg-green-900/40"}= perm
+                          - else
+                            %span.text-ghdim —
+                        %td.py-2
+                          - if a[:deny].any?
+                            .flex.flex-wrap.gap-1
+                              - a[:deny].each do |perm|
+                                %span.text-xs.px-1.5.py-0.5.rounded.text-red-300{class: "bg-red-900/40"}= perm
+                          - else
+                            %span.text-ghdim —
 
     :javascript
       // ── Tab switching ──

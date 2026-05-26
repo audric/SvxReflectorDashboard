@@ -12,6 +12,21 @@ if [ "$(id -u)" = "0" ]; then
     SOCK_GROUP=$(getent group "$SOCK_GID" | cut -d: -f1)
     usermod -aG "$SOCK_GROUP" rails
   fi
+  # Grant rails access to the Mumble server DB volume (owned by the mumble
+  # container's uid, e.g. 10000). Mirrors the docker-socket handling above:
+  # add rails to the volume's group, then make the dir + DB files group
+  # read/write so MumbleSync (write) and the System Info Mumble tab (read)
+  # work as the unprivileged rails user. Murmur writes the DB in place, so the
+  # relaxed mode persists across its updates.
+  if [ -e /mumble_data ]; then
+    MUMBLE_GID=$(stat -c '%g' /mumble_data)
+    if [ "$MUMBLE_GID" != "0" ]; then
+      getent group "$MUMBLE_GID" > /dev/null 2>&1 || groupadd -g "$MUMBLE_GID" mumbledata
+      usermod -aG "$(getent group "$MUMBLE_GID" | cut -d: -f1)" rails
+      chmod g+rwx /mumble_data 2>/dev/null || true
+      chmod g+rw /mumble_data/mumble-server.sqlite* 2>/dev/null || true
+    fi
+  fi
   exec gosu rails "$0" "$@"
 fi
 

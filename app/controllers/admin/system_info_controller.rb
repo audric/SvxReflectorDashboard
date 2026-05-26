@@ -43,9 +43,21 @@ module Admin
 
       # For Logs tab
       @containers = fetch_log_containers
+
+      # For Mumble tab — only relevant when a Mumble bridge is configured or
+      # the server's DB already exists. Read-only snapshot of the Mumble DB.
+      @mumble_enabled = mumble_relevant?
+      @mumble = @mumble_enabled ? MumbleStatus.snapshot : { available: false, rooms: [], users: [] }
     end
 
     private
+
+    def mumble_relevant?
+      Bridge.exists?(bridge_type: "mumble") || File.exist?(MumbleSync.db_path)
+    rescue => e
+      Rails.logger.warn("Mumble tab relevance check failed: #{e.message}")
+      false
+    end
 
     def fetch_log_containers
       return [] unless File.exist?(DOCKER_SOCKET)
