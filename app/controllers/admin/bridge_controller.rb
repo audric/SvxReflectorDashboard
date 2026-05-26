@@ -293,6 +293,9 @@ module Admin
       elsif bridge.zello?
         pull_image("ghcr.io/audric/svxreflectordashboard-zello-bridge") rescue nil
         start_zello_container(bridge)
+      elsif bridge.mumble?
+        pull_image("ghcr.io/audric/svxreflectordashboard-mumble-bridge") rescue nil
+        start_mumble_container(bridge)
       else
         pull_image("ghcr.io/audric/svxlink-docker")
         start_svxlink_container(bridge)
@@ -600,6 +603,45 @@ module Admin
       end
     end
 
+    def start_mumble_container(bridge)
+      bridge.generate_config
+      network = docker_network
+      body = {
+        Image: "ghcr.io/audric/svxreflectordashboard-mumble-bridge",
+        Labels: {
+          "svx.bridge" => "true",
+          "svx.bridge.id" => bridge.id.to_s,
+          "svx.bridge.name" => bridge.name,
+          "com.docker.compose.project" => "",
+          "com.docker.compose.service" => ""
+        },
+        Env: [
+          "REFLECTOR_HOST=#{bridge.local_host}",
+          "REFLECTOR_PORT=#{bridge.local_port}",
+          "REFLECTOR_AUTH_KEY=#{bridge.local_auth_key}",
+          "REFLECTOR_TG=#{bridge.local_default_tg}",
+          "CALLSIGN=#{bridge.local_callsign}",
+          "MUMBLE_HOST=#{bridge.mumble_host}",
+          "MUMBLE_PORT=#{bridge.mumble_port}",
+          "MUMBLE_USERNAME=#{bridge.local_callsign}",
+          "MUMBLE_PASSWORD=#{bridge.mumble_bot_password}",
+          "MUMBLE_CHANNEL=#{bridge.mumble_channel}",
+          "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
+          "SYSOP=#{bridge.sysop}"
+        ] + agc_env_array(bridge),
+        HostConfig: {
+          RestartPolicy: { Name: "unless-stopped" }
+        }
+      }
+      body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
+
+      result = docker_api_post_json("/containers/create?name=#{bridge.container_name}", body)
+      if result && result["Id"]
+        docker_api_post("/containers/#{result["Id"]}/start")
+        Rails.logger.info "[Bridge] Created and started Mumble container #{bridge.container_name}"
+      end
+    end
+
     def start_svxlink_container(bridge)
       bridge.generate_config
       network = docker_network
@@ -689,7 +731,7 @@ module Admin
       statuses = {}
       containers.each do |c|
         c["Names"].each do |n|
-          if n =~ /\A\/(?:svxlink|xlx|dmr|ysf|allstar|zello|iax|sip)-bridge-(\d+)\z/
+          if n =~ /\A\/(?:svxlink|xlx|dmr|ysf|allstar|zello|iax|sip|mumble)-bridge-(\d+)\z/
             statuses[Regexp.last_match(1).to_i] = c["State"]
           end
         end
