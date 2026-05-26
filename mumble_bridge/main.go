@@ -104,6 +104,13 @@ func runBridge(
 		// Reframe buffer for Mumble -> SVX (accumulate to 960 samples).
 		mumBuf   []int16
 		mumBufMu sync.Mutex
+
+		// Per-over audio diagnostics (frame counts + peak source level),
+		// guarded by statsMu. Lets us tell "silence in" from a downstream
+		// encode/transport problem.
+		statsMu                sync.Mutex
+		m2sIn, m2sOut, m2sPeak int
+		s2mIn, s2mOut, s2mPeak int
 	)
 
 	svx := NewSVXLinkClient(svxHost, svxPort, svxAuthKey, callsign, nodeLocation, sysop)
@@ -131,19 +138,30 @@ func runBridge(
 			return
 		}
 		pcm = pcm[:n]
+		pk := peakAbs(pcm)
 		filtSvxToMum.Process(pcm)
 		agcSvxToMum.Process(pcm)
+		sent := 0
 		for len(pcm) >= MumbleFrame {
 			frame := make([]int16, MumbleFrame)
 			copy(frame, pcm[:MumbleFrame])
 			pcm = pcm[MumbleFrame:]
 			mum.SendPCM(frame)
+			sent++
 		}
 		if len(pcm) > 0 { // pad the tail to a full frame
 			frame := make([]int16, MumbleFrame)
 			copy(frame, pcm)
 			mum.SendPCM(frame)
+			sent++
 		}
+		statsMu.Lock()
+		s2mIn++
+		s2mOut += sent
+		if pk > s2mPeak {
+			s2mPeak = pk
+		}
+		statsMu.Unlock()
 	})
 
 	svx.SetTalkerStartCallback(func(tg uint32, cs string) {
@@ -155,6 +173,9 @@ func runBridge(
 		talkMu.Unlock()
 		filtSvxToMum.Reset()
 		agcSvxToMum.Reset()
+		statsMu.Lock()
+		s2mIn, s2mOut, s2mPeak = 0, 0, 0
+		statsMu.Unlock()
 		mum.StartTransmit()
 		log.Printf("[SVX->Mumble] Talker start: %s on TG %d", cs, tg)
 	})
@@ -166,7 +187,10 @@ func runBridge(
 		svxTalking = false
 		talkMu.Unlock()
 		mum.StopTransmit()
-		log.Printf("[SVX->Mumble] Talker stop: %s", cs)
+		statsMu.Lock()
+		in, out, pk := s2mIn, s2mOut, s2mPeak
+		statsMu.Unlock()
+		log.Printf("[SVX->Mumble] Talker stop: %s (%d svx frames in / %d mumble frames out, peak=%d)", cs, in, out, pk)
 	})
 
 	// --- Mumble -> SVX: PCM(48k) -> filter/AGC -> reframe 960 -> Opus -> TG ---
@@ -185,6 +209,9 @@ func runBridge(
 		mumBufMu.Lock()
 		mumBuf = mumBuf[:0]
 		mumBufMu.Unlock()
+		statsMu.Lock()
+		m2sIn, m2sOut, m2sPeak = 0, 0, 0
+		statsMu.Unlock()
 		talker := sender
 		if talker == "" {
 			talker = callsign
@@ -200,11 +227,13 @@ func runBridge(
 		if !active {
 			return // a different (concurrent) talker — dropped under first-wins
 		}
+		pk := peakAbs(pcm)
 		work := make([]int16, len(pcm))
 		copy(work, pcm)
 		filtMumToSvx.Process(work)
 		agcMumToSvx.Process(work)
 
+		sent := 0
 		mumBufMu.Lock()
 		mumBuf = append(mumBuf, work...)
 		for len(mumBuf) >= SVXFrameSize {
@@ -217,10 +246,18 @@ func runBridge(
 			nn, err := svxEnc.Encode(chunk, opusBuf)
 			if err == nil {
 				svx.SendAudio(opusBuf[:nn])
+				sent++
 			}
 			mumBufMu.Lock()
 		}
 		mumBufMu.Unlock()
+		statsMu.Lock()
+		m2sIn++
+		m2sOut += sent
+		if pk > m2sPeak {
+			m2sPeak = pk
+		}
+		statsMu.Unlock()
 	})
 
 	mum.SetStreamStopCallback(func(sender string) {
@@ -237,7 +274,10 @@ func runBridge(
 			talker = callsign
 		}
 		svx.SendTalkerStop(svxTG, talker)
-		log.Printf("[Mumble->SVX] Stream stop from %q", sender)
+		statsMu.Lock()
+		in, out, pk := m2sIn, m2sOut, m2sPeak
+		statsMu.Unlock()
+		log.Printf("[Mumble->SVX] Stream stop from %q (%d mumble frames in / %d opus frames out, peak=%d)", sender, in, out, pk)
 	})
 
 	// --- Connect both sides ---
@@ -272,6 +312,22 @@ func runBridge(
 	mum.Close()
 	svx.Close()
 	return result
+}
+
+// peakAbs returns the largest absolute sample value in a PCM frame. Used to tell
+// whether incoming audio has real content (high peak) or is effectively silence.
+func peakAbs(pcm []int16) int {
+	p := 0
+	for _, v := range pcm {
+		a := int(v)
+		if a < 0 {
+			a = -a
+		}
+		if a > p {
+			p = a
+		}
+	}
+	return p
 }
 
 func envRequired(key string) string {

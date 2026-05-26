@@ -14,6 +14,12 @@ import (
 	_ "layeh.com/gumble/opus" // registers the Opus codec (CGo/libopus)
 )
 
+// voxHangTime is how long incoming Mumble audio must be silent before we treat
+// the current over as finished. gumble (this version) never closes a user's
+// audio stream channel and fires OnAudioStream only once per user, so talk-spurt
+// boundaries are derived from this silence gap rather than from the channel.
+const voxHangTime = 300 * time.Millisecond
+
 // MumbleClient is a thin wrapper around a gumble bot client.
 type MumbleClient struct {
 	host    string
@@ -34,6 +40,13 @@ type MumbleClient struct {
 	onStreamStart func(sender string)
 	onAudio       func(sender string, pcm []int16)
 	onStreamStop  func(sender string)
+
+	// VOX state for incoming audio (Mumble -> bridge). activeTalker is the
+	// callsign whose over is currently open; lastAudio is when we last saw a
+	// frame from them. Guarded by voxMu.
+	voxMu        sync.Mutex
+	activeTalker string
+	lastAudio    time.Time
 
 	done   chan struct{}
 	mu     sync.Mutex
@@ -96,25 +109,93 @@ func (m *MumbleClient) Connect() error {
 		return err
 	}
 	m.client = client
+
+	m.voxMu.Lock()
+	m.activeTalker = ""
+	m.voxMu.Unlock()
+	go m.runVoxWatchdog(m.done)
+
 	return nil
 }
 
-// OnAudioStream implements gumble.AudioListener. One goroutine per talker.
+// OnAudioStream implements gumble.AudioListener. gumble calls this synchronously
+// from its network-read goroutine and delivers the first packet only AFTER this
+// returns, so draining e.C here directly would deadlock the whole client. We
+// hand the stream off to a goroutine and route every frame through the VOX state
+// machine. The goroutine exits when the connection (done) drops, since gumble
+// never closes the stream channel itself.
 func (m *MumbleClient) OnAudioStream(e *gumble.AudioStreamEvent) {
 	sender := ""
 	if e.User != nil {
 		sender = strings.TrimSpace(e.User.Name)
 	}
-	if m.onStreamStart != nil {
+	m.mu.Lock()
+	done := m.done
+	m.mu.Unlock()
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case pkt, ok := <-e.C:
+				if !ok {
+					return
+				}
+				if pkt != nil && len(pkt.AudioBuffer) > 0 {
+					m.feedAudio(sender, []int16(pkt.AudioBuffer))
+				}
+			}
+		}
+	}()
+}
+
+// feedAudio routes one incoming PCM frame through VOX: the first frame after
+// silence opens an over (onStreamStart), later frames extend it (onAudio), and
+// runVoxWatchdog closes it after voxHangTime of no audio. First-talker-wins — a
+// second concurrent talker is ignored until the active one stops.
+func (m *MumbleClient) feedAudio(sender string, pcm []int16) {
+	m.voxMu.Lock()
+	start := false
+	if m.activeTalker == "" {
+		m.activeTalker = sender
+		start = true
+	} else if sender != m.activeTalker {
+		m.voxMu.Unlock()
+		return
+	}
+	m.lastAudio = time.Now()
+	m.voxMu.Unlock()
+
+	if start && m.onStreamStart != nil {
 		m.onStreamStart(sender)
 	}
-	for pkt := range e.C { // ranges until the talker stops (channel closed)
-		if m.onAudio != nil && len(pkt.AudioBuffer) > 0 {
-			m.onAudio(sender, []int16(pkt.AudioBuffer))
-		}
+	if m.onAudio != nil {
+		m.onAudio(sender, pcm)
 	}
-	if m.onStreamStop != nil {
-		m.onStreamStop(sender)
+}
+
+// runVoxWatchdog closes the current over once audio stops flowing for
+// voxHangTime. It exits when the connection (done) drops.
+func (m *MumbleClient) runVoxWatchdog(done <-chan struct{}) {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+			m.voxMu.Lock()
+			if m.activeTalker != "" && time.Since(m.lastAudio) > voxHangTime {
+				stopped := m.activeTalker
+				m.activeTalker = ""
+				m.voxMu.Unlock()
+				if m.onStreamStop != nil {
+					m.onStreamStop(stopped)
+				}
+			} else {
+				m.voxMu.Unlock()
+			}
+		}
 	}
 }
 
