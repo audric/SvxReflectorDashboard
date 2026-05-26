@@ -240,6 +240,13 @@
                       .flex.items-center.gap-2
                         %span.text-ghmuted Reflector:
                         %span.text-gray-300.font-mono= "#{bridge.local_callsign}@#{bridge.local_host}:#{bridge.local_port} TG#{bridge.local_default_tg}"
+                    - elsif bridge.mumble?
+                      .flex.items-center.gap-2
+                        %span.text-ghmuted Mumble:
+                        %span.text-gray-300.font-mono= "#{bridge.mumble_host}:#{bridge.mumble_port} ##{bridge.mumble_channel}"
+                      .flex.items-center.gap-2
+                        %span.text-ghmuted Reflector:
+                        %span.text-gray-300.font-mono= "#{bridge.local_callsign}@#{bridge.local_host}:#{bridge.local_port} TG#{bridge.local_default_tg}"
                     - else
                       .flex.items-center.gap-2
                         %span.text-ghmuted Local:
