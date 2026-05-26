@@ -1,3 +1,110 @@
+require "sqlite3"
+require "digest"
+require "socket"
+require "json"
+
+# Syncs allow_mumble users into the local Mumble server's SQLite DB.
+# Source of truth = dashboard. Writes registered users + admin/tx ACL-group
+# membership, removes stale rows, then restarts the mumble container.
+#
+# Assumes the base ACL + the "tx" group already exist on the root channel
+# (created once by db/mumble_acl_init.sql).
 class MumbleSync
-  def self.sync_users; end
+  SERVER_ID = 1
+  BOT_USER_ID_BASE = 100_000 # bot accounts get ids >= this to avoid colliding with human users
+
+  def self.db_path
+    ENV.fetch("MUMBLE_DB_PATH", "/mumble_data/mumble-server.sqlite")
+  end
+
+  def self.sync_users
+    return unless File.exist?(db_path)
+
+    db = SQLite3::Database.new(db_path)
+    db.results_as_hash = true
+    begin
+      admin_group_id = group_id(db, "admin")
+      tx_group_id    = group_id(db, "tx")
+
+      # Desired human accounts: callsign(uppercase) => {id, pw_sha1, admin, tx}
+      desired = {}
+      User.where(allow_mumble: true).where.not(mumble_password: [nil, ""]).find_each do |u|
+        next if u.callsign.blank?
+        desired[u.callsign.upcase] = {
+          id: 1_000 + u.id, # stable, > SuperUser(0), < bot base
+          pw: Digest::SHA1.hexdigest(u.mumble_password.to_s),
+          admin: u.role == "admin",
+          tx: u.can_transmit
+        }
+      end
+
+      # Bot accounts for each mumble bridge: BRIDGE_CALLSIGN => {id, pw}
+      Bridge.where(bridge_type: "mumble").find_each do |b|
+        next if b.local_callsign.blank? || b.mumble_bot_password.blank?
+        desired[b.local_callsign.upcase] = {
+          id: BOT_USER_ID_BASE + b.id,
+          pw: Digest::SHA1.hexdigest(b.mumble_bot_password.to_s),
+          admin: false,
+          tx: true # the bot must be able to inject TG audio
+        }
+      end
+
+      db.transaction do
+        # Remove human/bot rows we manage that are no longer desired (never touch SuperUser id 0).
+        existing = db.execute("SELECT user_id, name FROM users WHERE server_id = ? AND user_id > 0", SERVER_ID)
+        existing.each do |row|
+          next if desired.key?(row["name"].to_s.upcase)
+          uid = row["user_id"]
+          db.execute("DELETE FROM users WHERE server_id = ? AND user_id = ?", [SERVER_ID, uid])
+          db.execute("DELETE FROM group_members WHERE server_id = ? AND user_id = ?", [SERVER_ID, uid])
+          db.execute("DELETE FROM user_info WHERE server_id = ? AND user_id = ?", [SERVER_ID, uid]) rescue nil
+        end
+
+        desired.each do |name, info|
+          # Upsert the user row. salt='' and kdfiterations=0 => legacy SHA1 mode.
+          db.execute("INSERT OR REPLACE INTO users (server_id, user_id, name, pw, salt, kdfiterations) VALUES (?, ?, ?, ?, '', 0)",
+                     [SERVER_ID, info[:id], name, info[:pw]])
+          # Reset group membership for this user, then re-add as needed.
+          db.execute("DELETE FROM group_members WHERE server_id = ? AND user_id = ?", [SERVER_ID, info[:id]])
+          db.execute("INSERT INTO group_members (group_id, server_id, user_id, addit) VALUES (?, ?, ?, 1)",
+                     [admin_group_id, SERVER_ID, info[:id]]) if info[:admin] && admin_group_id
+          db.execute("INSERT INTO group_members (group_id, server_id, user_id, addit) VALUES (?, ?, ?, 1)",
+                     [tx_group_id, SERVER_ID, info[:id]]) if info[:tx] && tx_group_id
+        end
+      end
+    ensure
+      db.close
+    end
+
+    restart_mumble
+  end
+
+  # Returns the group_id of a named root-channel (channel_id 0) group, or nil.
+  def self.group_id(db, name)
+    row = db.get_first_row("SELECT group_id FROM groups WHERE server_id = ? AND channel_id = 0 AND name = ?",
+                           [SERVER_ID, name])
+    row && row["group_id"]
+  end
+
+  def self.restart_mumble
+    container = find_mumble_container
+    return unless container
+    sock = UNIXSocket.new("/var/run/docker.sock")
+    sock.write("POST /containers/#{container["Id"]}/restart?t=5 HTTP/1.0\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n")
+    sock.read
+    sock.close
+    Rails.logger.info "[MumbleSync] Restarted mumble container"
+  rescue => e
+    Rails.logger.error "[MumbleSync] Failed to restart mumble: #{e.message}"
+  end
+
+  def self.find_mumble_container
+    sock = UNIXSocket.new("/var/run/docker.sock")
+    sock.write("GET /containers/json HTTP/1.0\r\nHost: localhost\r\n\r\n")
+    response = sock.read
+    sock.close
+    body = response.split("\r\n\r\n", 2).last
+    containers = JSON.parse(body)
+    containers.find { |c| c["Names"].any? { |n| n =~ /-mumble-\d+$/ || n == "/mumble" } }
+  end
 end
