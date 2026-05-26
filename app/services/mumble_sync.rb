@@ -27,6 +27,7 @@ class MumbleSync
     db.busy_timeout = 5000
     begin
       ensure_base_acl(db)
+      ensure_channels(db)
       admin_group_id = group_id(db, "admin")
       tx_group_id    = group_id(db, "tx")
 
@@ -97,6 +98,32 @@ class MumbleSync
     db.execute_batch(File.read(sql_path))
   rescue => e
     Rails.logger.error "[MumbleSync] Failed to ensure base ACL: #{e.message}"
+  end
+
+  # Ensures each mumble bridge's target channel exists as a PERMANENT child of
+  # Root, with inheritacl=1 so the root lockdown (registered-only Enter, tx-only
+  # Speak) applies to it. Permanent channels survive bridge restarts, so joined
+  # listeners stay put instead of being bounced to Root each time the bot's old
+  # temporary channel vanished. Idempotent: matched by name, otherwise created
+  # with the next free channel_id (Mumble resumes its counter from max+1 on boot).
+  def self.ensure_channels(db)
+    Bridge.where(bridge_type: "mumble").find_each do |b|
+      name = b.mumble_channel.to_s.strip
+      next if name.blank?
+      row = db.get_first_row("SELECT channel_id FROM channels WHERE server_id = ? AND parent_id = 0 AND name = ?",
+                             [SERVER_ID, name])
+      if row
+        db.execute("UPDATE channels SET inheritacl = 1 WHERE server_id = ? AND channel_id = ?",
+                   [SERVER_ID, row["channel_id"]])
+      else
+        next_id = db.get_first_value("SELECT COALESCE(MAX(channel_id), 0) + 1 FROM channels WHERE server_id = ?",
+                                     [SERVER_ID]).to_i
+        db.execute("INSERT INTO channels (server_id, channel_id, parent_id, name, inheritacl) VALUES (?, ?, 0, ?, 1)",
+                   [SERVER_ID, next_id, name])
+      end
+    end
+  rescue => e
+    Rails.logger.error "[MumbleSync] Failed to ensure channels: #{e.message}"
   end
 
   # Returns the group_id of a named root-channel (channel_id 0) group, or nil.
