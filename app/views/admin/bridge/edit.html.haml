@@ -47,6 +47,9 @@
         = render 'form_iax'
       - elsif @bridge.sip?
         = render 'form_sip'
+      - elsif @bridge.janus?
+        = render 'form_janus'
+
       - else
         = render 'form'
 
