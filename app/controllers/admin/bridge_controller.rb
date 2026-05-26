@@ -84,6 +84,12 @@ module Admin
           sip_dtmf_delay: 2000,
           sip_log_level: 1
         )
+      elsif bridge_type == "mumble"
+        defaults.merge!(
+          mumble_host: "mumble",
+          mumble_port: 64738,
+          mumble_channel: "TG1"
+        )
       else
         defaults.merge!(
           remote_port: 5300,
@@ -219,6 +225,7 @@ module Admin
         :sip_extension, :sip_transport, :sip_mode, :sip_idle_timeout, :sip_codecs,
         :sip_dtmf, :sip_dtmf_delay, :sip_caller_id, :sip_log_level, :sip_pin, :sip_pin_timeout, :sip_vox_timeout, :sip_ptt_key, :sip_max_call_duration,
         :zello_username, :zello_password, :zello_channel, :zello_channel_password, :zello_issuer_id, :zello_private_key,
+        :mumble_host, :mumble_port, :mumble_channel, :mumble_bot_password,
         :agc_target_level, :agc_attack_rate, :agc_decay_rate, :agc_max_gain, :agc_min_gain, :agc_limit_level,
         :filter_hpf_cutoff, :filter_lpf_cutoff
       )
