@@ -527,7 +527,11 @@
 
               cy.on('tap', 'node', function(evt) {
                 var host = evt.target.data('host');
-                if (host) window.open('https://' + encodeURI(host), '_blank', 'noopener');
+                if (!host) return;
+                // HA-pair (twin) nodes carry comma-joined hostnames — open each as its own link.
+                String(host).split(',').map(function(h) { return h.trim(); }).filter(Boolean).forEach(function(h) {
+                  window.open('https://' + encodeURI(h), '_blank', 'noopener');
+                });
               });
               cy.on('mouseover', 'node', function() { container.style.cursor = 'pointer'; });
               cy.on('mouseout', 'node', function() { container.style.cursor = ''; });
@@ -651,7 +655,7 @@
                       .flex.items-center.gap-2
                         %i.bi.bi-globe.text-ghdim{style: "font-size:.7rem"}
                         %span.text-xs.text-ghmuted Host
-                        %a.text-xs.font-mono.text-gray-300.ml-auto.hover:text-blue-400.transition-colors{href: "https://#{trunk['host']}", target: "_blank", rel: "noopener"}= trunk['host']
+                        %span.text-xs.font-mono.ml-auto.text-right= trunk_host_links(trunk['host'])
                     - if trunk['remote_prefix'].present?
                       .flex.items-center.gap-2
                         %i.bi.bi-tag.text-ghdim{style: "font-size:.7rem"}
@@ -763,7 +767,7 @@
                   .flex.items-center.gap-2
                     %i.bi.bi-globe.text-ghdim{style: "font-size:.7rem"}
                     %span.text-xs.text-ghmuted Host
-                    %a.text-xs.font-mono.text-gray-300.ml-auto.hover:text-blue-400.transition-colors{href: "https://#{cfg['HOST']}", target: "_blank", rel: "noopener"}= cfg['HOST']
+                    %span.text-xs.font-mono.ml-auto.text-right= trunk_host_links(cfg['HOST'])
                   .flex.items-center.gap-2
                     %i.bi.bi-hdd-network.text-ghdim{style: "font-size:.7rem"}
                     %span.text-xs.text-ghmuted Port
@@ -882,7 +886,7 @@
                               %span.inline-block.w-2.h-2.rounded-full.bg-gray-600
                             %span.font-mono.text-gray-300= r_name
                             - if r_trunk.is_a?(Hash) && r_trunk['host'].present?
-                              %a.text-ghmuted.ml-auto.hover:text-blue-400.transition-colors{href: "https://#{r_trunk['host']}", target: "_blank", rel: "noopener"}= r_trunk['host']
+                              %span.ml-auto.text-right= trunk_host_links(r_trunk['host'], link_class: "text-ghmuted")
                 - elsif cfg['STATUS_URL'].present?
                   .mt-3.pt-3.border-t.border-ghborder2
                     .text-xs.text-ghmuted
@@ -917,7 +921,7 @@
                     .flex.items-center.gap-2
                       %i.bi.bi-globe.text-ghdim{style: "font-size:.7rem"}
                       %span.text-xs.text-ghmuted Host
-                      %a.text-xs.font-mono.text-gray-300.ml-auto.hover:text-blue-400.transition-colors{href: "https://#{trunk['host']}", target: "_blank", rel: "noopener"}= trunk['host']
+                      %span.text-xs.font-mono.ml-auto.text-right= trunk_host_links(trunk['host'])
                   - if trunk['remote_prefix'].present?
                     .flex.items-center.gap-2
                       %i.bi.bi-tag.text-ghdim{style: "font-size:.7rem"}

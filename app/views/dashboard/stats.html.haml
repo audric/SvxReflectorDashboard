@@ -465,7 +465,7 @@
                       %span.inline-block.w-3.h-3.rounded-full.bg-red-500
                     .flex-1
                       %span.font-mono.text-gray-200= name
-                      %span.text-xs.text-ghmuted.ml-2= trunk['host']
+                      %span.text-xs.ml-2= trunk_host_links(trunk['host'], link_class: "text-ghmuted")
                     - talkers = trunk['active_talkers'] || {}
                     - if talkers.any?
                       %span.text-sm.text-green-400.font-semibold= "#{talkers.size} active"
