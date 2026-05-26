@@ -16,6 +16,9 @@ Rails.application.routes.draw do
   get    "register", to: "registrations#new"
   post   "register", to: "registrations#create"
 
+  get  "account",                          to: "account#show"
+  post "account/regenerate_mumble_token",  to: "account#regenerate_mumble_token", as: :regenerate_mumble_token
+
   # Google OAuth
   get  "auth/google_oauth2/callback", to: "omniauth#google"
   post "auth/google_oauth2/callback", to: "omniauth#google"
