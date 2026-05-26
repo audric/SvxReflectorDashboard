@@ -90,6 +90,7 @@ services:
       - ./bridge:/rails/bridge
       - reflector_pki:/rails/reflector_pki:ro
       - ${DOCKER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock
+      - mumble_data:/mumble_data
     depends_on:
       init-reflector-conf:
         condition: service_completed_successfully
@@ -183,6 +184,11 @@ services:
     build: ./sip_bridge
     profiles: ["build-only"]
 
+  mumble_bridge:
+    image: ghcr.io/audric/svxreflectordashboard-mumble-bridge
+    build: ./mumble_bridge
+    profiles: ["build-only"]
+
   mqtt:
     image: eclipse-mosquitto:2
     logging: *default-logging
@@ -215,6 +221,19 @@ services:
       retries: 6
       start_period: 5s
 
+  mumble:
+    image: mumblevoip/mumble-server:latest
+    logging: *default-logging
+    ports:
+      - "64738:64738/tcp"
+      - "64738:64738/udp"
+    environment:
+      MUMBLE_SUPERUSER_PASSWORD: ${MUMBLE_SUPERUSER_PASSWORD:-changeme}
+      MUMBLE_CONFIG_kdfiterations: "0"
+    volumes:
+      - mumble_data:/data
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
     logging: *default-logging
@@ -226,3 +245,4 @@ volumes:
   reflector_pki:
   caddy_data:
   mqtt_data:
+  mumble_data:
