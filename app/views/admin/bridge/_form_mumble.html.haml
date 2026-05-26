@@ -37,22 +37,6 @@
           = f.text_field :mumble_channel, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. TG91"
           %p.text-xs.text-ghmuted.mt-1 Mumble channel the bridge bot joins (users join it to tap this TG)
 
-  -# ── Node Info ──
-  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
-    .px-4.py-3.border-b.border-gray-600
-      %h5.text-lg.font-semibold.text-gray-100
-        %i.bi.bi-info-circle.mr-2
-        Node Info
-    .px-4.py-4
-      .grid.grid-cols-1.md:grid-cols-2.gap-4
-        .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 NODE_LOCATION
-          = f.text_field :node_location, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. Milan, Italy"
-          %p.text-xs.text-ghmuted.mt-1 Defaults to bridge name if empty.
-        .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 SYSOP
-          = f.text_field :sysop, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. F1ABC"
-
   -# ── Local Reflector ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
     .px-4.py-3.border-b.border-gray-600
@@ -79,8 +63,17 @@
           = f.number_field :local_default_tg, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "1"
           %p.text-xs.text-ghmuted.mt-1 TG to bridge to the Mumble channel
 
-  -# ── Audio AGC ──
+  -# ── Audio AGC (Voice Filter + AGC panels, collapsed by default) ──
   = render 'form_agc', f: f
+
+  -# Help popup modal (referenced by the AGC panel help buttons)
+  #help-modal.fixed.inset-0.z-50.items-center.justify-center.hidden{style: "background: rgba(0,0,0,0.6)"}
+    .bg-ghcard.border.border-gray-600.rounded-lg.p-5.max-w-md.w-full.mx-4.shadow-xl
+      .flex.items-center.justify-between.mb-3
+        %h6.text-base.font-semibold.text-gray-100#help-modal-title
+        %button.text-gray-400.hover:text-gray-200.cursor-pointer{type: "button", onclick: "closeHelp()"}
+          %i.bi.bi-x-lg
+      %p.text-sm.text-gray-300.leading-relaxed#help-modal-body
 
   -# ── Save ──
   .flex.items-center.justify-between
@@ -88,3 +81,37 @@
       %i.bi.bi-arrow-left.mr-1
       Cancel
     = f.submit(@bridge.persisted? ? "Update Bridge" : "Create Bridge", class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold cursor-pointer")
+
+:css
+  .accordion-body { max-height: 0; overflow: hidden; padding-top: 0; padding-bottom: 0; transition: max-height 0.3s ease, padding 0.3s ease; }
+  .accordion-body.open { max-height: 5000px; padding-top: 1rem; padding-bottom: 1rem; }
+  .accordion-chevron { transition: transform 0.3s ease; }
+  .accordion-chevron.open { transform: rotate(180deg); }
+
+:javascript
+  function openModal(id) { var m = document.getElementById(id); m.classList.remove('hidden'); m.classList.add('flex'); }
+  function closeModal(id) { var m = document.getElementById(id); m.classList.add('hidden'); m.classList.remove('flex'); }
+  function showHelp(key) {
+    document.getElementById('help-modal-title').textContent = key;
+    document.getElementById('help-modal-body').textContent = (typeof HELP_TEXTS !== 'undefined' && HELP_TEXTS[key]) || 'No description available.';
+    openModal('help-modal');
+  }
+  function closeHelp() { closeModal('help-modal'); }
+  document.getElementById('help-modal').addEventListener('click', function(e) { if (e.target === this) closeHelp(); });
+  function toggleSection(id) {
+    var body = document.getElementById('body-' + id);
+    var chevron = document.getElementById('chevron-' + id);
+    body.classList.toggle('open');
+    chevron.classList.toggle('open');
+  }
+
+- if @bridge.persisted?
+  :javascript
+    (function() {
+      var inp = document.querySelector('input[name="bridge[name]"]');
+      if (!inp) return;
+      var orig = inp.value;
+      inp.addEventListener('input', function() {
+        document.getElementById('name-warn').classList.toggle('hidden', inp.value === orig);
+      });
+    })();
