@@ -65,8 +65,21 @@ func (m *MumbleClient) Connect() error {
 			if ch := e.Client.Channels.Find(m.channel); ch != nil {
 				e.Client.Self.Move(ch)
 				log.Printf("[Mumble] Moved into channel %q", m.channel)
-			} else {
-				log.Printf("[Mumble] WARNING: channel %q not found; staying in root", m.channel)
+			} else if root := e.Client.Channels[0]; root != nil {
+				// Channel missing — create it. The bot is a registered (@auth)
+				// user, granted MakeTempChannel, so create a temporary channel
+				// under Root; we move in when the ChannelChange event arrives.
+				log.Printf("[Mumble] Channel %q not found; creating it", m.channel)
+				root.Add(m.channel, true)
+			}
+		},
+		ChannelChange: func(e *gumble.ChannelChangeEvent) {
+			if e.Channel == nil || e.Channel.Name != m.channel {
+				return
+			}
+			if e.Client.Self != nil && e.Client.Self.Channel != e.Channel {
+				e.Client.Self.Move(e.Channel)
+				log.Printf("[Mumble] Moved into channel %q (created)", m.channel)
 			}
 		},
 		Disconnect: func(e *gumble.DisconnectEvent) {
