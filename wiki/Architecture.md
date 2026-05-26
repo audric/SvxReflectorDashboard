@@ -13,12 +13,15 @@ dmr_bridge    → Go binary, DMR bridge (OPUS ↔ AMBE transcoding via MMDVM Hom
 ysf_bridge    → Go binary, YSF bridge (OPUS ↔ IMBE transcoding)
 allstar_bridge→ Go binary, AllStar bridge (OPUS ↔ µLaw via IAX2)
 zello_bridge  → Go binary, Zello channel bridge (OPUS 48kHz ↔ 16kHz via WebSocket)
+mumble_bridge → Go binary, relays an SVX TG ↔ Mumble channel (half-duplex, OPUS, no vocoder)
+mumble        → Mumble voice server (mumblevoip/mumble-server); users connect with any Mumble client
 mqtt          → Eclipse Mosquitto 2 MQTT broker for GeuReflector event publishing
 redis         → ActionCable adapter + audio pub/sub + web node metadata cache
 db_data       → Named Docker volume persisting the SQLite database (storage/)
 caddy_data    → Named Docker volume persisting TLS certificates
 mqtt_data     → Named Docker volume persisting MQTT broker data
 mqtt_log      → Named Docker volume persisting MQTT broker logs
+mumble_data   → Named Docker volume for the Mumble server DB, shared with web for user/ACL sync
 ```
 
 ### caddy
@@ -133,7 +136,7 @@ Browser mic → MediaStreamTrackProcessor → Opus encoder
 
 ### Audio path — protocol bridges
 
-All Go-based bridges (XLX, DMR, YSF, AllStar, Zello) apply a three-stage audio processing pipeline:
+All Go-based bridges (XLX, DMR, YSF, AllStar, Zello, IAX, SIP, Mumble) apply a three-stage audio processing pipeline:
 
 ```
 SVX → Remote:  OPUS decode → PCM → HPF 300Hz → LPF 3kHz → AGC + Limiter → Vocoder encode

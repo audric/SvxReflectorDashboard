@@ -133,9 +133,63 @@ SVX → Zello: OPUS 48kHz → PCM 48kHz → HPF → LPF → AGC → PCM 16kHz �
 Zello → SVX: OPUS 16kHz/60ms → PCM 48kHz → HPF → LPF → AGC → split 3×20ms → OPUS 48kHz → UDP
 ```
 
+### Mumble bridge
+
+Connects a local SVXReflector talkgroup to a channel on a **self-hosted Mumble (Murmur) voice server**. Unlike the other bridge types — which connect to an external network — the Mumble bridge pairs with the bundled `mumble` Docker service that your users connect to directly with any Mumble client (desktop, mobile, [Mumla](https://mumla-app.gitlab.io/), etc.). It turns a talkgroup into a VoIP room: audio keyed on the TG is heard in the Mumble channel, and audio spoken in the channel is relayed onto the TG.
+
+Two pieces work together:
+
+- **`mumble` server** — the official `mumblevoip/mumble-server` image, listening on TCP+UDP port `64738`. Users connect their own Mumble clients here. Its SQLite database lives on the `mumble_data` volume, **shared with the `web` container** so the dashboard can manage users and ACLs.
+- **`mumble-bridge-<id>` bot** — a standalone Go binary (gumble client + libopus) that logs into the Mumble server as a registered bot, joins the bridge's channel, and relays audio to/from the SVXReflector TG.
+
+Key features:
+- **Self-hosted, no external account** — you run the voice server; there are no third-party credentials or rate limits
+- **Per-user access from the dashboard** — Mumble logins and permissions are driven by the dashboard's user list, not configured manually on the server (see [User access model](#user-access-model) below)
+- **OPUS end to end** — both sides are 48 kHz Opus, so no vocoder/transcoding is needed (just frame re-packing: SVX 20 ms ↔ Mumble 10 ms)
+- **Half-duplex, first-talker-wins** — while the TG is talking, Mumble input is held off, and vice versa; a second concurrent Mumble talker is ignored until the active one stops
+- **VOX talk detection** — talk-spurt boundaries on the Mumble side are derived from a 300 ms silence gap (gumble delivers one continuous stream per user)
+- **Voice bandpass filter + AGC** on both directions (see [Audio processing](#audio-processing))
+- **Auto-reconnect** with exponential backoff on either side dropping
+
+#### User access model
+
+The Mumble server is **locked down by default** — guests cannot enter, and only authorised users can speak. The dashboard is the single source of truth; `MumbleSync` (`app/services/mumble_sync.rb`) writes directly into the server's SQLite database and restarts it whenever a relevant user or bridge changes:
+
+- **Registered-only Enter, transmit-only Speak** — a base ACL is applied idempotently on every sync (from `db/mumble_acl_init.sql`), so even a fresh deployment is locked down the first time a user or bridge is synced — no manual SQL step. The `tx` group grants Speak; a user is added to it when they have **Can transmit** (or are an admin). Everyone else can listen only.
+- **Human users** — each user with the **Allow Mumble** flag and a callsign gets a Mumble login (username = callsign, password = an auto-minted token). See [[User-Management#mumble-access]] for granting access and the self-service connection page.
+- **Bot accounts** — each Mumble bridge logs in as its own registered account (username = the bridge **CALLSIGN**, password auto-generated), placed in the `tx` group so it can inject TG audio.
+- **Permanent channels** — each bridge's target channel is pre-created as a permanent child of Root with inherited ACL, so listeners stay put across bridge restarts instead of being bounced to Root.
+
+Environment variables passed to the bridge container:
+
+| Variable | Purpose |
+|---|---|
+| `REFLECTOR_HOST` | Local SVXReflector hostname |
+| `REFLECTOR_PORT` | Local SVXReflector port |
+| `REFLECTOR_AUTH_KEY` | Authentication key for the local reflector |
+| `REFLECTOR_TG` | Talkgroup to bridge |
+| `CALLSIGN` | Bridge callsign on the local reflector (also the bot's Mumble username) |
+| `MUMBLE_HOST` | Mumble server hostname (`mumble` inside Docker) |
+| `MUMBLE_PORT` | Mumble server port (default 64738) |
+| `MUMBLE_USERNAME` | Bot login (set to the bridge callsign) |
+| `MUMBLE_PASSWORD` | Bot password (auto-generated, stored as `mumble_bot_password`) |
+| `MUMBLE_CHANNEL` | Channel name the bot joins / relays |
+| `REDIS_URL` | Redis connection (optional) |
+
+All `FILTER_*` and `AGC_*` variables (both directions) apply as for the other Go bridges.
+
+> **Server admin vs. dashboard:** the bundled server's SuperUser password comes from `MUMBLE_SUPERUSER_PASSWORD`. You normally never need it — accounts and ACLs are managed from the dashboard — but it is available for direct administration if required. The public host/port shown to users on `/account` come from `MUMBLE_PUBLIC_HOST` / `MUMBLE_PUBLIC_PORT` (defaulting to `DOMAIN` / `64738`).
+
+#### Setting up a Mumble bridge
+
+1. Enable the type: add `mumble` to `BRIDGE_TYPES` in `.env` (e.g. `BRIDGE_TYPES=reflector,mumble`) and set `MUMBLE_SUPERUSER_PASSWORD`.
+2. Create the bridge at `/admin/bridges`: set a **CALLSIGN** (the bot's reflector + Mumble login, e.g. `F4ABC-MUM`), the local reflector **HOST/PORT/AUTH_KEY/TALKGROUP**, and the Mumble **HOST** (`mumble`), **PORT** (`64738`), and **CHANNEL** name. The bot password is generated automatically.
+3. Grant users access: edit each user at `/admin/users` and check **Allow Mumble** (and **Can transmit** if they should be able to talk, not just listen).
+4. Users connect their Mumble client using the server/port/username/token shown on their `/account` page.
+
 ## Audio processing
 
-All Go-based bridges (XLX, DMR, YSF, AllStar, Zello) apply a three-stage audio processing pipeline on both directions (reflector→remote and remote→reflector).
+All Go-based bridges (XLX, DMR, YSF, AllStar, Zello, IAX, SIP, Mumble) apply a three-stage audio processing pipeline on both directions (reflector→remote and remote→reflector).
 
 > **Note:** This processing only applies inside the Go bridge binaries. The core analog path (radio → SVXLink repeater → reflector) has no filtering from the dashboard — audio processing on the repeater side is handled by SVXLink's own audio chain (PREAMP, PEAK_METER, LADSPA plugins), configured by the repeater operator.
 
@@ -194,7 +248,7 @@ Each SVXLink bridge writes a `node_info.json` file that the SVXLink process send
 
 | Field | Value |
 |---|---|
-| `nodeClass` | `"echolink"`, `"bridge"`, `"xlx"`, `"zello"`, etc. |
+| `nodeClass` | `"echolink"`, `"bridge"`, `"xlx"`, `"zello"`, `"mumble"`, etc. |
 | `nodeLocation` | Custom location string, defaults to bridge name |
 | `hidden` | Always `false` |
 | `sysop` | Sysop name (optional) |
@@ -262,6 +316,7 @@ bridge/
     xlx_bridge.env          # XLX bridge env config
     zello_bridge.env        # Zello bridge env config
     zello_private_key.pem   # Zello JWT private key
+    mumble_bridge.env       # Mumble bridge env config
     backups/
       20260307_143022/      # Snapshot directories
         svxlink.conf
