@@ -26,6 +26,7 @@ class MumbleSync
     # brief write locks instead of failing immediately with SQLITE_BUSY.
     db.busy_timeout = 5000
     begin
+      ensure_base_acl(db)
       admin_group_id = group_id(db, "admin")
       tx_group_id    = group_id(db, "tx")
 
@@ -84,6 +85,18 @@ class MumbleSync
     # Reached only if the transaction committed (an exception above propagates
     # past this point), so we never restart on a failed write.
     restart_mumble
+  end
+
+  # Idempotently ensures the base ACL (the `tx` group, registered-only entry,
+  # and tx-only speak) exists. Runs on every sync so a fresh deployment is
+  # locked down automatically the first time a user/bridge is synced — no
+  # manual SQL step. Statements live in db/mumble_acl_init.sql (re-runnable).
+  def self.ensure_base_acl(db)
+    sql_path = Rails.root.join("db", "mumble_acl_init.sql")
+    return unless File.exist?(sql_path)
+    db.execute_batch(File.read(sql_path))
+  rescue => e
+    Rails.logger.error "[MumbleSync] Failed to ensure base ACL: #{e.message}"
   end
 
   # Returns the group_id of a named root-channel (channel_id 0) group, or nil.
