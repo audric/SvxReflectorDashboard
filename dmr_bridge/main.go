@@ -274,6 +274,16 @@ func runBridge(
 
 		log.Printf("[DMR→SVX] Call from %d to TG %d", srcID, dstID)
 
+		// Publish DMR RX info to Redis BEFORE signaling talker-start, so the
+		// dashboard's MQTT push path finds the callsign the instant the
+		// reflector announces the talker instead of racing this SETEX.
+		if redisCli != nil {
+			val := dmrRxJSON(srcID, dmrTalkgroup, dmrTimeslot)
+			if err := redisCli.SetEX(redisKey, 30, val); err != nil {
+				log.Printf("[Redis] SETEX error: %v", err)
+			}
+		}
+
 		svx.SendTalkerStart(svxTG, callsign)
 
 		filterDmrToSvx.Reset()
@@ -281,14 +291,6 @@ func runBridge(
 		pcmBufMu.Lock()
 		pcmBuffer = pcmBuffer[:0]
 		pcmBufMu.Unlock()
-
-		// Publish DMR RX info to Redis
-		if redisCli != nil {
-			val := dmrRxJSON(srcID, dmrTalkgroup, dmrTimeslot)
-			if err := redisCli.SetEX(redisKey, 30, val); err != nil {
-				log.Printf("[Redis] SETEX error: %v", err)
-			}
-		}
 	})
 
 	dmr.SetVoiceCallback(func(srcID uint32, frames [3][9]byte) {
@@ -348,13 +350,6 @@ func runBridge(
 
 		log.Printf("[DMR→SVX] Call end from %d", srcID)
 
-		// Clear DMR RX data from Redis
-		if redisCli != nil {
-			if err := redisCli.Del(redisKey); err != nil {
-				log.Printf("[Redis] DEL error: %v", err)
-			}
-		}
-
 		// Flush remaining PCM
 		pcmBufMu.Lock()
 		if len(pcmBuffer) > 0 {
@@ -375,6 +370,16 @@ func runBridge(
 		}
 
 		svx.SendTalkerStop(svxTG, callsign)
+
+		// Clear DMR RX data from Redis AFTER signaling talker-stop, so the
+		// dashboard's MQTT push path can still read the callsign when the
+		// reflector announces the stop (deleting first left talking_stop
+		// events with no metadata under the low-latency MQTT source).
+		if redisCli != nil {
+			if err := redisCli.Del(redisKey); err != nil {
+				log.Printf("[Redis] DEL error: %v", err)
+			}
+		}
 	})
 
 	// --- Connect both sides ---

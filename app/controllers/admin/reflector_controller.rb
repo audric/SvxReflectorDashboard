@@ -635,11 +635,20 @@ module Admin
     def publish_trunk_status_urls(config = nil)
       config ||= ReflectorConfig.load
       urls = {}
+      allow = {}
       config.trunks.each do |name, cfg|
         urls[name] = cfg['STATUS_URL'] if cfg['STATUS_URL'].present?
+        # What this trunk actually carries, for peer-stat filtering: explicit
+        # ALLOW_TGS if set, otherwise the peer's REMOTE_PREFIX(es) as prefixes.
+        spec = cfg['ALLOW_TGS'].to_s.strip
+        spec = cfg['REMOTE_PREFIX'].to_s.split(',').map { |p| "#{p.strip}*" }.reject { |p| p == '*' }.join(',') if spec.empty?
+        allow[name] = spec if spec.present?
       end
       redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://redis:6379/1'))
       redis.set('reflector:trunk_status_urls', urls.to_json)
+      # Consumed by the poller (log_events) to keep peer traffic on TGs this
+      # trunk doesn't carry out of statistics — see ReflectorListener.tg_matches_filter?.
+      redis.set('reflector:trunk_allow_tgs', allow.to_json)
     rescue => e
       Rails.logger.warn "[ReflectorConfig] Failed to publish trunk STATUS_URLs: #{e.message}"
     end

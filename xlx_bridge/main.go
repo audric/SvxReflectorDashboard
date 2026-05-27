@@ -342,6 +342,17 @@ func runBridge(
 			srcSuffix := strings.TrimSpace(frame.MYSuffix)
 			srcRpt := strings.TrimSpace(frame.RPT1)
 			log.Printf("[XLX→SVX] Voice from %s via %s (stream %04X)", srcCS, srcRpt, frame.StreamID)
+
+			// Publish RX info to Redis BEFORE signaling talker-start, so the
+			// dashboard's MQTT push path finds the callsign the instant the
+			// reflector announces the talker instead of racing this SETEX.
+			if redisCli != nil && srcCS != "" {
+				val := dstarRxJSON(srcCS, srcSuffix, srcRpt, "")
+				if err := redisCli.SetEX(redisKey, 30, val); err != nil {
+					log.Printf("[Redis] SETEX error: %v", err)
+				}
+			}
+
 			svx.SendTalkerStart(svxTG, callsign)
 
 			filterXlxToSvx.Reset()
@@ -350,15 +361,9 @@ func runBridge(
 			pcmBuffer = pcmBuffer[:0]
 			pcmBufMu.Unlock()
 
-			// Reset slow data decoder and publish initial RX info
+			// Reset slow data decoder
 			slowDecoder.Reset()
 			lastSlowText = ""
-			if redisCli != nil && srcCS != "" {
-				val := dstarRxJSON(srcCS, srcSuffix, srcRpt, "")
-				if err := redisCli.SetEX(redisKey, 30, val); err != nil {
-					log.Printf("[Redis] SETEX error: %v", err)
-				}
-			}
 
 			// Start safety timer for this stream
 			if xlxTalkTimer != nil {
@@ -413,13 +418,6 @@ func runBridge(
 
 			log.Printf("[XLX→SVX] Voice end (stream %04X)", frame.StreamID)
 
-			// Clear D-STAR RX data from Redis
-			if redisCli != nil {
-				if err := redisCli.Del(redisKey); err != nil {
-					log.Printf("[Redis] DEL error: %v", err)
-				}
-			}
-
 			// Flush remaining PCM
 			pcmBufMu.Lock()
 			if len(pcmBuffer) > 0 {
@@ -440,6 +438,17 @@ func runBridge(
 			}
 
 			svx.SendTalkerStop(svxTG, callsign)
+
+			// Clear D-STAR RX data from Redis AFTER signaling talker-stop, so the
+			// dashboard's MQTT push path can still read the callsign when the
+			// reflector announces the stop (deleting first left talking_stop
+			// events with no metadata under the low-latency MQTT source).
+			if redisCli != nil {
+				if err := redisCli.Del(redisKey); err != nil {
+					log.Printf("[Redis] DEL error: %v", err)
+				}
+			}
+
 			return
 		}
 

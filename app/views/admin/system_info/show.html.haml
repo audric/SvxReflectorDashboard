@@ -973,6 +973,80 @@
               %span.text-gray-600 &rarr; OPUS 48kHz encode &rarr;
               %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-yellow-700.dark:text-yellow-400 SVX Reflector
 
+          -# ── Mumble Bridge ──
+          .rounded-lg.border.border-gray-600.bg-ghcard.p-4
+            %h6.text-sm.font-semibold.text-fuchsia-700.dark:text-fuchsia-400.mb-3
+              %i.bi.bi-mic-fill.mr-1
+              Mumble Bridge (bidirectional)
+            .flex.flex-wrap.items-center.gap-2.text-sm.text-gray-300
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-fuchsia-700.dark:text-fuchsia-400 Mumble App
+              %span.text-gray-500.dark:text-gray-500 &harr; OPUS 48kHz &harr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-fuchsia-700.dark:text-fuchsia-400 Mumble Server
+              %span.text-gray-500.dark:text-gray-500 &harr; OPUS 48kHz &harr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-pink-700.dark:text-pink-400 Mumble Bridge (Go)
+            .flex.flex-wrap.items-center.gap-2.text-sm.text-gray-300.mt-2.ml-4
+              %span.text-gray-600 OPUS 48kHz decode &rarr; PCM 48kHz &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 HPF 300Hz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 LPF 3kHz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-rose-900.text-rose-300.border.border-rose-700 AGC
+              %span.text-gray-600 &rarr; OPUS 48kHz encode &rarr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-yellow-700.dark:text-yellow-400 SVX Reflector
+            %p.text-xs.text-ghmuted.mt-2
+              %i.bi.bi-info-circle.mr-1
+              Both directions run the HPF/LPF + AGC chain at 48kHz (no resampling). VOX gates the Mumble&rarr;reflector keying.
+
+          -# ── IAX Bridge ──
+          .rounded-lg.border.border-gray-600.bg-ghcard.p-4
+            %h6.text-sm.font-semibold.text-lime-700.dark:text-lime-400.mb-3
+              %i.bi.bi-telephone.mr-1
+              IAX Bridge — Asterisk / HOIP PBX (bidirectional)
+            .flex.flex-wrap.items-center.gap-2.text-sm.text-gray-300
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-lime-700.dark:text-lime-400 Phone / Extension
+              %span.text-gray-500.dark:text-gray-500 &harr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-lime-700.dark:text-lime-400 Asterisk / HOIP PBX
+              %span.text-gray-500.dark:text-gray-500 &harr; IAX2/UDP &harr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-pink-700.dark:text-pink-400 IAX Bridge (Go)
+              %span.text-gray-500.dark:text-gray-500 &harr; OPUS/UDP &harr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-yellow-700.dark:text-yellow-400 SVX Reflector
+            .flex.flex-wrap.items-center.gap-2.text-sm.text-gray-300.mt-2.ml-4
+              %span.text-gray-600 Transcoding: GSM / uLaw / aLaw / G.726 &harr; PCM 8kHz &harr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 HPF 300Hz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 LPF 3kHz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-rose-900.text-rose-300.border.border-rose-700 AGC
+              %span.text-gray-600 &harr; OPUS
+            %p.text-xs.text-ghmuted.mt-2
+              %i.bi.bi-info-circle.mr-1
+              IAX2 implemented natively in Go; codec negotiated per call. Persistent or on-demand call modes.
+
+          -# ── SIP Bridge ──
+          .rounded-lg.border.border-gray-600.bg-ghcard.p-4
+            %h6.text-sm.font-semibold.text-lime-700.dark:text-lime-400.mb-3
+              %i.bi.bi-telephone-forward.mr-1
+              SIP Bridge — PJSIP endpoint (bidirectional)
+            .flex.flex-wrap.items-center.gap-2.text-sm.text-gray-300
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-lime-700.dark:text-lime-400 SIP Endpoint / PBX
+              %span.text-gray-500.dark:text-gray-500 &harr; SIP+RTP (UDP/TCP/TLS) &harr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-pink-700.dark:text-pink-400 sip_helper (C / PJSUA)
+              %span.text-gray-500.dark:text-gray-500 &harr; PCM fd3/fd4 &harr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-pink-700.dark:text-pink-400 SIP Bridge (Go)
+              %span.text-gray-500.dark:text-gray-500 &harr; OPUS/UDP &harr;
+              %span.px-2.py-1.rounded.bg-gray-200.dark:bg-gray-700.text-yellow-700.dark:text-yellow-400 SVX Reflector
+            .flex.flex-wrap.items-center.gap-2.text-sm.text-gray-300.mt-2.ml-4
+              %span.text-gray-600 PJSIP-negotiated codec (uLaw / aLaw / …) &harr; PCM 8kHz &harr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 HPF 300Hz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-indigo-900.text-indigo-300.border.border-indigo-700 LPF 3kHz
+              %span.text-gray-600 &rarr;
+              %span.px-1.py-0.5.rounded.text-xs.font-mono.bg-rose-900.text-rose-300.border.border-rose-700 AGC
+              %span.text-gray-600 &harr; OPUS
+            %p.text-xs.text-ghmuted.mt-2
+              %i.bi.bi-info-circle.mr-1
+              Two-process: C helper wraps PJSUA (SIP/RTP), Go handles the reflector + OPUS. Persistent, on-demand, or listen-only modes.
+
           -# ── Legend ──
           .rounded-lg.border.border-gray-700.bg-ghcard.p-4.mt-2
             %h6.text-xs.font-semibold.text-gray-500.mb-2 LEGEND
@@ -998,6 +1072,12 @@
               .flex.items-center.gap-1
                 %span.w-3.h-3.rounded-full.bg-amber-400.inline-block
                 %span.text-gray-400 Zello (WebSocket/OPUS)
+              .flex.items-center.gap-1
+                %span.w-3.h-3.rounded-full.bg-fuchsia-400.inline-block
+                %span.text-gray-400 Mumble (VoIP/OPUS)
+              .flex.items-center.gap-1
+                %span.w-3.h-3.rounded-full.bg-lime-400.inline-block
+                %span.text-gray-400 IAX / SIP (PBX telephony)
               .flex.items-center.gap-1
                 %span.w-3.h-3.rounded-full.bg-indigo-400.inline-block
                 %span.text-gray-400 Voice filter (HPF/LPF)

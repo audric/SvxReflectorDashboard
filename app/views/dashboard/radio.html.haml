@@ -280,7 +280,7 @@
         var rows = [header];
         var loc = 1;
 
-        var bridgeClasses = ['bridge','xlx','dmr','ysf','allstar','echolink','web'];
+        var bridgeClasses = ['bridge','xlx','dmr','ysf','allstar','echolink','zello','iax','sip','mumble','web'];
         Object.keys(_tgNodes).sort().forEach(function (cs) {
           var node = _tgNodes[cs];
           if (node.hidden || bridgeClasses.indexOf(node.nodeClass) !== -1) return;

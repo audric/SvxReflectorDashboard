@@ -354,8 +354,8 @@
               %i.bi.bi-pie-chart.mr-1
               Bridge Types
             - if @bridge_type_counts.any?
-              - type_colors = {'bridge' => 'blue', 'xlx' => 'emerald', 'dmr' => 'amber', 'ysf' => 'pink', 'allstar' => 'teal', 'echolink' => 'purple'}
-              - type_icons = {'bridge' => 'bi-diagram-3', 'xlx' => 'bi-globe', 'dmr' => 'bi-broadcast-pin', 'ysf' => 'bi-soundwave', 'allstar' => 'bi-telephone', 'echolink' => 'bi-headset'}
+              - type_colors = {'bridge' => 'blue', 'xlx' => 'emerald', 'dmr' => 'amber', 'ysf' => 'pink', 'allstar' => 'teal', 'echolink' => 'purple', 'zello' => 'sky', 'iax' => 'orange', 'sip' => 'indigo', 'mumble' => 'rose'}
+              - type_icons = {'bridge' => 'bi-diagram-3', 'xlx' => 'bi-globe', 'dmr' => 'bi-broadcast-pin', 'ysf' => 'bi-soundwave', 'allstar' => 'bi-telephone', 'echolink' => 'bi-headset', 'zello' => 'bi-phone', 'iax' => 'bi-phone-vibrate', 'sip' => 'bi-headset-vr', 'mumble' => 'bi-mic'}
               - @bridge_type_counts.each do |type, count|
                 - col = type_colors[type] || 'gray'
                 - icon = type_icons[type] || 'bi-link-45deg'
