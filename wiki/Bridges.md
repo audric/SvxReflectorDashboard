@@ -150,6 +150,7 @@ Key features:
 - **VOX talk detection** — talk-spurt boundaries on the Mumble side are derived from a 300 ms silence gap (gumble delivers one continuous stream per user)
 - **Voice bandpass filter + AGC** on both directions (see [Audio processing](#audio-processing))
 - **Auto-reconnect** with exponential backoff on either side dropping
+- **Custom messaging** — an optional per-bridge channel **description** (tooltip) and a **welcome** posted to each user as they join the channel, plus a server-wide welcome shown on connect — all editable from the dashboard and applied live (no restart)
 
 #### User access model
 
@@ -157,7 +158,7 @@ The Mumble server is **locked down by default** — guests cannot enter, and onl
 
 - **Registered-only Enter, transmit-only Speak** — the base lockdown ACL is (re)applied idempotently on every sync via Ice, so even a fresh deployment is locked down the first time a user or bridge is synced. The `tx` group grants Speak; a user is added to it when they have **Can transmit** (or are an admin). Everyone else can listen only.
 - **Human users** — each user with the **Allow Mumble** flag and a callsign gets a Mumble login (username = callsign, password = an auto-minted token). See [[User-Management#mumble-access]] for granting access and the self-service connection page.
-- **Bot accounts** — each Mumble bridge logs in as its own registered account (username = the bridge **CALLSIGN**, password auto-generated), placed in the `tx` group so it can inject TG audio.
+- **Bot accounts** — each Mumble bridge logs in as its own registered account using its **Bot Username** (defaults to the bridge **CALLSIGN** when left blank), password auto-generated, placed in the `tx` group so it can inject TG audio.
 - **Permanent channels** — each bridge's target channel is pre-created as a permanent child of Root with inherited ACL, so listeners stay put across bridge restarts instead of being bounced to Root.
 
 Environment variables passed to the bridge container:
@@ -168,12 +169,13 @@ Environment variables passed to the bridge container:
 | `REFLECTOR_PORT` | Local SVXReflector port |
 | `REFLECTOR_AUTH_KEY` | Authentication key for the local reflector |
 | `REFLECTOR_TG` | Talkgroup to bridge |
-| `CALLSIGN` | Bridge callsign on the local reflector (also the bot's Mumble username) |
+| `CALLSIGN` | Bridge callsign on the local reflector |
 | `MUMBLE_HOST` | Mumble server hostname (`mumble` inside Docker) |
 | `MUMBLE_PORT` | Mumble server port (default 64738) |
-| `MUMBLE_USERNAME` | Bot login (set to the bridge callsign) |
+| `MUMBLE_USERNAME` | Bot login — the bridge's **Bot Username** (defaults to the callsign) |
 | `MUMBLE_PASSWORD` | Bot password (auto-generated, stored as `mumble_bot_password`) |
 | `MUMBLE_CHANNEL` | Channel name the bot joins / relays |
+| `MUMBLE_WELCOME` | Per-channel welcome (base64), posted to each user as they join the channel |
 | `REDIS_URL` | Redis connection (optional) |
 
 All `FILTER_*` and `AGC_*` variables (both directions) apply as for the other Go bridges.
@@ -183,9 +185,11 @@ All `FILTER_*` and `AGC_*` variables (both directions) apply as for the other Go
 #### Setting up a Mumble bridge
 
 1. Enable the type: add `mumble` to `BRIDGE_TYPES` in `.env` (e.g. `BRIDGE_TYPES=reflector,mumble`) and set `MUMBLE_SUPERUSER_PASSWORD`.
-2. Create the bridge at `/admin/bridges`: set a **CALLSIGN** (the bot's reflector + Mumble login, e.g. `F4ABC-MUM`), the local reflector **HOST/PORT/AUTH_KEY/TALKGROUP**, and the Mumble **HOST** (`mumble`), **PORT** (`64738`), and **CHANNEL** name. The bot password is generated automatically.
+2. Create the bridge at `/admin/bridges`: set a **CALLSIGN** (the bot's reflector callsign, e.g. `F4ABC-MUM`), the local reflector **HOST/PORT/AUTH_KEY/TALKGROUP**, and the Mumble **HOST** (`mumble`), **PORT** (`64738`), and **CHANNEL** name. Optionally set a **Bot Username** (defaults to the callsign) and a channel **Description** (tooltip) and **Welcome message** (posted to users joining the channel). The bot password is generated automatically.
 3. Grant users access: edit each user at `/admin/users` and check **Allow Mumble** (and **Can transmit** if they should be able to talk, not just listen).
 4. Users connect their Mumble client using the server/port/username/token shown on their `/account` page.
+
+A server-wide **welcome message** (shown in the client on connect) can be set under **Admin → System Info → Settings → Mumble**; it is applied live via Ice.
 
 ## Audio processing
 

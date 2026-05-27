@@ -54,7 +54,7 @@ iax_bridge          → Go binary, generic Asterisk/HOIP bridge via IAX2 (OPUS �
 sip_bridge          → Go + C (PJSIP) bridge to any SIP endpoint, UDP/TCP/TLS with DTMF/PIN gate
 zello_bridge        → Go binary, Zello bridge (OPUS 48kHz ↔ 16kHz via WebSocket)
 mumble_bridge       → Go binary, relays a TG ↔ Mumble channel (half-duplex, OPUS, no vocoder)
-mumble              → Mumble voice server (mumblevoip/mumble-server) — users connect with any Mumble client
+mumble              → Mumble voice server (mumblevoip/mumble-server + ZeroC Ice mgmt) — users connect with any Mumble client; managed live by the dashboard
 mqtt                → Mosquitto 2 broker for GeuReflector event publishing
 redis               → ActionCable + snapshot cache + RX metadata + audio pub/sub
 ```
