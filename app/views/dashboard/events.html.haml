@@ -289,27 +289,36 @@
             Object.keys(nodes).forEach(function(cs) {
               var node = nodes[cs];
               var prev = prevNodes[cs];
-              if (!prev) { addEvent('connected', cs, node); }
-              else if (node.isTalker !== prev.isTalker) {
-                if (node.isTalker) {
-                  talkStartAt[cs] = Date.now();
-                  addEvent('talking_start', cs, node);
-                } else {
-                  var dur = null;
-                  if (talkStartAt[cs]) {
-                    dur = Math.round((Date.now() - talkStartAt[cs]) / 1000);
-                    delete talkStartAt[cs];
+              // Trunk-peer nodes mirror the server-side log_events filter: never
+              // synthesize connect / tg-change rows, and show talk only on TGs
+              // the trunk actually carries (server sets _tg_carried). Keeps the
+              // live ticker consistent with the persisted, filtered events list.
+              var trunkPeer = node && node._external_type === 'trunk';
+              if (!prev) {
+                if (!trunkPeer) addEvent('connected', cs, node);
+              } else if (node.isTalker !== prev.isTalker) {
+                if (!trunkPeer || node._tg_carried) {
+                  if (node.isTalker) {
+                    talkStartAt[cs] = Date.now();
+                    addEvent('talking_start', cs, node);
+                  } else {
+                    var dur = null;
+                    if (talkStartAt[cs]) {
+                      dur = Math.round((Date.now() - talkStartAt[cs]) / 1000);
+                      delete talkStartAt[cs];
+                    }
+                    addEvent('talking_stop', cs, node, dur);
                   }
-                  addEvent('talking_stop', cs, node, dur);
                 }
               } else if (node.tg !== prev.tg) {
-                addEvent(node.tg ? 'tg_join' : 'tg_leave', cs, node);
+                if (!trunkPeer) addEvent(node.tg ? 'tg_join' : 'tg_leave', cs, node);
               }
               prevNodes[cs] = node;
             });
             if (msg.removed) {
               msg.removed.forEach(function(cs) {
-                addEvent('disconnected', cs, prevNodes[cs] || {});
+                var pn = prevNodes[cs] || {};
+                if (pn._external_type !== 'trunk') addEvent('disconnected', cs, pn);
                 delete prevNodes[cs];
               });
             }

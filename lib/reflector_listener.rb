@@ -283,7 +283,21 @@ class ReflectorListener
     anything_changed = !changed.empty? || !removed.empty? || trunks_changed || satellites_changed || cluster_changed
     return unless anything_changed
 
-    payload = { nodes: changed, changed: changed.keys, removed: removed,
+    # Tag trunk-peer nodes with whether their current TG is actually carried by
+    # the trunk (cluster TG or matches ALLOW_TGS). The /events live feed reads
+    # `_tg_carried` to suppress synthesized rows for peer talk that never
+    # crosses the trunk, mirroring the log_events persistence filter so the live
+    # ticker matches the saved list. Local nodes are passed through unchanged.
+    cluster_set = Array(curr_cluster_tgs).map(&:to_i)
+    bcast_nodes = changed.transform_values do |n|
+      next n unless n.is_a?(Hash) && n['_external_type'] == 'trunk'
+      tg = n['tg'].to_i
+      carried = cluster_set.include?(tg) ||
+                tg_matches_filter?(@trunk_allow_filters[n['_external']], tg)
+      n.merge('_tg_carried' => carried)
+    end
+
+    payload = { nodes: bcast_nodes, changed: bcast_nodes.keys, removed: removed,
                 _ts: Time.now.iso8601 }
     payload[:trunks]      = curr_trunks      if trunks_changed || !changed.empty? || !removed.empty?
     payload[:satellites]  = curr_satellites   if satellites_changed || !changed.empty? || !removed.empty?
