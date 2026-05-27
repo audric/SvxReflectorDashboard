@@ -830,17 +830,43 @@ module Admin
       Rails.logger.info "[Bridge] Pulling image #{image}..."
       sock = UNIXSocket.new("/var/run/docker.sock")
       sock.write("POST /images/create?fromImage=#{image}&tag=latest HTTP/1.0\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n")
-      # Timeout after 30s to avoid blocking the request indefinitely
-      if IO.select([sock], nil, nil, 30)
-        response = sock.read_nonblock(65536) rescue ""
-      else
-        response = ""
-        Rails.logger.warn "[Bridge] Pull #{image}: timeout (image may not exist in registry)"
+      # Docker streams /images/create as JSON progress lines and only commits the
+      # image to disk once the stream finishes (it closes this HTTP/1.0 socket at
+      # the end). Read the whole response until EOF — closing after the first read
+      # aborts the layer download and leaves no image on disk, so a later container
+      # create fails with 404 "no such image". Guard a stuck pull with an idle
+      # timeout (no data for a while) plus an overall deadline.
+      response = String.new
+      idle_timeout = 60
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 600
+      loop do
+        remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        if remaining <= 0
+          Rails.logger.warn "[Bridge] Pull #{image}: overall timeout — image may be incomplete"
+          break
+        end
+        unless IO.select([sock], nil, nil, [idle_timeout, remaining].min)
+          Rails.logger.warn "[Bridge] Pull #{image}: idle timeout (image may not exist in registry)"
+          break
+        end
+        begin
+          response << sock.read_nonblock(65536)
+        rescue IO::WaitReadable
+          next
+        rescue EOFError
+          break # Docker closed the connection: pull stream finished
+        end
       end
-      sock.close
-      Rails.logger.info "[Bridge] Pull #{image}: #{response.split("\r\n").first}" unless response.empty?
+      if response.include?('"error"')
+        err = response[/"error":\s*"([^"]+)"/, 1]
+        Rails.logger.warn "[Bridge] Pull #{image} failed: #{err || 'see docker logs'}"
+      else
+        Rails.logger.info "[Bridge] Pull #{image}: #{response[/\A(\S+ \d{3}[^\r\n]*)/, 1] || 'done'}"
+      end
     rescue => e
       Rails.logger.warn "[Bridge] Failed to pull #{image}: #{e.message}"
+    ensure
+      sock.close if sock && !sock.closed?
     end
 
     def docker_api_delete(path)
