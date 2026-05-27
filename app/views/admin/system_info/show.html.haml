@@ -71,6 +71,10 @@
         %button.tab-btn.pb-3.text-sm.font-medium.text-ghmuted.hover:text-gray-200.cursor-pointer.border-b-2.border-transparent{type: "button", onclick: "switchTab('mqtt')", id: "tab-mqtt", class: @active_tab == 'mqtt' ? 'active' : ''}
           %i.bi.bi-broadcast-pin.mr-1
           MQTT
+        - if @mumble_enabled
+          %button.tab-btn.pb-3.text-sm.font-medium.text-ghmuted.hover:text-gray-200.cursor-pointer.border-b-2.border-transparent{type: "button", onclick: "switchTab('mumble')", id: "tab-mumble", class: @active_tab == 'mumble' ? 'active' : ''}
+            %i.bi.bi-mic.mr-1
+            Mumble
 
       -# ════════════════════════════════════════════════
       -# TAB: System Info
@@ -664,6 +668,14 @@
                       %input.w-full.px-3.py-2.rounded-md.border.border-gray-600{class: "bg-[#0d1117]", type: "number", name: "settings[rate_limit_public_rate]", value: @settings["rate_limit_public_rate"], min: 1, max: 300, step: 1, placeholder: "10"}
                       %small.text-gray-500 Default: 1/10sec
 
+              .mt-6.border-t.border-gray-700.pt-4
+                %h6.text-xs.font-semibold.text-ghmuted.uppercase.tracking-wide.mb-2
+                  %i.bi.bi-mic.mr-1
+                  Mumble
+                %label.block.text-sm.text-gray-500.mb-1 Server welcome message
+                %textarea.w-full.px-3.py-2.rounded-md.border.border-gray-600{class: "bg-[#0d1117] text-ghtext", name: "settings[mumble_welcome]", rows: 3, placeholder: "Shown in the Mumble client on connect (HTML allowed)"}= @settings["mumble_welcome"]
+                %small.text-gray-500 Server-wide message shown in the Mumble client chat on connect. Applied live, no restart.
+
               .flex.gap-2.mt-6
                 = f.submit "Save Settings", class: "px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
 
@@ -1069,6 +1081,172 @@
 
         #changelog-content
           %span.text-ghmuted.text-sm Loading changelog…
+
+      -# ════════════════════════════════════════════════
+      -# TAB: Mumble (read-only view of the Mumble server DB)
+      -# ════════════════════════════════════════════════
+      - if @mumble_enabled
+        #panel-mumble.tab-panel{class: @active_tab == 'mumble' ? 'active' : ''}
+
+          .flex.items-center.justify-between.mb-4
+            %h5.text-lg.font-semibold.text-gray-100
+              %i.bi.bi-mic.mr-2
+              Mumble
+            %a.text-xs.px-3.py-1.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.cursor-pointer{href: admin_system_info_path(tab: "mumble")}
+              %i.bi.bi-arrow-clockwise.mr-1
+              Refresh
+
+          - unless @mumble[:available]
+            - msg = { "no_container" => "Mumble server is not running.", "unreachable" => "Mumble server is running, but its management interface (Ice) isn’t responding.", "error" => "Couldn’t read Mumble status (see logs)." }[@mumble[:reason]] || "Mumble status unavailable."
+            .rounded-lg.border.border-ghborder.bg-ghcard.p-4.text-sm.text-ghmuted
+              %i.bi.bi-exclamation-triangle.mr-2.text-yellow-500
+              = msg
+          - else
+            %p.text-xs.text-ghmuted.mb-4
+              %i.bi.bi-broadcast.mr-1.text-green-400
+              Live from the running server (via Ice). Reload to refresh.
+
+            -# ── Connected now (live presence) ──
+            .rounded-lg.border.border-ghborder.bg-ghcard.mb-6
+              .px-4.py-3.border-b.border-ghborder
+                %h6.text-sm.font-semibold.text-gray-100
+                  %i.bi.bi-broadcast.mr-2.text-green-400
+                  Connected now
+                  %span.text-ghmuted.font-normal.ml-2= @mumble[:online].size
+              .overflow-x-auto
+                %table.w-full.debug-table
+                  %thead
+                    %tr.border-b.border-ghborder2
+                      %th.py-2.px-3 User
+                      %th.py-2 Room
+                      %th.py-2 State
+                      %th.py-2 Idle
+                  %tbody
+                    - if @mumble[:online].empty?
+                      %tr
+                        %td.px-3.py-3.text-ghmuted{colspan: 4} No one connected.
+                    - @mumble[:online].each do |o|
+                      %tr.border-b.border-ghborder2
+                        %td.py-2.px-3.text-gray-200.font-mono
+                          = o[:name]
+                          - unless o[:registered]
+                            %span.text-ghdim.ml-1 (guest)
+                        %td.py-2.text-ghmuted= o[:room] || "—"
+                        %td.py-2
+                          - if o[:mute]
+                            %i.bi.bi-mic-mute.text-red-400.mr-1{title: "muted"}
+                          - if o[:deaf]
+                            %i.bi.bi-volume-mute.text-red-400{title: "deafened"}
+                          - if !o[:mute] && !o[:deaf]
+                            %i.bi.bi-mic.text-green-400{title: "live"}
+                        %td.py-2.text-ghmuted= "#{o[:idle_secs]}s"
+
+            -# ── Rooms ──
+            .rounded-lg.border.border-ghborder.bg-ghcard.mb-6
+              .px-4.py-3.border-b.border-ghborder
+                %h6.text-sm.font-semibold.text-gray-100
+                  %i.bi.bi-door-open.mr-2
+                  Rooms
+                  %span.text-ghmuted.font-normal.ml-2= @mumble[:rooms].size
+              .overflow-x-auto
+                %table.w-full.debug-table
+                  %thead
+                    %tr.border-b.border-ghborder2
+                      %th.py-2.px-3 Channel
+                      %th.py-2 Parent
+                      %th.py-2 Connected
+                  %tbody
+                    - if @mumble[:rooms].empty?
+                      %tr
+                        %td.px-3.py-3.text-ghmuted{colspan: 3} No channels.
+                    - @mumble[:rooms].each do |r|
+                      %tr.border-b.border-ghborder2
+                        %td.py-2.px-3.text-gray-200
+                          - if r[:root]
+                            %i.bi.bi-house.mr-1.text-ghmuted
+                          = r[:name]
+                        %td.py-2.text-ghmuted= r[:parent] || "—"
+                        %td.py-2.text-ghmuted= r[:online]
+
+            -# ── Registered users ──
+            .rounded-lg.border.border-ghborder.bg-ghcard.mb-6
+              .px-4.py-3.border-b.border-ghborder
+                %h6.text-sm.font-semibold.text-gray-100
+                  %i.bi.bi-people.mr-2
+                  Registered users
+                  %span.text-ghmuted.font-normal.ml-2= @mumble[:users].size
+              .overflow-x-auto
+                %table.w-full.debug-table
+                  %thead
+                    %tr.border-b.border-ghborder2
+                      %th.py-2.px-3 Name
+                      %th.py-2 Type
+                      %th.py-2 Speak
+                      %th.py-2 Admin
+                      %th.py-2 Online
+                      %th.py-2 Room
+                  %tbody
+                    - if @mumble[:users].empty?
+                      %tr
+                        %td.px-3.py-3.text-ghmuted{colspan: 6} No registered users.
+                    - @mumble[:users].each do |u|
+                      %tr.border-b.border-ghborder2
+                        %td.py-2.px-3.text-gray-200.font-mono= u[:name]
+                        %td.py-2.text-ghmuted= u[:type]
+                        %td.py-2
+                          - if u[:speak]
+                            %i.bi.bi-check-lg.text-green-400
+                          - else
+                            %span.text-ghdim —
+                        %td.py-2
+                          - if u[:admin]
+                            %i.bi.bi-check-lg.text-green-400
+                          - else
+                            %span.text-ghdim —
+                        %td.py-2
+                          - if u[:online]
+                            %span.text-green-400{title: "connected"} ●
+                          - else
+                            %span.text-ghdim ○
+                        %td.py-2.text-ghmuted= u[:room] || "—"
+
+            -# ── ACL (root channel) ──
+            .rounded-lg.border.border-ghborder.bg-ghcard
+              .px-4.py-3.border-b.border-ghborder
+                %h6.text-sm.font-semibold.text-gray-100
+                  %i.bi.bi-shield-lock.mr-2
+                  Access control (root)
+                  %span.text-ghmuted.font-normal.ml-2= @mumble[:acls].size
+              .overflow-x-auto
+                %table.w-full.debug-table
+                  %thead
+                    %tr.border-b.border-ghborder2
+                      %th.py-2.px-3 Applies to
+                      %th.py-2 Scope
+                      %th.py-2 Allow
+                      %th.py-2 Deny
+                  %tbody
+                    - if @mumble[:acls].empty?
+                      %tr
+                        %td.px-3.py-3.text-ghmuted{colspan: 4} No ACL rules.
+                    - @mumble[:acls].each do |a|
+                      %tr.border-b.border-ghborder2
+                        %td.py-2.px-3.text-gray-300.font-mono= a[:subject]
+                        %td.py-2.text-ghmuted= a[:scope]
+                        %td.py-2
+                          - if a[:allow].any?
+                            .flex.flex-wrap.gap-1
+                              - a[:allow].each do |perm|
+                                %span.text-xs.px-1.5.py-0.5.rounded.text-green-300{class: "bg-green-900/40"}= perm
+                          - else
+                            %span.text-ghdim —
+                        %td.py-2
+                          - if a[:deny].any?
+                            .flex.flex-wrap.gap-1
+                              - a[:deny].each do |perm|
+                                %span.text-xs.px-1.5.py-0.5.rounded.text-red-300{class: "bg-red-900/40"}= perm
+                          - else
+                            %span.text-ghdim —
 
     :javascript
       // ── Tab switching ──

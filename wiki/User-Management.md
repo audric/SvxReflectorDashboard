@@ -60,6 +60,7 @@ Admins manage web users at `/admin/users`. Available actions:
 | `can_transmit` | Off | Use Push-to-Talk to transmit via the reflector |
 | `reflector_admin` | Off | Access to reflector configuration at `/admin/reflector` (edit global settings, certificates, users, passwords, TG rules) |
 | `cw_roger_beep` | Off | Send callsign in CW (800 Hz, 30 WPM) as roger beep after each PTT transmission |
+| `allow_mumble` | Off | Grant a Mumble login on the bundled voice server (see [Mumble access](#mumble-access)) — speaking additionally requires `can_transmit` |
 | `reflector_auth_key` | — | Per-user authentication key for the reflector (see below) |
 
 Both `can_monitor` and `can_transmit` default to off for new users and must be explicitly granted by an admin after approval.
@@ -138,6 +139,35 @@ Admins editing their own account cannot change their:
 - Reflector admin status
 
 This prevents accidental lockout.
+
+## Mumble access
+
+If a [[Mumble bridge|Bridges#mumble-bridge]] is configured, users can join the bundled Mumble voice server with any Mumble client and hear/talk on the bridged talkgroup. Access is managed entirely from the dashboard — there is no separate Mumble account to create.
+
+### Granting access
+
+Edit a user at `/admin/users` and check **Allow Mumble**:
+
+- A connection **token** (Mumble password) is minted automatically. It is shown read-only on the user's edit form and on their own account page; disabling **Allow Mumble** wipes it.
+- The user's Mumble **username is their callsign**.
+- **Speaking** in Mumble requires **Can transmit** (or the `admin` role). Without it, the user can connect and listen but is muted by the server — the voice server applies a *registered-only Enter, transmit-only Speak* ACL by default.
+
+### Self-service connection page
+
+Users with Mumble access get a **My Mumble** link in the navbar leading to `/account`, which shows everything needed to connect:
+
+| Field | Value |
+|---|---|
+| Server | `MUMBLE_PUBLIC_HOST` (defaults to `DOMAIN`) |
+| Port | `MUMBLE_PUBLIC_PORT` (defaults to `64738`) |
+| Username | Their callsign |
+| Token | Their auto-minted Mumble password |
+
+The page also has a **Regenerate token** button, which mints a fresh token and re-syncs the Mumble server.
+
+### How sync works
+
+User and bridge changes trigger `MumbleSync`, which applies the desired accounts and ACL-group membership to the **running** Mumble server through its Ice management interface — **no restart**, so connected users and bridges are never dropped (it scales to any number of users). The base lockdown ACL is (re)applied idempotently, so a fresh deployment locks down automatically the first time a user or bridge is synced. See [[Bridges#user-access-model]] for the full model.
 
 ## Command-line operations
 

@@ -1,0 +1,77 @@
+!!!
+%html{lang: "en"}
+  :javascript
+    (function(){var t=localStorage.getItem('theme')||'auto';var r=(t==='auto'?(window.matchMedia('(prefers-color-scheme:light)').matches?'light':'auto'):t);document.documentElement.setAttribute('data-theme',r);})();
+  %head
+    %meta{charset: "UTF-8"}
+    %meta{name: "viewport", content: "width=device-width, initial-scale=1"}
+    %title= "SVXReflector #{@reflector_host} · My Account"
+    %script{src: "/vendor/tailwind/tailwind.js"}
+    :javascript
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ghbg: '#0d1117',
+              ghcard: '#161b22',
+              ghborder: '#30363d',
+              ghborder2: '#21262d',
+              ghtext: '#c9d1d9',
+              ghmuted: '#8b949e',
+              ghdim: '#6e7681',
+            }
+          }
+        }
+      }
+    %link{rel: "stylesheet", href: "/vendor/bootstrap-icons/font/bootstrap-icons.min.css"}
+    = csrf_meta_tags
+    :css
+      body { background: #0d1117; }
+
+  %body.text-ghtext
+    = render 'shared/navbar', active: 'account'
+
+    .max-w-2xl.mx-auto.px-4.py-8
+      %h1.text-xl.font-semibold.text-gray-100.mb-4 My Account
+
+      - if flash[:notice]
+        %div.p-2.rounded.border.border-green-700.text-green-400.text-sm.mb-4.flex.items-center.justify-between{class: "bg-green-900/30", id: "flash-notice"}
+          %span= flash[:notice]
+          %button.text-green-400.hover:text-green-200.cursor-pointer{type: "button", onclick: "this.parentElement.remove()"}
+            %i.bi.bi-x
+      - if flash[:alert]
+        %div.p-2.rounded.border.border-red-700.text-red-400.text-sm.mb-4.flex.items-center.justify-between{class: "bg-red-900/30", id: "flash-alert"}
+          %span= flash[:alert]
+          %button.text-red-400.hover:text-red-200.cursor-pointer{type: "button", onclick: "this.parentElement.remove()"}
+            %i.bi.bi-x
+
+      .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+        .px-4.py-3.border-b.border-gray-600
+          %h5.text-lg.font-semibold.text-gray-100
+            %i.bi.bi-mic.mr-2
+            Mumble Access
+        .px-4.py-4
+          - if @user.allow_mumble?
+            %p.text-sm.text-gray-400.mb-3 Connect any Mumble client with these settings:
+            %dl.grid.grid-cols-3.gap-2.text-sm
+              %dt.text-gray-500 Server
+              %dd.col-span-2.font-mono.text-gray-200= @mumble_host
+              %dt.text-gray-500 Port
+              %dd.col-span-2.font-mono.text-gray-200= @mumble_port
+              %dt.text-gray-500 Username
+              %dd.col-span-2.font-mono.text-gray-200= @user.callsign.upcase
+              %dt.text-gray-500 Token
+              %dd.col-span-2.font-mono.text-gray-200= @user.mumble_password
+            = button_to regenerate_mumble_token_path, method: :post, class: "mt-4 px-3 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold cursor-pointer" do
+              %i.bi.bi-arrow-clockwise.mr-1
+              Regenerate token
+          - else
+            %p.text-sm.text-gray-400 Mumble access is not enabled for your account. Ask an administrator to enable it.
+
+    :javascript
+      (function() {
+        ['flash-notice', 'flash-alert'].forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) setTimeout(function() { el.style.transition = 'opacity 0.5s'; el.style.opacity = '0'; setTimeout(function() { el.remove(); }, 500); }, 5000);
+        });
+      })();

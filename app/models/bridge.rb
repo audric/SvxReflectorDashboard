@@ -1,7 +1,7 @@
 class Bridge < ApplicationRecord
   has_many :bridge_tg_mappings, dependent: :destroy
 
-  ALL_BRIDGE_TYPES = %w[reflector echolink xlx dmr ysf allstar zello iax sip janus].freeze
+  ALL_BRIDGE_TYPES = %w[reflector echolink xlx dmr ysf allstar zello iax sip janus mumble].freeze
   BRIDGE_TYPES = (ENV.fetch('BRIDGE_TYPES', 'reflector').split(',').map(&:strip) & ALL_BRIDGE_TYPES).freeze
 
   validates :name, presence: true, uniqueness: true
@@ -87,13 +87,26 @@ class Bridge < ApplicationRecord
     validates :sip_transport, inclusion: { in: %w[udp tcp tls], message: "must be udp, tcp, or tls" }
   end
 
+  # Mumble-specific validations
+  with_options if: :mumble? do
+    validates :local_callsign, presence: true
+    validates :local_auth_key, presence: true
+    validates :local_default_tg, presence: true
+    validates :mumble_host, presence: true
+    validates :mumble_port, presence: true
+    validates :mumble_channel, presence: true
+  end
+
   # Returns the 8-char DCS callsign: base callsign (space-padded to 7) + suffix letter.
   def dcs_callsign
     "%-7s%s" % [xlx_callsign.to_s.upcase, xlx_callsign_suffix.to_s.upcase]
   end
 
+  before_validation :ensure_mumble_bot_password
   after_save :generate_config
   after_destroy :cleanup
+  after_save :sync_mumble_users, if: :mumble_sync_needed?
+  after_destroy :sync_mumble_users, if: :mumble?
 
   def reflector?
     bridge_type == "reflector"
@@ -137,7 +150,7 @@ class Bridge < ApplicationRecord
 
 
   def has_agc?
-    xlx? || dmr? || ysf? || allstar? || zello? || iax? || sip? || janus?
+    xlx? || dmr? || ysf? || allstar? || zello? || iax? || sip? || mumble || janus?
   end
 
   AGC_DEFAULTS = {
@@ -179,6 +192,8 @@ class Bridge < ApplicationRecord
       "sip-bridge-#{id}"
     elsif janus?
       "janus-bridge-#{id}"
+    elsif mumble?
+      "mumble-bridge-#{id}"
     else
       "svxlink-bridge-#{id}"
     end
@@ -204,6 +219,8 @@ class Bridge < ApplicationRecord
       generate_iax_config
     elsif sip?
       generate_sip_config
+    elsif mumble?
+      generate_mumble_config
     elsif echolink?
       generate_echolink_config
     elsif janus?
@@ -212,7 +229,7 @@ class Bridge < ApplicationRecord
     else
       generate_reflector_config
     end
-    write_node_info unless xlx? || dmr? || ysf? || allstar? || zello? || iax? || sip?
+    write_node_info unless xlx? || dmr? || ysf? || allstar? || zello? || iax? || sip? || mumble?
   end
 
   def echolink_conf_path
@@ -289,6 +306,28 @@ class Bridge < ApplicationRecord
   end
 
   private
+
+  def ensure_mumble_bot_password
+    if mumble? && mumble_bot_password.blank?
+      self.mumble_bot_password = SecureRandom.alphanumeric(24)
+    end
+  end
+
+  # Re-sync the Mumble server when a mumble bridge is created, its bot identity
+  # changes, or its channel/description changes (so the channel + its tooltip are
+  # applied live via Ice). The welcome message rides the container env, not Ice.
+  def mumble_sync_needed?
+    mumble? && (saved_change_to_id? || saved_change_to_local_callsign? ||
+      saved_change_to_mumble_bot_password? || saved_change_to_bridge_type? ||
+      saved_change_to_mumble_channel? || saved_change_to_mumble_description? ||
+      saved_change_to_mumble_bot_username?)
+  end
+
+  def sync_mumble_users
+    MumbleSync.sync_users
+  rescue => e
+    Rails.logger.error "[Bridge] Failed to sync mumble users: #{e.message}"
+  end
 
   def reflector_logic_lines
     write_ca_bundle
@@ -443,6 +482,27 @@ class Bridge < ApplicationRecord
       File.write(path, zello_private_key.to_s)
       FileUtils.chmod(0o600, path)
     end
+  end
+
+  def generate_mumble_config
+    lines = []
+    lines << "# Mumble Bridge configuration (passed as env vars to container)"
+    lines << "REFLECTOR_HOST=#{local_host}"
+    lines << "REFLECTOR_PORT=#{local_port}"
+    lines << "REFLECTOR_AUTH_KEY=#{local_auth_key}"
+    lines << "REFLECTOR_TG=#{local_default_tg}"
+    lines << "CALLSIGN=#{local_callsign}"
+    lines << "MUMBLE_HOST=#{mumble_host}"
+    lines << "MUMBLE_PORT=#{mumble_port}"
+    lines << "MUMBLE_USERNAME=#{mumble_username}"
+    lines << "MUMBLE_PASSWORD=#{mumble_bot_password}"
+    lines << "MUMBLE_CHANNEL=#{mumble_channel}"
+    lines << "MUMBLE_WELCOME=#{[mumble_welcome.to_s].pack('m0')}"
+    lines << "NODE_LOCATION=#{node_location.presence || name}"
+    lines << "SYSOP=#{sysop}" if sysop.present?
+    lines.concat(agc_env_lines)
+    lines << ""
+    File.write(config_dir.join("mumble_bridge.env"), lines.join("\n"))
   end
 
   def generate_iax_config
@@ -742,7 +802,8 @@ class Bridge < ApplicationRecord
              config_dir.join("ysf_bridge.env"), config_dir.join("allstar_bridge.env"),
              config_dir.join("zello_bridge.env"), config_dir.join("zello_private_key.pem"),
              config_dir.join("iax_bridge.env"),
-             config_dir.join("sip_bridge.env")].select(&:exist?)
+             config_dir.join("sip_bridge.env"),
+             config_dir.join("mumble_bridge.env")].select(&:exist?)
     return if files.empty?
 
     migrate_legacy_backups if Dir.glob(config_dir.join("*.bak")).any?

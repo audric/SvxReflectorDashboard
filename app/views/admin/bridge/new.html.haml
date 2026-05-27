@@ -49,6 +49,7 @@
         = render 'form_sip'
       - elsif @bridge.janus?
         = render 'form_janus'
-
+      - elsif @bridge.mumble?
+        = render 'form_mumble'
       - else
         = render 'form'

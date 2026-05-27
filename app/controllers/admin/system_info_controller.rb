@@ -43,6 +43,12 @@ module Admin
 
       # For Logs tab
       @containers = fetch_log_containers
+
+      # For the Mumble tab — live snapshot from the running server via Ice.
+      # Show the tab when a mumble bridge is configured or a mumble container is
+      # present; the panel itself renders any unreachable / not-deployed state.
+      @mumble = MumbleStatus.snapshot
+      @mumble_enabled = Bridge.exists?(bridge_type: "mumble") || @mumble[:reason] != "no_container"
     end
 
     private

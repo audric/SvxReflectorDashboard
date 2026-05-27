@@ -14,10 +14,14 @@ All configuration is done via environment variables. Docker Compose loads `.env`
 | `REFLECTOR_PORT` | No | `5300` | Reflector port for the audio bridge |
 | `REDIS_URL` | No | `redis://redis:6379/1` | Redis connection URL |
 | `DOCKER_SOCK` | No | `/var/run/docker.sock` | Path to the Docker socket (set for rootless Docker) |
-| `BRIDGE_TYPES` | No | `reflector` | Comma-separated list of enabled bridge types (e.g. `reflector,xlx,zello`) |
+| `BRIDGE_TYPES` | No | `reflector` | Comma-separated list of enabled bridge types — any of `reflector,echolink,xlx,dmr,ysf,allstar,zello,iax,sip,mumble` |
 | `RAILS_ENV` | No | `production` | Rails environment |
 | `GOOGLE_CLIENT_ID` | No | — | Google OAuth 2.0 client ID — enables Sign in with Google (see [[Google OAuth]]) |
 | `GOOGLE_CLIENT_SECRET` | No | — | Google OAuth 2.0 client secret |
+| `MUMBLE_SUPERUSER_PASSWORD` | No | `changeme` | SuperUser password for the bundled Mumble server (for direct administration; accounts are normally managed from the dashboard) |
+| `MUMBLE_PUBLIC_HOST` | No | `DOMAIN` | Public Mumble server hostname shown to users on `/account` |
+| `MUMBLE_PUBLIC_PORT` | No | `64738` | Public Mumble server port shown to users on `/account` |
+| `MUMBLE_DB_PATH` | No | `/mumble_data/mumble-server.sqlite` | Path to the Mumble server SQLite DB inside the web container (shared volume), used by `MumbleSync` to manage users/ACLs |
 
 ## Generating SECRET_KEY_BASE
 

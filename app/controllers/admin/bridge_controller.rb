@@ -84,6 +84,12 @@ module Admin
           sip_dtmf_delay: 2000,
           sip_log_level: 1
         )
+      elsif bridge_type == "mumble"
+        defaults.merge!(
+          mumble_host: "mumble",
+          mumble_port: 64738,
+          mumble_channel: "TG1"
+        )
       else
         defaults.merge!(
           remote_port: 5300,
@@ -219,6 +225,7 @@ module Admin
         :sip_extension, :sip_transport, :sip_mode, :sip_idle_timeout, :sip_codecs,
         :sip_dtmf, :sip_dtmf_delay, :sip_caller_id, :sip_log_level, :sip_pin, :sip_pin_timeout, :sip_vox_timeout, :sip_ptt_key, :sip_max_call_duration,
         :zello_username, :zello_password, :zello_channel, :zello_channel_password, :zello_issuer_id, :zello_private_key,
+        :mumble_host, :mumble_port, :mumble_channel, :mumble_bot_password, :mumble_bot_username, :mumble_welcome, :mumble_description,
         :agc_target_level, :agc_attack_rate, :agc_decay_rate, :agc_max_gain, :agc_min_gain, :agc_limit_level,
         :filter_hpf_cutoff, :filter_lpf_cutoff,:janus_url
       )
@@ -289,6 +296,9 @@ module Admin
       elsif bridge.janus?
         pull_image("ghcr.io/sa2blv/svxreflectordashboard-janus-bridge:latest")
         start_janus_container(bridge)
+      elsif bridge.mumble?
+        pull_image("ghcr.io/audric/svxreflectordashboard-mumble-bridge") rescue nil
+        start_mumble_container(bridge)
       else
         pull_image("ghcr.io/audric/svxlink-docker")
         start_svxlink_container(bridge)
@@ -637,6 +647,46 @@ module Admin
       end
     end
 
+    def start_mumble_container(bridge)
+      bridge.generate_config
+      network = docker_network
+      body = {
+        Image: "ghcr.io/audric/svxreflectordashboard-mumble-bridge",
+        Labels: {
+          "svx.bridge" => "true",
+          "svx.bridge.id" => bridge.id.to_s,
+          "svx.bridge.name" => bridge.name,
+          "com.docker.compose.project" => "",
+          "com.docker.compose.service" => ""
+        },
+        Env: [
+          "REFLECTOR_HOST=#{bridge.local_host}",
+          "REFLECTOR_PORT=#{bridge.local_port}",
+          "REFLECTOR_AUTH_KEY=#{bridge.local_auth_key}",
+          "REFLECTOR_TG=#{bridge.local_default_tg}",
+          "CALLSIGN=#{bridge.local_callsign}",
+          "MUMBLE_HOST=#{bridge.mumble_host}",
+          "MUMBLE_PORT=#{bridge.mumble_port}",
+          "MUMBLE_USERNAME=#{bridge.mumble_username}",
+          "MUMBLE_PASSWORD=#{bridge.mumble_bot_password}",
+          "MUMBLE_CHANNEL=#{bridge.mumble_channel}",
+          "MUMBLE_WELCOME=#{[bridge.mumble_welcome.to_s].pack('m0')}",
+          "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
+          "SYSOP=#{bridge.sysop}"
+        ] + agc_env_array(bridge),
+        HostConfig: {
+          RestartPolicy: { Name: "unless-stopped" }
+        }
+      }
+      body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
+
+      result = docker_api_post_json("/containers/create?name=#{bridge.container_name}", body)
+      if result && result["Id"]
+        docker_api_post("/containers/#{result["Id"]}/start")
+        Rails.logger.info "[Bridge] Created and started Mumble container #{bridge.container_name}"
+      end
+    end
+
     def start_svxlink_container(bridge)
       bridge.generate_config
       network = docker_network
@@ -726,7 +776,7 @@ module Admin
       statuses = {}
       containers.each do |c|
         c["Names"].each do |n|
-          if n =~ /\A\/(?:svxlink|xlx|dmr|ysf|allstar|zello|iax|sip|janus)-bridge-(\d+)\z/
+          if n =~ /\A\/(?:svxlink|xlx|dmr|ysf|allstar|zello|iax|sip|janus|mumble)-bridge-(\d+)\z/
             statuses[Regexp.last_match(1).to_i] = c["State"]
           end
         end

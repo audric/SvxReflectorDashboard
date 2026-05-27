@@ -66,7 +66,7 @@ module Admin
     end
 
     def user_params
-      params.require(:user).permit(:callsign, :password, :password_confirmation, :role, :name, :email, :mobile, :telegram, :can_monitor, :can_transmit, :cw_roger_beep, :reflector_auth_key, :reflector_admin)
+      params.require(:user).permit(:callsign, :password, :password_confirmation, :role, :name, :email, :mobile, :telegram, :can_monitor, :can_transmit, :cw_roger_beep, :allow_mumble, :reflector_auth_key, :reflector_admin)
     end
   end
 end
