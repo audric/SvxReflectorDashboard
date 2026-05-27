@@ -85,7 +85,7 @@ class DashboardController < ApplicationController
     fetch_extended
     fetch_external_reflectors
     merge_external_nodes
-    bridge_classes = %w[bridge xlx dmr ysf allstar echolink web].freeze
+    bridge_classes = %w[bridge xlx dmr ysf allstar echolink zello iax sip mumble web].freeze
     visible = @nodes.reject { |_, n| n['hidden'] || bridge_classes.include?(n['nodeClass'].to_s) }
 
     all_tg_set = []
@@ -126,11 +126,11 @@ class DashboardController < ApplicationController
       .sort_by   { |tg, _| tg }
 
     # Bridge/node split derived from the live snapshot
-    bridge_callsigns = visible.select { |_, n| %w[bridge xlx dmr ysf allstar echolink].include?(n['nodeClass'].to_s) }.map(&:first).to_set
+    bridge_callsigns = visible.select { |_, n| %w[bridge xlx dmr ysf allstar echolink zello iax sip mumble].include?(n['nodeClass'].to_s) }.map(&:first).to_set
     node_callsigns   = visible.reject { |cs, _| bridge_callsigns.include?(cs) }.map(&:first).to_set
 
     @bridge_type_counts = visible
-      .select { |_, n| %w[bridge xlx dmr ysf allstar echolink].include?(n['nodeClass'].to_s) }
+      .select { |_, n| %w[bridge xlx dmr ysf allstar echolink zello iax sip mumble].include?(n['nodeClass'].to_s) }
       .group_by { |_, n| n['nodeClass'].to_s }
       .transform_values(&:size)
       .sort_by { |_, count| -count }
