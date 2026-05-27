@@ -28,9 +28,8 @@
       .grid.grid-cols-1.md:grid-cols-2.gap-4
         .mb-1
           %label.block.text-sm.text-gray-500.mb-1 JANUS SERVER URL
-          = f.text_field :janus_url, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. ws://192.168.1.100:8188"
-          %p.text-xs.text-ghmuted.mt-1 WebSocket URL to Janus gateway (http:// or https://)
-
+          = f.text_field :janus_url, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. 192.168.1.100:8188"
+          %p.text-xs.text-ghmuted.mt-1 Janus stream url ex 1.2.3.4:1234
 
   -# ── Local Reflector ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
