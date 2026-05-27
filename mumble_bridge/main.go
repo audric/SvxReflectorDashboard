@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"log"
 	"os"
@@ -121,7 +122,13 @@ func runBridge(
 		},
 	})
 
-	mum := NewMumbleClient(mumbleHost, mumblePort, mumbleUser, mumblePass, mumbleChannel)
+	welcome := ""
+	if enc := os.Getenv("MUMBLE_WELCOME"); enc != "" {
+		if b, err := base64.StdEncoding.DecodeString(enc); err == nil {
+			welcome = string(b)
+		}
+	}
+	mum := NewMumbleClient(mumbleHost, mumblePort, mumbleUser, mumblePass, mumbleChannel, welcome)
 
 	// --- SVX -> Mumble: TG Opus(48k) -> PCM -> filter/AGC -> 480-sample frames -> Mumble ---
 	svx.SetAudioCallback(func(opusFrame []byte) {

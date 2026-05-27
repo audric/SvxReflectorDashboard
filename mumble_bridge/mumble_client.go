@@ -27,6 +27,7 @@ type MumbleClient struct {
 	user    string
 	pass    string
 	channel string
+	welcome string // optional message sent to users as they join the channel
 
 	client *gumble.Client
 
@@ -53,8 +54,8 @@ type MumbleClient struct {
 	closed bool
 }
 
-func NewMumbleClient(host string, port int, user, pass, channel string) *MumbleClient {
-	return &MumbleClient{host: host, port: port, user: user, pass: pass, channel: channel}
+func NewMumbleClient(host string, port int, user, pass, channel, welcome string) *MumbleClient {
+	return &MumbleClient{host: host, port: port, user: user, pass: pass, channel: channel, welcome: welcome}
 }
 
 func (m *MumbleClient) Done() <-chan struct{}                     { return m.done }
@@ -94,6 +95,22 @@ func (m *MumbleClient) Connect() error {
 				e.Client.Self.Move(e.Channel)
 				log.Printf("[Mumble] Moved into channel %q (created)", m.channel)
 			}
+		},
+		UserChange: func(e *gumble.UserChangeEvent) {
+			// Greet a user as they connect/move into our channel (not on mute,
+			// name changes, etc.), skipping the bot itself.
+			if m.welcome == "" || e.User == nil || e.Client.Self == nil || e.User == e.Client.Self {
+				return
+			}
+			if e.Type&(gumble.UserChangeConnected|gumble.UserChangeChannel) == 0 {
+				return
+			}
+			if e.User.Channel == nil || e.User.Channel.Name != m.channel {
+				return
+			}
+			defer func() { recover() }() // tolerate races during shutdown
+			e.Client.Send(&gumble.TextMessage{Users: []*gumble.User{e.User}, Message: m.welcome})
+			log.Printf("[Mumble] Welcomed %s", e.User.Name)
 		},
 		Disconnect: func(e *gumble.DisconnectEvent) {
 			log.Printf("[Mumble] Disconnected: %s", e.String)
