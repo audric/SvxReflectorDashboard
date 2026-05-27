@@ -149,8 +149,8 @@ class DashboardController < ApplicationController
     # Live-data-dependent split (depends on current bridge classification, so
     # not part of the historical cache).
     scope = NodeEvent.by_period(@period)
-    @top_nodes   = scope.talks.where(callsign: node_callsigns.to_a).group(:callsign).order('count_all DESC').limit(10).count
-    @top_bridges = scope.talks.where(callsign: bridge_callsigns.to_a).group(:callsign).order('count_all DESC').limit(10).count
+    @top_nodes   = scope.talks.where(callsign: node_callsigns.to_a).group(:callsign).order('count_all DESC').limit(20).count
+    @top_bridges = scope.talks.where(callsign: bridge_callsigns.to_a).group(:callsign).order('count_all DESC').limit(20).count
     @top_nodes_airtime   = @airtime_by_cs.slice(*@top_nodes.keys)
     @top_bridges_airtime = @airtime_by_cs.slice(*@top_bridges.keys)
 
@@ -412,15 +412,15 @@ class DashboardController < ApplicationController
     longest       = records.max_by { |r| r['effective_ms'].to_i }
     hist_longest  = longest && { callsign: longest['callsign'], ms: longest['effective_ms'].to_i }
 
-    top_talkers = scope.talks.group(:callsign).order('count_all DESC').limit(15).count
-    top_tgs     = scope.talks.where.not(tg: [0, nil]).group(:tg).order('count_all DESC').limit(15).count
+    top_talkers = scope.talks.group(:callsign).order('count_all DESC').limit(20).count
+    top_tgs     = scope.talks.where.not(tg: [0, nil]).group(:tg).order('count_all DESC').limit(20).count
 
-    talkers_air_keys        = airtime_by_cs.sort_by { |_, ms| -ms }.first(15).map(&:first)
+    talkers_air_keys        = airtime_by_cs.sort_by { |_, ms| -ms }.first(20).map(&:first)
     talkers_air_counts      = scope.talks.where(callsign: talkers_air_keys).group(:callsign).count
     top_talkers_alt         = talkers_air_keys.each_with_object({}) { |k, h| h[k] = talkers_air_counts[k] || 0 }
     top_talkers_alt_airtime = talkers_air_keys.each_with_object({}) { |k, h| h[k] = airtime_by_cs[k] || 0 }
 
-    tgs_air_keys        = airtime_by_tg.sort_by { |_, ms| -ms }.first(15).map(&:first)
+    tgs_air_keys        = airtime_by_tg.sort_by { |_, ms| -ms }.first(20).map(&:first)
     tgs_air_counts      = scope.talks.where.not(tg: [0, nil]).where(tg: tgs_air_keys).group(:tg).count
     top_tgs_alt         = tgs_air_keys.each_with_object({}) { |k, h| h[k] = tgs_air_counts[k] || 0 }
     top_tgs_alt_airtime = tgs_air_keys.each_with_object({}) { |k, h| h[k] = airtime_by_tg[k] || 0 }
