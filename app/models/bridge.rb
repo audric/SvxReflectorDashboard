@@ -148,6 +148,12 @@ class Bridge < ApplicationRecord
     bridge_type == "mumble"
   end
 
+  # Username the bot registers/logs in with on the Mumble server. Defaults to
+  # the reflector callsign when no dedicated bot username is set.
+  def mumble_username
+    mumble_bot_username.presence || local_callsign
+  end
+
   def has_agc?
     xlx? || dmr? || ysf? || allstar? || zello? || iax? || sip? || mumble?
   end
@@ -307,11 +313,14 @@ class Bridge < ApplicationRecord
     end
   end
 
-  # Re-sync the Mumble server when a mumble bridge is created or its bot
-  # identity changes, so the bot account exists before it tries to connect.
+  # Re-sync the Mumble server when a mumble bridge is created, its bot identity
+  # changes, or its channel/description changes (so the channel + its tooltip are
+  # applied live via Ice). The welcome message rides the container env, not Ice.
   def mumble_sync_needed?
     mumble? && (saved_change_to_id? || saved_change_to_local_callsign? ||
-      saved_change_to_mumble_bot_password? || saved_change_to_bridge_type?)
+      saved_change_to_mumble_bot_password? || saved_change_to_bridge_type? ||
+      saved_change_to_mumble_channel? || saved_change_to_mumble_description? ||
+      saved_change_to_mumble_bot_username?)
   end
 
   def sync_mumble_users
@@ -467,9 +476,10 @@ class Bridge < ApplicationRecord
     lines << "CALLSIGN=#{local_callsign}"
     lines << "MUMBLE_HOST=#{mumble_host}"
     lines << "MUMBLE_PORT=#{mumble_port}"
-    lines << "MUMBLE_USERNAME=#{local_callsign}"
+    lines << "MUMBLE_USERNAME=#{mumble_username}"
     lines << "MUMBLE_PASSWORD=#{mumble_bot_password}"
     lines << "MUMBLE_CHANNEL=#{mumble_channel}"
+    lines << "MUMBLE_WELCOME=#{[mumble_welcome.to_s].pack('m0')}"
     lines << "NODE_LOCATION=#{node_location.presence || name}"
     lines << "SYSOP=#{sysop}" if sysop.present?
     lines.concat(agc_env_lines)

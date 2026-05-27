@@ -139,7 +139,7 @@ Connects a local SVXReflector talkgroup to a channel on a **self-hosted Mumble (
 
 Two pieces work together:
 
-- **`mumble` server** — the official `mumblevoip/mumble-server` image, listening on TCP+UDP port `64738`. Users connect their own Mumble clients here. Its SQLite database lives on the `mumble_data` volume, **shared with the `web` container** so the dashboard can manage users and ACLs.
+- **`mumble` server** — the official `mumblevoip/mumble-server` image **extended with a ZeroC Ice management client** (`mumble_ice.py`), listening on TCP+UDP port `64738`. Users connect their own Mumble clients here. The dashboard manages registrations and ACLs on the *running* server via Ice (which stays bound to `127.0.0.1` inside the container — never network-exposed). Its SQLite DB lives on the `mumble_data` volume, read by the `web` container for the System Info tab.
 - **`mumble-bridge-<id>` bot** — a standalone Go binary (gumble client + libopus) that logs into the Mumble server as a registered bot, joins the bridge's channel, and relays audio to/from the SVXReflector TG.
 
 Key features:
@@ -153,9 +153,9 @@ Key features:
 
 #### User access model
 
-The Mumble server is **locked down by default** — guests cannot enter, and only authorised users can speak. The dashboard is the single source of truth; `MumbleSync` (`app/services/mumble_sync.rb`) writes directly into the server's SQLite database and restarts it whenever a relevant user or bridge changes:
+The Mumble server is **locked down by default** — guests cannot enter, and only authorised users can speak. The dashboard is the single source of truth; whenever a relevant user or bridge changes, `MumbleSync` (`app/services/mumble_sync.rb`) execs `mumble_ice.py` inside the mumble container, which applies the changes to the **running** server through its Ice interface — **no restart**, so bridges and connected clients are never dropped (this scales to any number of users):
 
-- **Registered-only Enter, transmit-only Speak** — a base ACL is applied idempotently on every sync (from `db/mumble_acl_init.sql`), so even a fresh deployment is locked down the first time a user or bridge is synced — no manual SQL step. The `tx` group grants Speak; a user is added to it when they have **Can transmit** (or are an admin). Everyone else can listen only.
+- **Registered-only Enter, transmit-only Speak** — the base lockdown ACL is (re)applied idempotently on every sync via Ice, so even a fresh deployment is locked down the first time a user or bridge is synced. The `tx` group grants Speak; a user is added to it when they have **Can transmit** (or are an admin). Everyone else can listen only.
 - **Human users** — each user with the **Allow Mumble** flag and a callsign gets a Mumble login (username = callsign, password = an auto-minted token). See [[User-Management#mumble-access]] for granting access and the self-service connection page.
 - **Bot accounts** — each Mumble bridge logs in as its own registered account (username = the bridge **CALLSIGN**, password auto-generated), placed in the `tx` group so it can inject TG audio.
 - **Permanent channels** — each bridge's target channel is pre-created as a permanent child of Root with inherited ACL, so listeners stay put across bridge restarts instead of being bounced to Root.

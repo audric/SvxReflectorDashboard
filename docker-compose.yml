@@ -222,7 +222,10 @@ services:
       start_period: 5s
 
   mumble:
-    image: mumblevoip/mumble-server:latest
+    # Official mumble-server + a ZeroC Ice management client (mumble_ice.py) so
+    # the dashboard can manage users/ACLs on the live server with no restart.
+    image: ghcr.io/audric/svxreflectordashboard-mumble
+    build: ./mumble
     logging: *default-logging
     ports:
       - "64738:64738/tcp"

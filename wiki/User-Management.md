@@ -167,7 +167,7 @@ The page also has a **Regenerate token** button, which mints a fresh token and r
 
 ### How sync works
 
-User and bridge changes trigger `MumbleSync`, which writes the desired accounts and ACL-group membership straight into the Mumble server's SQLite database (on the shared `mumble_data` volume) and restarts the server. The base ACL is applied idempotently, so a fresh deployment locks down automatically the first time a user or bridge is synced — no manual SQL. See [[Bridges#user-access-model]] for the full model.
+User and bridge changes trigger `MumbleSync`, which applies the desired accounts and ACL-group membership to the **running** Mumble server through its Ice management interface — **no restart**, so connected users and bridges are never dropped (it scales to any number of users). The base lockdown ACL is (re)applied idempotently, so a fresh deployment locks down automatically the first time a user or bridge is synced. See [[Bridges#user-access-model]] for the full model.
 
 ## Command-line operations
 

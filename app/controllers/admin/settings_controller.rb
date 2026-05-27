@@ -3,12 +3,14 @@ module Admin
     layout false
     before_action :require_admin
 
-    KEYS = %w[reflector_status_url brand_name reflector_ext_host poll_interval mqtt_username mqtt_password rate_limit_trusted_ips rate_limit_trusted_rate rate_limit_public_rate rate_limit_blacklist plain_registration].freeze
+    KEYS = %w[reflector_status_url brand_name reflector_ext_host poll_interval mqtt_username mqtt_password rate_limit_trusted_ips rate_limit_trusted_rate rate_limit_public_rate rate_limit_blacklist plain_registration mumble_welcome].freeze
 
     def update
       KEYS.each do |key|
         Setting.set(key, params[:settings][key].presence)
       end
+      # Push the server welcome to the live Mumble server (no restart) if in use.
+      (MumbleSync.sync_users if Bridge.exists?(bridge_type: "mumble")) rescue nil
       redirect_to admin_system_info_path(tab: "settings"), notice: "Settings saved"
     end
 

@@ -36,6 +36,26 @@
           %label.block.text-sm.text-gray-500.mb-1 CHANNEL
           = f.text_field :mumble_channel, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. TG91"
           %p.text-xs.text-ghmuted.mt-1 Mumble channel the bridge bot joins (users join it to tap this TG)
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 BOT USERNAME
+          = f.text_field :mumble_bot_username, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "defaults to the callsign"
+          %p.text-xs.text-ghmuted.mt-1 Username the bot registers/logs in with on the Mumble server (defaults to the CALLSIGN below)
+
+  -# ── Channel messages ──
+  .rounded-lg.border.border-gray-600.bg-ghcard.mb-4
+    .px-4.py-3.border-b.border-gray-600
+      %h5.text-lg.font-semibold.text-gray-100
+        %i.bi.bi-chat-left-text.mr-2
+        Channel messages
+    .px-4.py-4.space-y-4
+      %div
+        %label.block.text-sm.text-gray-500.mb-1 DESCRIPTION
+        = f.text_area :mumble_description, rows: 2, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "Shown as the channel tooltip in the Mumble client"
+        %p.text-xs.text-ghmuted.mt-1 Channel description / tooltip (HTML allowed). Leave blank for none.
+      %div
+        %label.block.text-sm.text-gray-500.mb-1 WELCOME MESSAGE
+        = f.text_area :mumble_welcome, rows: 3, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "Sent to each user as they join this channel"
+        %p.text-xs.text-ghmuted.mt-1 Posted to each user when they join this channel (HTML allowed). Leave blank for none.
 
   -# ── Local Reflector ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4

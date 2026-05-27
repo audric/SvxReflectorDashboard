@@ -225,7 +225,7 @@ module Admin
         :sip_extension, :sip_transport, :sip_mode, :sip_idle_timeout, :sip_codecs,
         :sip_dtmf, :sip_dtmf_delay, :sip_caller_id, :sip_log_level, :sip_pin, :sip_pin_timeout, :sip_vox_timeout, :sip_ptt_key, :sip_max_call_duration,
         :zello_username, :zello_password, :zello_channel, :zello_channel_password, :zello_issuer_id, :zello_private_key,
-        :mumble_host, :mumble_port, :mumble_channel, :mumble_bot_password,
+        :mumble_host, :mumble_port, :mumble_channel, :mumble_bot_password, :mumble_bot_username, :mumble_welcome, :mumble_description,
         :agc_target_level, :agc_attack_rate, :agc_decay_rate, :agc_max_gain, :agc_min_gain, :agc_limit_level,
         :filter_hpf_cutoff, :filter_lpf_cutoff
       )
@@ -623,9 +623,10 @@ module Admin
           "CALLSIGN=#{bridge.local_callsign}",
           "MUMBLE_HOST=#{bridge.mumble_host}",
           "MUMBLE_PORT=#{bridge.mumble_port}",
-          "MUMBLE_USERNAME=#{bridge.local_callsign}",
+          "MUMBLE_USERNAME=#{bridge.mumble_username}",
           "MUMBLE_PASSWORD=#{bridge.mumble_bot_password}",
           "MUMBLE_CHANNEL=#{bridge.mumble_channel}",
+          "MUMBLE_WELCOME=#{[bridge.mumble_welcome.to_s].pack('m0')}",
           "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
           "SYSOP=#{bridge.sysop}"
         ] + agc_env_array(bridge),
