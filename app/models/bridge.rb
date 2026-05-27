@@ -1,7 +1,7 @@
 class Bridge < ApplicationRecord
   has_many :bridge_tg_mappings, dependent: :destroy
 
-  ALL_BRIDGE_TYPES = %w[reflector echolink xlx dmr ysf allstar zello iax sip mumble].freeze
+  ALL_BRIDGE_TYPES = %w[reflector echolink xlx dmr ysf allstar zello iax sip janus mumble].freeze
   BRIDGE_TYPES = (ENV.fetch('BRIDGE_TYPES', 'reflector').split(',').map(&:strip) & ALL_BRIDGE_TYPES).freeze
 
   validates :name, presence: true, uniqueness: true
@@ -144,18 +144,13 @@ class Bridge < ApplicationRecord
     bridge_type == "sip"
   end
 
-  def mumble?
-    bridge_type == "mumble"
+  def janus?
+    bridge_type == "janus"
   end
 
-  # Username the bot registers/logs in with on the Mumble server. Defaults to
-  # the reflector callsign when no dedicated bot username is set.
-  def mumble_username
-    mumble_bot_username.presence || local_callsign
-  end
 
   def has_agc?
-    xlx? || dmr? || ysf? || allstar? || zello? || iax? || sip? || mumble?
+    xlx? || dmr? || ysf? || allstar? || zello? || iax? || sip? || mumble || janus?
   end
 
   AGC_DEFAULTS = {
@@ -195,6 +190,8 @@ class Bridge < ApplicationRecord
       "iax-bridge-#{id}"
     elsif sip?
       "sip-bridge-#{id}"
+    elsif janus?
+      "janus-bridge-#{id}"
     elsif mumble?
       "mumble-bridge-#{id}"
     else
@@ -226,6 +223,9 @@ class Bridge < ApplicationRecord
       generate_mumble_config
     elsif echolink?
       generate_echolink_config
+    elsif janus?
+      generate_janus_config
+
     else
       generate_reflector_config
     end
@@ -401,6 +401,24 @@ class Bridge < ApplicationRecord
     lines << ""
     File.write(config_dir.join("dmr_bridge.env"), lines.join("\n"))
   end
+
+  def generate_janus_config
+    lines = []
+    lines << "# janus Bridge configuration (passed as env vars to container)"
+    lines << "REFLECTOR_HOST=#{local_host}"
+    lines << "REFLECTOR_PORT=#{local_port}"
+    lines << "REFLECTOR_AUTH_KEY=#{local_auth_key}"
+    lines << "REFLECTOR_TG=#{local_default_tg}"
+    lines << "CALLSIGN=#{local_callsign}"
+    lines << "JANUS_URL=#{janus_url}"
+    lines << "NODE_LOCATION=#{node_location.presence || name}"
+    lines << "SYSOP=#{sysop}" if sysop.present?
+    lines.concat(agc_env_lines)
+    lines << ""
+    File.write(config_dir.join("janus_bridge.env"), lines.join("\n"))
+  end
+
+
 
   def generate_ysf_config
     lines = []

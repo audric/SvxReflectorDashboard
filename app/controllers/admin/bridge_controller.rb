@@ -227,7 +227,7 @@ module Admin
         :zello_username, :zello_password, :zello_channel, :zello_channel_password, :zello_issuer_id, :zello_private_key,
         :mumble_host, :mumble_port, :mumble_channel, :mumble_bot_password, :mumble_bot_username, :mumble_welcome, :mumble_description,
         :agc_target_level, :agc_attack_rate, :agc_decay_rate, :agc_max_gain, :agc_min_gain, :agc_limit_level,
-        :filter_hpf_cutoff, :filter_lpf_cutoff
+        :filter_hpf_cutoff, :filter_lpf_cutoff,:janus_url
       )
     end
 
@@ -293,6 +293,9 @@ module Admin
       elsif bridge.zello?
         pull_image("ghcr.io/audric/svxreflectordashboard-zello-bridge") rescue nil
         start_zello_container(bridge)
+      elsif bridge.janus?
+        pull_image("ghcr.io/sa2blv/svxreflectordashboard-janus-bridge:latest")
+        start_janus_container(bridge)
       elsif bridge.mumble?
         pull_image("ghcr.io/audric/svxreflectordashboard-mumble-bridge") rescue nil
         start_mumble_container(bridge)
@@ -345,6 +348,7 @@ module Admin
         Rails.logger.info "[Bridge] Created and started XLX container #{bridge.container_name}"
       end
     end
+
 
     def start_dmr_container(bridge)
       network = docker_network
@@ -507,6 +511,46 @@ module Admin
         Rails.logger.info "[Bridge] Created and started IAX container #{bridge.container_name}"
       end
     end
+
+    def start_janus_container(bridge)
+      network = docker_network
+      body = {
+        Image: "ghcr.io/sa2blv/svxreflectordashboard-janus-bridge:latest",
+        Labels: {
+          "svx.bridge" => "true",
+          "svx.bridge.id" => bridge.id.to_s,
+          "svx.bridge.name" => bridge.name,
+          "com.docker.compose.project" => "",
+          "com.docker.compose.service" => ""
+        },
+        Env: [
+          "REFLECTOR_HOST=#{bridge.local_host}",
+          "REFLECTOR_PORT=#{bridge.local_port}",
+          "REFLECTOR_AUTH_KEY=#{bridge.local_auth_key}",
+          "REFLECTOR_TG=#{bridge.local_default_tg}",
+          "CALLSIGN=#{bridge.local_callsign}",
+          "JANUS_URL=#{bridge.janus_url}", 
+          "FILTER_HPF_CUTOFF=#{bridge.filter_hpf_cutoff}",
+          "FILTER_LPF_CUTOFF=#{bridge.filter_lpf_cutoff}",
+          "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
+          "SYSOP=#{bridge.sysop}",
+          "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
+        ] + agc_env_array(bridge), # ?? Automatically appends target, attack, decay floors
+        HostConfig: {
+          RestartPolicy: { Name: "unless-stopped" }
+        }
+      }
+      body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
+
+      result = docker_api_post_json("/containers/create?name=#{bridge.container_name}", body)
+      if result && result["Id"]
+        docker_api_post("/containers/#{result["Id"]}/start")
+        Rails.logger.info "[Bridge] Created and started Janus container #{bridge.container_name}"
+      end
+    end
+
+
+
 
     def start_sip_container(bridge)
       network = docker_network
@@ -732,7 +776,7 @@ module Admin
       statuses = {}
       containers.each do |c|
         c["Names"].each do |n|
-          if n =~ /\A\/(?:svxlink|xlx|dmr|ysf|allstar|zello|iax|sip|mumble)-bridge-(\d+)\z/
+          if n =~ /\A\/(?:svxlink|xlx|dmr|ysf|allstar|zello|iax|sip|janus|mumble)-bridge-(\d+)\z/
             statuses[Regexp.last_match(1).to_i] = c["State"]
           end
         end
