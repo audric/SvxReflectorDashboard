@@ -44,6 +44,7 @@ ghcr.io/audric/svxreflectordashboard-allstar-bridge
 ghcr.io/audric/svxreflectordashboard-zello-bridge
 ghcr.io/audric/svxreflectordashboard-iax-bridge
 ghcr.io/audric/svxreflectordashboard-sip-bridge
+ghcr.io/audric/svxreflectordashboard-mumble-bridge
 "
 for img in $BRIDGE_IMAGES; do
   echo "  Pulling $img..."
@@ -87,7 +88,7 @@ else
   # Restart running bridge containers so they pick up new images
   echo ""
   echo "Restarting bridge containers..."
-  BRIDGE_CONTAINERS=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^(svxlink|xlx|dmr|ysf|allstar|zello|iax|sip)-bridge-[0-9]+$' || true)
+  BRIDGE_CONTAINERS=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^(svxlink|xlx|dmr|ysf|allstar|zello|iax|sip|mumble)-bridge-[0-9]+$' || true)
   if [ -n "$BRIDGE_CONTAINERS" ]; then
     for cname in $BRIDGE_CONTAINERS; do
       echo "  Restarting $cname..."
