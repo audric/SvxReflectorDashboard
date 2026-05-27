@@ -31,6 +31,7 @@ class ReflectorListener
   @trunk_status_cache   = {}   # { trunk_name => { nodes } }
   @trunk_status_threads = {}   # { trunk_name => Thread }
   @trunk_status_mutex   = Mutex.new
+  @trunk_allow_filters  = {}   # { trunk_name => [parsed ALLOW_TGS rules] }
 
   class << self
     def active_source
@@ -233,7 +234,7 @@ class ReflectorListener
       )
 
       # ── Persist events ────────────────────────────────────────────────
-      log_events(changed, removed, @prev)
+      log_events(changed, removed, @prev, curr_cluster_tgs)
       log_trunk_events(curr_trunks, @prev_trunks) if trunks_changed
       log_satellite_events(curr_satellites, @prev_satellites) if satellites_changed
 
@@ -328,6 +329,14 @@ class ReflectorListener
     redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
     raw = redis.get('reflector:trunk_status_urls')
     trunk_urls = raw ? JSON.parse(raw) : {}
+
+    # Per-trunk ALLOW_TGS (published by the web container alongside the URLs).
+    # Parsed into match rules so log_events keeps only allowed-TG peer talk
+    # events, mirroring the reflector's own trunk TG filtering. The whole hash
+    # is replaced atomically; log_events reads it without a lock.
+    allow_raw = redis.get('reflector:trunk_allow_tgs')
+    @trunk_allow_filters = (allow_raw ? JSON.parse(allow_raw) : {})
+                           .transform_values { |spec| parse_tg_filter(spec) }
 
     trunk_urls.each do |name, url|
       next if url.blank?
@@ -426,7 +435,8 @@ class ReflectorListener
     [nil, nil]
   end
 
-  def self.log_events(changed, removed, prev)
+  def self.log_events(changed, removed, prev, cluster_tgs = [])
+    cluster_set = Array(cluster_tgs).map(&:to_i)
     ActiveRecord::Base.connection_pool.with_connection do
       changed.each do |cs, node|
         # Parent nodes belong on the parent's dashboard; skip DB persistence
@@ -435,6 +445,29 @@ class ReflectorListener
         next if node['_satellite_parent']
 
         prev_node = prev[cs]
+
+        # Nodes merged from a trunk peer's STATUS_URL (tagged _external_type:
+        # 'trunk') are display-only. Persist ONLY their talker activity, and
+        # ONLY on TGs that actually reach us — those carried by this trunk
+        # (ALLOW_TGS) or broadcast network-wide (cluster TGs). Their connect /
+        # tg-change churn and traffic on TGs we don't carry happen on the
+        # peer's own reflector and would otherwise pollute our statistics.
+        if node['_external_type'] == 'trunk'
+          next if prev_node.nil?                                # no CONNECTED for peers
+          next if node['isTalker'] == prev_node['isTalker']     # talk transitions only
+          tg = node['tg'].to_i
+          next unless cluster_set.include?(tg) ||
+                      tg_matches_filter?(@trunk_allow_filters[node['_external']], tg)
+          type    = node['isTalker'] ? NodeEvent::TALKING_START : NodeEvent::TALKING_STOP
+          rx_meta = node['dstar_rx'] || node['dmr_rx'] || node['ysf_rx'] || node['zello_rx']
+          dur     = (type == NodeEvent::TALKING_STOP) ? node['_last_duration_ms'] : nil
+          NodeEvent.create!(callsign: cs, tg: node['tg'].to_i,
+                            node_class: node['nodeClass'], node_location: node['nodeLocation'],
+                            event_type: type, metadata: (rx_meta ? rx_meta.to_json : nil),
+                            duration_ms: dur)
+          next
+        end
+
         attrs = { callsign: cs, tg: node['tg'].to_i,
                   node_class: node['nodeClass'], node_location: node['nodeLocation'] }
 
@@ -465,6 +498,7 @@ class ReflectorListener
       removed.each do |cs|
         prev_node = prev[cs] || {}
         next if prev_node['_satellite_parent']
+        next if prev_node['_external_type'] == 'trunk'  # peer disconnects belong on the peer
         NodeEvent.create!(
           callsign: cs, event_type: NodeEvent::DISCONNECTED,
           node_class: prev_node['nodeClass'], node_location: prev_node['nodeLocation']
@@ -473,6 +507,38 @@ class ReflectorListener
     end
   rescue => e
     STDERR.puts "[Poller] DB error: #{e.message}"
+  end
+
+  # Parse an ALLOW_TGS-style spec ("262*,91,100-199") into match rules. Same
+  # grammar as GeuReflector: exact, prefix (262*), inclusive range (100-199),
+  # comma-separated. Malformed tokens are dropped.
+  def self.parse_tg_filter(spec)
+    spec.to_s.split(',').map(&:strip).reject(&:empty?).filter_map do |tok|
+      if tok.end_with?('*')
+        pfx = tok[0..-2]
+        [:prefix, pfx] unless pfx.empty?
+      elsif tok.include?('-')
+        lo, hi = tok.split('-', 2).map { |x| x.strip.to_i }
+        [:range, lo, hi]
+      elsif tok.match?(/\A\d+\z/)
+        [:exact, tok.to_i]
+      end
+    end
+  end
+
+  # True if `tg` matches the parsed filter. An empty/absent filter means the
+  # trunk carries everything (GeuReflector semantics), so everything matches.
+  def self.tg_matches_filter?(rules, tg)
+    return true  if rules.nil? || rules.empty?
+    return false if tg.to_i.zero?
+    s = tg.to_s
+    rules.any? do |rule|
+      case rule[0]
+      when :exact  then tg == rule[1]
+      when :prefix then s.start_with?(rule[1])
+      when :range  then tg >= rule[1] && tg <= rule[2]
+      end
+    end
   end
 
   # Log trunk connection state changes and remote talker start/stop events
