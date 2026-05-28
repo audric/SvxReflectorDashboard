@@ -154,6 +154,16 @@ class DashboardController < ApplicationController
     @top_nodes_airtime   = @airtime_by_cs.slice(*@top_nodes.keys)
     @top_bridges_airtime = @airtime_by_cs.slice(*@top_bridges.keys)
 
+    nodes_air_keys           = @airtime_by_cs.select { |k, _| node_callsigns.include?(k) }.sort_by { |_, ms| -ms }.first(20).map(&:first)
+    nodes_air_counts         = scope.talks.where(callsign: nodes_air_keys).group(:callsign).count
+    @top_nodes_alt           = nodes_air_keys.each_with_object({}) { |k, h| h[k] = nodes_air_counts[k] || 0 }
+    @top_nodes_alt_airtime   = nodes_air_keys.each_with_object({}) { |k, h| h[k] = @airtime_by_cs[k] || 0 }
+
+    bridges_air_keys         = @airtime_by_cs.select { |k, _| bridge_callsigns.include?(k) }.sort_by { |_, ms| -ms }.first(20).map(&:first)
+    bridges_air_counts       = scope.talks.where(callsign: bridges_air_keys).group(:callsign).count
+    @top_bridges_alt         = bridges_air_keys.each_with_object({}) { |k, h| h[k] = bridges_air_counts[k] || 0 }
+    @top_bridges_alt_airtime = bridges_air_keys.each_with_object({}) { |k, h| h[k] = @airtime_by_cs[k] || 0 }
+
     # ── Web users ─ Redis SCAN (non-blocking) + 30s cache ──────────────
     users = Rails.cache.fetch("stats:users", expires_in: 30.seconds) do
       sessions = redis.scan_each(match: "session:*").to_a

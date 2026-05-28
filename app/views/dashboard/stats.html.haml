@@ -6,6 +6,8 @@
       var d=document.documentElement;
       d.dataset.statsTalkers=localStorage.getItem('stats_talkers_sort')||'count';
       d.dataset.statsTgs    =localStorage.getItem('stats_tgs_sort')    ||'count';
+      d.dataset.statsNodes  =localStorage.getItem('stats_nodes_sort')  ||'count';
+      d.dataset.statsBridges=localStorage.getItem('stats_bridges_sort')||'count';
     })();
   %head
     %meta{charset: "UTF-8"}
@@ -75,6 +77,14 @@
       html[data-stats-talkers="airtime"] [data-sort-section="talkers"] [data-sort-pill="airtime"] { background:#1f6feb; border-color:#1f6feb; color:#fff; }
       html[data-stats-tgs="count"]       [data-sort-section="tgs"]     [data-sort-pill="count"]   { background:#1f6feb; border-color:#1f6feb; color:#fff; }
       html[data-stats-tgs="airtime"]     [data-sort-section="tgs"]     [data-sort-pill="airtime"] { background:#1f6feb; border-color:#1f6feb; color:#fff; }
+      html[data-stats-nodes="count"]     [data-sort-section="nodes"]   [data-sort-view="airtime"] { display: none; }
+      html[data-stats-nodes="airtime"]   [data-sort-section="nodes"]   [data-sort-view="count"]   { display: none; }
+      html[data-stats-bridges="count"]   [data-sort-section="bridges"] [data-sort-view="airtime"] { display: none; }
+      html[data-stats-bridges="airtime"] [data-sort-section="bridges"] [data-sort-view="count"]   { display: none; }
+      html[data-stats-nodes="count"]     [data-sort-section="nodes"]   [data-sort-pill="count"]   { background:#1f6feb; border-color:#1f6feb; color:#fff; }
+      html[data-stats-nodes="airtime"]   [data-sort-section="nodes"]   [data-sort-pill="airtime"] { background:#1f6feb; border-color:#1f6feb; color:#fff; }
+      html[data-stats-bridges="count"]   [data-sort-section="bridges"] [data-sort-pill="count"]   { background:#1f6feb; border-color:#1f6feb; color:#fff; }
+      html[data-stats-bridges="airtime"] [data-sort-section="bridges"] [data-sort-pill="airtime"] { background:#1f6feb; border-color:#1f6feb; color:#fff; }
 
       /* Ranking bars */
       .rank-bar-wrap { height: 5px; background: #21262d; border-radius: 3px; }
@@ -292,60 +302,90 @@
       .grid.grid-cols-1.md:grid-cols-2.lg:grid-cols-4.gap-4.mb-4
 
         -# Top nodes (non-bridge)
-        .rounded-lg.border.border-ghborder.h-full
+        .rounded-lg.border.border-ghborder.h-full{data: {sort_section: "nodes"}}
           .p-4
-            .section-label
-              %i.bi.bi-broadcast.mr-1
-              Top Nodes
-            - if @top_nodes.any?
-              - max_n = @top_nodes.values.first.to_f
-              - max_n_air = (@top_nodes_airtime.values.max || 0).to_f
-              - @top_nodes.each_with_index do |(cs, count), i|
-                - air_ms = @top_nodes_airtime[cs].to_i
-                - air_pct = max_n_air > 0 ? (air_ms / max_n_air * 100).round : 0
-                .flex.items-center.gap-2.mb-2
-                  %span.text-gray-500{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
-                  %span.font-mono.text-gray-100.shrink-0{style: "min-width:90px;font-size:.82rem"}= cs
-                  .grow.flex.flex-col.gap-1
-                    .rank-bar-wrap
-                      .rank-bar-fill.bg-cyan-500{style: "width:#{(count / max_n * 100).round}%"}
-                    .rank-bar-wrap
-                      .rank-bar-fill{class: "bg-cyan-500/40", style: "width:#{air_pct}%"}
-                  .flex.flex-col.items-end{style: "min-width:64px"}
-                    %span.text-gray-300.font-semibold{style: "font-size:.78rem"}= "#{count} TX"
-                    %span.text-gray-500{style: "font-size:.7rem"}= format_duration(air_ms)
-            - else
-              .text-center.text-gray-500.py-4.text-sm
-                %i.bi.bi-broadcast.block.text-xl.mb-2
-                = "No node activity recorded#{@period != 'all' ? ' for this period' : ''}."
+            .flex.items-center.justify-between.mb-3
+              .section-label.mb-0
+                %i.bi.bi-broadcast.mr-1
+                Top Nodes
+              .flex.items-center.gap-1
+                - %w[count airtime].each do |s|
+                  %button.sort-pill{type: 'button', data: {sort_pill: s}}= s.capitalize
+            - [['count', @top_nodes, @top_nodes_airtime], ['airtime', @top_nodes_alt, @top_nodes_alt_airtime]].each do |sort_key, rows, airtime_map|
+              %div{data: {sort_view: sort_key}}
+                - if rows.any?
+                  - max_count   = (rows.values.max || 1).to_f
+                  - max_airtime = (airtime_map.values.compact.max || 0).to_f
+                  - rows.each_with_index do |(cs, count), i|
+                    - air_ms    = airtime_map[cs].to_i
+                    - count_pct = (count / max_count * 100).round
+                    - air_pct   = max_airtime > 0 ? (air_ms / max_airtime * 100).round : 0
+                    - count_str = "#{count} TX"
+                    - air_str   = format_duration(air_ms)
+                    - if sort_key == 'airtime'
+                      - primary_pct, secondary_pct = air_pct, count_pct
+                      - primary_str, secondary_str = air_str, count_str
+                    - else
+                      - primary_pct, secondary_pct = count_pct, air_pct
+                      - primary_str, secondary_str = count_str, air_str
+                    .flex.items-center.gap-2.mb-2
+                      %span.text-gray-500{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
+                      %span.font-mono.text-gray-100.shrink-0{style: "min-width:90px;font-size:.82rem"}= cs
+                      .grow.flex.flex-col.gap-1
+                        .rank-bar-wrap
+                          .rank-bar-fill.bg-cyan-500{style: "width:#{primary_pct}%"}
+                        .rank-bar-wrap
+                          .rank-bar-fill{class: "bg-cyan-500/40", style: "width:#{secondary_pct}%"}
+                      .flex.flex-col.items-end{style: "min-width:64px"}
+                        %span.text-gray-300.font-semibold{style: "font-size:.78rem"}= primary_str
+                        %span.text-gray-500{style: "font-size:.7rem"}= secondary_str
+                - else
+                  .text-center.text-gray-500.py-4.text-sm
+                    %i.bi.bi-broadcast.block.text-xl.mb-2
+                    = "No node activity recorded#{@period != 'all' ? ' for this period' : ''}."
 
         -# Top bridges
-        .rounded-lg.border.border-ghborder.h-full
+        .rounded-lg.border.border-ghborder.h-full{data: {sort_section: "bridges"}}
           .p-4
-            .section-label
-              %i.bi.bi-diagram-3.mr-1
-              Top Bridges
-            - if @top_bridges.any?
-              - max_b = @top_bridges.values.first.to_f
-              - max_b_air = (@top_bridges_airtime.values.max || 0).to_f
-              - @top_bridges.each_with_index do |(cs, count), i|
-                - air_ms = @top_bridges_airtime[cs].to_i
-                - air_pct = max_b_air > 0 ? (air_ms / max_b_air * 100).round : 0
-                .flex.items-center.gap-2.mb-2
-                  %span.text-gray-500{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
-                  %span.font-mono.text-gray-100.shrink-0{style: "min-width:90px;font-size:.82rem"}= cs
-                  .grow.flex.flex-col.gap-1
-                    .rank-bar-wrap
-                      .rank-bar-fill.bg-purple-500{style: "width:#{(count / max_b * 100).round}%"}
-                    .rank-bar-wrap
-                      .rank-bar-fill{class: "bg-purple-500/40", style: "width:#{air_pct}%"}
-                  .flex.flex-col.items-end{style: "min-width:64px"}
-                    %span.text-gray-300.font-semibold{style: "font-size:.78rem"}= "#{count} TX"
-                    %span.text-gray-500{style: "font-size:.7rem"}= format_duration(air_ms)
-            - else
-              .text-center.text-gray-500.py-4.text-sm
-                %i.bi.bi-diagram-3.block.text-xl.mb-2
-                = "No bridge activity recorded#{@period != 'all' ? ' for this period' : ''}."
+            .flex.items-center.justify-between.mb-3
+              .section-label.mb-0
+                %i.bi.bi-diagram-3.mr-1
+                Top Bridges
+              .flex.items-center.gap-1
+                - %w[count airtime].each do |s|
+                  %button.sort-pill{type: 'button', data: {sort_pill: s}}= s.capitalize
+            - [['count', @top_bridges, @top_bridges_airtime], ['airtime', @top_bridges_alt, @top_bridges_alt_airtime]].each do |sort_key, rows, airtime_map|
+              %div{data: {sort_view: sort_key}}
+                - if rows.any?
+                  - max_count   = (rows.values.max || 1).to_f
+                  - max_airtime = (airtime_map.values.compact.max || 0).to_f
+                  - rows.each_with_index do |(cs, count), i|
+                    - air_ms    = airtime_map[cs].to_i
+                    - count_pct = (count / max_count * 100).round
+                    - air_pct   = max_airtime > 0 ? (air_ms / max_airtime * 100).round : 0
+                    - count_str = "#{count} TX"
+                    - air_str   = format_duration(air_ms)
+                    - if sort_key == 'airtime'
+                      - primary_pct, secondary_pct = air_pct, count_pct
+                      - primary_str, secondary_str = air_str, count_str
+                    - else
+                      - primary_pct, secondary_pct = count_pct, air_pct
+                      - primary_str, secondary_str = count_str, air_str
+                    .flex.items-center.gap-2.mb-2
+                      %span.text-gray-500{style: "font-size:.7rem;min-width:18px;text-align:right"}= i + 1
+                      %span.font-mono.text-gray-100.shrink-0{style: "min-width:90px;font-size:.82rem"}= cs
+                      .grow.flex.flex-col.gap-1
+                        .rank-bar-wrap
+                          .rank-bar-fill.bg-purple-500{style: "width:#{primary_pct}%"}
+                        .rank-bar-wrap
+                          .rank-bar-fill{class: "bg-purple-500/40", style: "width:#{secondary_pct}%"}
+                      .flex.flex-col.items-end{style: "min-width:64px"}
+                        %span.text-gray-300.font-semibold{style: "font-size:.78rem"}= primary_str
+                        %span.text-gray-500{style: "font-size:.7rem"}= secondary_str
+                - else
+                  .text-center.text-gray-500.py-4.text-sm
+                    %i.bi.bi-diagram-3.block.text-xl.mb-2
+                    = "No bridge activity recorded#{@period != 'all' ? ' for this period' : ''}."
 
         -# Bridge types
         .rounded-lg.border.border-ghborder.h-full
@@ -493,7 +533,7 @@
     :javascript
       (function () {
         'use strict';
-        var SORT_KEYS = { talkers: 'statsTalkers', tgs: 'statsTgs' };
+        var SORT_KEYS = { talkers: 'statsTalkers', tgs: 'statsTgs', nodes: 'statsNodes', bridges: 'statsBridges' };
         Object.keys(SORT_KEYS).forEach(function (section) {
           document.querySelectorAll('[data-sort-section="' + section + '"] [data-sort-pill]').forEach(function (btn) {
             btn.addEventListener('click', function () {
