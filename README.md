@@ -47,7 +47,7 @@ web                 → Rails app (Puma) on port 3000
 updater             → Background poller (ReflectorListener)
 audio_bridge        → Go binary, SVXReflector protocol V2 (browser audio)
 xlx_bridge          → Go binary, D-STAR XLX bridge (DCS + DExtra, OPUS ↔ AMBE)
-dmr_bridge          → Go binary, DMR bridge (OPUS ↔ AMBE via MMDVM Homebrew)
+dmr_bridge          → Go binary, DMR bridge (OPUS ↔ AMBE; MMDVM Homebrew or BrandMeister Open DMR Terminal/ODMRTP)
 ysf_bridge          → Go binary, YSF bridge (OPUS ↔ IMBE)
 allstar_bridge      → Go binary, AllStar bridge (OPUS ↔ µLaw via IAX2)
 iax_bridge          → Go binary, generic Asterisk/HOIP bridge via IAX2 (OPUS ↔ GSM/µLaw/A-law/G.726)

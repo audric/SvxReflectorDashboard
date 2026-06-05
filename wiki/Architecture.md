@@ -9,7 +9,7 @@ web           → Rails app (Puma), serves the dashboard on port 3000
 updater       → Background process running ReflectorListener
 audio_bridge  → Go binary, bridges browser audio ↔ reflector (SVXReflector protocol V2)
 xlx_bridge    → Go binary, D-STAR XLX bridge (DCS + DExtra protocols, OPUS ↔ AMBE transcoding)
-dmr_bridge    → Go binary, DMR bridge (OPUS ↔ AMBE transcoding via MMDVM Homebrew)
+dmr_bridge    → Go binary, DMR bridge (OPUS ↔ AMBE; MMDVM Homebrew or BrandMeister Open DMR Terminal/ODMRTP)
 ysf_bridge    → Go binary, YSF bridge (OPUS ↔ IMBE transcoding)
 allstar_bridge→ Go binary, AllStar bridge (OPUS ↔ µLaw via IAX2)
 zello_bridge  → Go binary, Zello channel bridge (OPUS 48kHz ↔ 16kHz via WebSocket)

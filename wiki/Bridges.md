@@ -80,7 +80,41 @@ All `AGC_*` and `FILTER_*` variables exist for both directions (`SVX_TO_EXT_*` a
 
 ### DMR bridge
 
-Connects a local SVXReflector to a DMR network (e.g. BrandMeister). Runs as a standalone Go binary (`dmr-bridge-<id>`) that transcodes audio between OPUS (SVXReflector) and AMBE (DMR). Includes voice bandpass filter and AGC on both directions.
+Connects a local SVXReflector to a DMR network. Runs as a standalone Go binary (`dmr-bridge-<id>`) that transcodes audio between OPUS (SVXReflector) and AMBE+2 (DMR) via the MBEVocoder from DroidStar. Includes voice bandpass filter and AGC on both directions.
+
+The bridge supports two transport protocols, selected with the **Protocol** dropdown in the admin UI:
+
+- **MMDVM Homebrew** (`homebrew`, default) — logs in as a repeater using the MMDVM Homebrew protocol (`RPTL`/`RPTK`/`RPTC` handshake, default UDP port 62030). Use this for HBlink, TGIF, DMR+, IPSC2 and other masters that accept repeater logins.
+- **Open DMR Terminal / STFU** (`odmrtp`) — connects as a lightweight terminal using BrandMeister's Open DMR Terminal Protocol (the REWIND protocol, default UDP port 54006), authenticated with a SHA-256 challenge response over your BrandMeister **self-care hotspot password**. DVSwitch's "STFU" tool is another implementation of the same protocol.
+
+> **BrandMeister requires Open DMR Terminal for bridges.** BrandMeister's policy prohibits "peer bridging" over the MMDVM/Homebrew protocol, so a Homebrew login to a BrandMeister master will be ignored (connection times out). Select **Open DMR Terminal / STFU** for BrandMeister.
+
+Notes:
+- **DMR ID** for Open DMR Terminal must be the plain registered ID **without** the two-digit hotspot/SSID suffix.
+- **Timeslot** and **color code** apply to MMDVM Homebrew only; they are ignored (and hidden in the UI) for Open DMR Terminal.
+- Leave **Port** blank to use the protocol default (Homebrew 62030, ODMRTP 54006).
+
+Environment variables passed to the container:
+
+| Variable | Purpose |
+|---|---|
+| `REFLECTOR_HOST` | Local SVXReflector hostname |
+| `REFLECTOR_PORT` | Local SVXReflector port |
+| `REFLECTOR_AUTH_KEY` | Authentication key for the local reflector |
+| `REFLECTOR_TG` | Talkgroup to bridge |
+| `DMR_PROTOCOL` | `homebrew` (default) or `odmrtp` (BrandMeister Open DMR Terminal; `stfu` is accepted as an alias) |
+| `DMR_HOST` | DMR master / terminal server hostname or IP |
+| `DMR_PORT` | UDP port (default: 62030 for Homebrew, 54006 for ODMRTP) |
+| `DMR_ID` | Your registered DMR ID (no SSID suffix for ODMRTP) |
+| `DMR_PASSWORD` | Master password (Homebrew) or self-care hotspot password (ODMRTP) |
+| `DMR_TALKGROUP` | DMR talkgroup to bridge |
+| `DMR_TIMESLOT` | Timeslot 1 or 2 (Homebrew only) |
+| `DMR_COLOR_CODE` | Color code 0–15 (Homebrew only) |
+| `DMR_CALLSIGN` | Callsign reported to the DMR network (defaults to the local callsign) |
+| `CALLSIGN` | Bridge callsign on the local reflector |
+| `REDIS_URL` | Redis connection for DMR RX metadata publishing |
+
+All `AGC_*` and `FILTER_*` variables exist for both directions (`SVX_TO_EXT_*` and `EXT_TO_SVX_*`). See [Audio Processing](#audio-processing) for details.
 
 ### YSF bridge
 
