@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_27_090108) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_05_120000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -81,6 +81,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_090108) do
     t.integer "dmr_id"
     t.string "dmr_password"
     t.integer "dmr_port"
+    t.string "dmr_protocol", default: "homebrew"
     t.integer "dmr_talkgroup"
     t.integer "dmr_timeslot"
     t.string "echolink_accept_incoming"

@@ -305,6 +305,20 @@ class Bridge < ApplicationRecord
     lines
   end
 
+  # ODMRTP (BrandMeister Open DMR Terminal) uses a different default port than
+  # MMDVM Homebrew, so resolve protocol and port together.
+  def dmr_protocol_or_default
+    dmr_protocol.presence || "homebrew"
+  end
+
+  def dmr_odmrtp?
+    %w[odmrtp stfu].include?(dmr_protocol_or_default)
+  end
+
+  def dmr_port_or_default
+    dmr_port || (dmr_odmrtp? ? 54006 : 62030)
+  end
+
   private
 
   def ensure_mumble_bot_password
@@ -387,8 +401,9 @@ class Bridge < ApplicationRecord
     lines << "REFLECTOR_AUTH_KEY=#{local_auth_key}"
     lines << "REFLECTOR_TG=#{local_default_tg}"
     lines << "CALLSIGN=#{local_callsign}"
+    lines << "DMR_PROTOCOL=#{dmr_protocol_or_default}"
     lines << "DMR_HOST=#{dmr_host}"
-    lines << "DMR_PORT=#{dmr_port || 62030}"
+    lines << "DMR_PORT=#{dmr_port_or_default}"
     lines << "DMR_ID=#{dmr_id}"
     lines << "DMR_PASSWORD=#{dmr_password}"
     lines << "DMR_TALKGROUP=#{dmr_talkgroup}"

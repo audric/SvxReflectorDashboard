@@ -25,6 +25,13 @@
         DMR Network
       %i.bi.bi-chevron-down.accordion-chevron.text-gray-400.open{id: "chevron-dmr"}
     .accordion-body.px-4.open{id: "body-dmr"}
+      .mb-4
+        %label.block.text-sm.text-gray-500.mb-1 PROTOCOL
+        = f.select :dmr_protocol, [["MMDVM Homebrew (repeater)", "homebrew"], ["Open DMR Terminal / STFU (BrandMeister bridge)", "odmrtp"]], { selected: @bridge.dmr_protocol_or_default }, { id: "dmr_protocol_select", class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext" }
+        %p.text-xs.text-ghmuted.mt-1
+          MMDVM Homebrew logs in as a repeater (HBlink, TGIF, DMR+, IPSC2).
+          %strong BrandMeister
+          requires Open DMR Terminal (ODMRTP/STFU) for bridge connections — authenticate with your self-care hotspot password.
       .grid.grid-cols-1.md:grid-cols-2.gap-4
         .mb-1
           %label.block.text-sm.text-gray-500.mb-1 HOST
@@ -33,7 +40,7 @@
         .mb-1
           %label.block.text-sm.text-gray-500.mb-1 PORT
           = f.number_field :dmr_port, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "62030"
-          %p.text-xs.text-ghmuted.mt-1 MMDVM Homebrew port (default 62030)
+          %p.text-xs.text-ghmuted.mt-1 Leave blank for the default (Homebrew 62030, ODMRTP 54006)
         .mb-1
           %label.block.text-sm.text-gray-500.mb-1 DMR ID
           = f.number_field :dmr_id, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. 1234567"
@@ -46,14 +53,14 @@
           %label.block.text-sm.text-gray-500.mb-1 TALKGROUP
           = f.number_field :dmr_talkgroup, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. 310"
           %p.text-xs.text-ghmuted.mt-1 DMR talkgroup to bridge (e.g. 9990 for parrot)
-        .mb-1
+        .mb-1.dmr-repeater-only
           %label.block.text-sm.text-gray-500.mb-1 TIMESLOT
           = f.select :dmr_timeslot, [[1, 1], [2, 2]], {}, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext"
-          %p.text-xs.text-ghmuted.mt-1 DMR timeslot (1 or 2)
-        .mb-1
+          %p.text-xs.text-ghmuted.mt-1 DMR timeslot (1 or 2) — Homebrew only
+        .mb-1.dmr-repeater-only
           %label.block.text-sm.text-gray-500.mb-1 COLOR CODE
           = f.select :dmr_color_code, (0..15).map { |c| [c, c] }, {}, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext"
-          %p.text-xs.text-ghmuted.mt-1 DMR color code (0-15, default 1)
+          %p.text-xs.text-ghmuted.mt-1 DMR color code (0-15, default 1) — Homebrew only
         .mb-1
           %label.block.text-sm.text-gray-500.mb-1 CALLSIGN
           = f.text_field :dmr_callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext uppercase", placeholder: "e.g. F1ABC", style: "text-transform: uppercase"
@@ -129,6 +136,20 @@
     body.classList.toggle('open');
     chevron.classList.toggle('open');
   }
+
+  // Hide repeater-only fields (timeslot, color code) when using ODMRTP/STFU.
+  function syncDmrProtocol() {
+    var sel = document.getElementById('dmr_protocol_select');
+    if (!sel) return;
+    var odmrtp = (sel.value === 'odmrtp' || sel.value === 'stfu');
+    document.querySelectorAll('.dmr-repeater-only').forEach(function(el) {
+      el.style.display = odmrtp ? 'none' : '';
+    });
+  }
+  (function() {
+    var sel = document.getElementById('dmr_protocol_select');
+    if (sel) { sel.addEventListener('change', syncDmrProtocol); syncDmrProtocol(); }
+  })();
 
 - if @bridge.persisted?
   :javascript
