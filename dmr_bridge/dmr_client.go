@@ -124,7 +124,7 @@ func (c *DMRClient) Connect() error {
 		"000000000", "000000000", // RX/TX freq (not applicable for bridge)
 		"01", ccStr,
 		"0.0000", "0.0000", "000", // lat, lon, height
-		"DMR Bridge", "SVX-DMR Bridge", "", "DMR_Bridge", "1.0")
+		"DMR Bridge", "STFU_0.3.4 Linux x86_64", "", "DMR_Bridge", "1.0")
 	if _, err := c.conn.Write(configPkt); err != nil {
 		return fmt.Errorf("send RPTC: %w", err)
 	}

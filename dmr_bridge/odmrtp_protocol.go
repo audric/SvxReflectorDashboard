@@ -58,7 +58,7 @@ const (
 	// odmrtpAudioFrameLen is one "mode 33" superframe: 3 AMBE+2 frames.
 	odmrtpAudioFrameLen = 3 * AMBEFrameSize
 
-	rewindVersionDesc = "SVX-DMR Bridge"
+	rewindVersionDesc = "STFU_0.3.4 Linux x86_64"
 )
 
 // rewindPacket is a parsed REWIND transport-layer packet.
