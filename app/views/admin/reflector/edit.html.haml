@@ -89,6 +89,7 @@
   - help["TRUNK_BLACKLIST_TGS"] = "Comma-separated TG filter patterns (exact: 666, prefix: 777*, range: 100-199). These TGs are never carried on this link."
   - help["TRUNK_ALLOW_TGS"] = "If set, ONLY these TGs are exchanged. Same syntax as BLACKLIST_TGS."
   - help["TRUNK_TG_MAP"] = "Bidirectional TG remap: peer_tg:local_tg (comma-separated). Mapped TGs bypass prefix routing."
+  - help["TRUNK_ROUTABLE_PREFIXES"] = "Comma-separated extra TG prefixes this link will carry, in addition to the peer's REMOTE_PREFIX. Use it to route TGs the peer doesn't own (e.g. cluster or third-party prefixes). Empty = only REMOTE_PREFIX is routed."
   - help["SATELLITE_FILTER"] = "Bidirectional TG scope for this satellite link (same grammar as BLACKLIST_TGS/ALLOW_TGS — exact: 666, prefix: 777*, range: 100-199, comma-separated). Outbound: non-matching local events stay on the satellite. Inbound: the satellite advertises the filter to the parent (MsgTrunkFilter) so the parent skips forwarding non-matching TGs. Empty = no filtering. Requires GeuReflector ≥ v1.3.4 on the parent for inbound suppression."
   - help["REDIS_HOST"] = "Redis server hostname or IP address. Default: 127.0.0.1."
   - help["REDIS_PORT"] = "Redis TCP port. Default: 6379."
@@ -386,6 +387,12 @@
                                 %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('TRUNK_TG_MAP')", title: "Help"}
                                   %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
                               %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_tg_maps][]", value: trunk['TG_MAP'], placeholder: "100:200,101:201"}
+                            .col-span-2
+                              %label.block.text-sm.text-gray-500.mb-1
+                                ROUTABLE_PREFIXES (comma-separated)
+                                %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('TRUNK_ROUTABLE_PREFIXES')", title: "Help"}
+                                  %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                              %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_routable_prefixes][]", value: trunk['ROUTABLE_PREFIXES'], placeholder: "9,72"}
 
               %h6.text-sm.font-semibold.text-gray-400.mb-3.mt-4 Twin (HA Pair)
               .p-2.rounded.border.text-xs.mb-3{class: "border-gray-700 text-ghmuted bg-ghbg"}
@@ -1204,6 +1211,7 @@
               '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">BLACKLIST_TGS <button type="button" class="ml-1 text-gray-500 hover:text-blue-400 cursor-pointer" onclick="showHelp(\'TRUNK_BLACKLIST_TGS\')" title="Help"><i class="bi bi-question-circle" style="font-size:0.75rem"></i></button></label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_blacklist_tgs][]" placeholder="666,777*,100-199"></div>' +
               '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">ALLOW_TGS <button type="button" class="ml-1 text-gray-500 hover:text-blue-400 cursor-pointer" onclick="showHelp(\'TRUNK_ALLOW_TGS\')" title="Help"><i class="bi bi-question-circle" style="font-size:0.75rem"></i></button></label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_allow_tgs][]"></div>' +
               '<div class="col-span-2"><label class="block text-sm text-gray-500 mb-1">TG_MAP <button type="button" class="ml-1 text-gray-500 hover:text-blue-400 cursor-pointer" onclick="showHelp(\'TRUNK_TG_MAP\')" title="Help"><i class="bi bi-question-circle" style="font-size:0.75rem"></i></button></label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_tg_maps][]" placeholder="100:200,101:201"></div>' +
+              '<div class="col-span-2"><label class="block text-sm text-gray-500 mb-1">ROUTABLE_PREFIXES (comma-separated) <button type="button" class="ml-1 text-gray-500 hover:text-blue-400 cursor-pointer" onclick="showHelp(\'TRUNK_ROUTABLE_PREFIXES\')" title="Help"><i class="bi bi-question-circle" style="font-size:0.75rem"></i></button></label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_routable_prefixes][]" placeholder="9,72"></div>' +
             '</div></details></div>' +
           '</div>';
         container.appendChild(div);

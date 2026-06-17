@@ -661,6 +661,11 @@
                         %i.bi.bi-tag.text-ghdim{style: "font-size:.7rem"}
                         %span.text-xs.text-ghmuted Remote Prefix
                         %span.text-xs.font-mono.text-cyan-400.ml-auto= Array(trunk['remote_prefix']).flatten.flat_map { |x| x.to_s.split(',') }.map(&:strip).join(', ')
+                    - if trunk['routable_prefixes'].present?
+                      .flex.items-center.gap-2
+                        %i.bi.bi-signpost-split.text-ghdim{style: "font-size:.7rem"}
+                        %span.text-xs.text-ghmuted Routable Prefixes
+                        %span.text-xs.font-mono.text-cyan-400.ml-auto= Array(trunk['routable_prefixes']).flatten.flat_map { |x| x.to_s.split(',') }.map(&:strip).join(', ')
                   - if trunk['connected'] && trunk['active_talkers'].is_a?(Hash) && trunk['active_talkers'].any?
                     .mt-3.pt-3.border-t.border-ghborder2
                       .text-xs.text-ghmuted.mb-1.5
