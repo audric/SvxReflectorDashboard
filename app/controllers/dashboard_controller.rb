@@ -51,32 +51,88 @@ class DashboardController < ApplicationController
       end
     end
 
-    # Routing info: local prefix, trunk prefixes, cluster TGs
+    # Routing info. Mirrors GeuReflector's TrunkLink::isSharedTG /
+    # Reflector::hasPrefixRoute (src/svxlink/reflector/{TrunkLink,Reflector}.cpp):
+    #   \u2022 REMOTE_PREFIX  = TGs the peer owns
+    #   \u2022 ROUTABLE_PREFIXES = extra prefixes the link carries; "*" is a
+    #     zero-length DEFAULT ROUTE (lowest precedence, never transits)
+    #   \u2022 Routing is longest-prefix-match across the WHOLE mesh: a link carries
+    #     a TG only if no strictly-longer prefix matches it anywhere.
     config = ReflectorConfig.load
-    local_prefix = config.global["LOCAL_PREFIX"].to_s.split(",").map(&:strip).reject(&:blank?)
+    split = ->(v) { v.to_s.split(",").map(&:strip).reject(&:blank?) }
+    local_prefix = split.call(config.global["LOCAL_PREFIX"])
     trunk_routes = config.trunks.map { |name, cfg|
       status_url = cfg["STATUS_URL"].presence
       parsed = status_url ? (URI.parse(status_url) rescue nil) : nil
       portal_url = parsed ? "#{parsed.scheme}://#{parsed.host}" : nil
-      { name: name, prefix: cfg["REMOTE_PREFIX"].to_s.split(",").map(&:strip).reject(&:blank?), trunk_host: cfg["HOST"], portal_url: portal_url }
+      routable = split.call(cfg["ROUTABLE_PREFIXES"])
+      { name: name, label: cfg["HOST"].presence || name.sub(/\ATRUNK_/, ""),
+        remote: split.call(cfg["REMOTE_PREFIX"]),
+        routable: routable.reject { |p| p == "*" }, wildcard: routable.include?("*"),
+        portal_url: portal_url }
     }
     cluster_tgs = @cluster_tgs
 
+    # Mesh-wide prefix set (== Reflector::m_all_prefixes). "*" excluded.
+    all_prefixes = local_prefix + trunk_routes.flat_map { |t| t[:remote] + t[:routable] }
+
     parent_host = @reflector_config.dig('satellite', 'parent_host') || @reflector_config.dig('satellite', 'host') || config.global['SATELLITE_OF']
 
-    @route_for = ->(tg_num) {
+    # Length of the longest entry of `list` that is a prefix of tg_s (0 if none).
+    best_len = ->(tg_s, list) { list.select { |p| tg_s.start_with?(p) }.map(&:length).max || 0 }
+    # Does a strictly-longer mesh prefix match tg_s? (the longest-prefix loser test)
+    out_specificed = ->(tg_s, len) { all_prefixes.any? { |p| p.length > len && tg_s.start_with?(p) } }
+
+    # Returns { badges: [...], multi_peer: bool }. A TG resolves to local and/or
+    # one or more trunk peers; multi_peer flags \u22652 peers carrying the same TG
+    # (overlapping prefixes \u2192 routing-loop / ambiguity risk).
+    @routes_for = ->(tg_num) {
       tg_s = tg_num.to_s
+      badges = []
+      peer_count = 0
+
       if cluster_tgs.include?(tg_num)
-        { label: "cluster", css: "bg-cyan-900/30 text-cyan-400 border-cyan-700" }
+        badges << { label: "cluster", css: "bg-cyan-900/30 text-cyan-400 border-cyan-700",
+                    title: "Cluster TG \u2014 broadcast to all trunk peers" }
       elsif @reflector_mode == 'satellite' && parent_host.present?
-        { label: parent_host, css: "bg-purple-900/30 text-purple-400 border-purple-700", url: "https://#{parent_host}" }
-      elsif (trunk = trunk_routes.filter_map { |t| match = t[:prefix].select { |p| tg_s.start_with?(p) }.max_by(&:length); match ? [t, match.length] : nil }.max_by(&:last)&.first)
-        { label: trunk[:trunk_host] || trunk[:name].sub(/\ATRUNK_/, ""), css: "bg-purple-900/30 text-purple-400 border-purple-700", url: trunk[:portal_url] }
-      elsif local_prefix.any? { |p| tg_s.start_with?(p) }
-        { label: "local", css: "bg-green-900/30 text-green-400 border-green-700" }
+        badges << { label: parent_host, css: "bg-purple-900/30 text-purple-400 border-purple-700",
+                    url: "https://#{parent_host}", title: "Routed to parent #{parent_host}" }
       else
-        { label: "\u2014", css: nil }
+        # Local owns the TG when a LOCAL_PREFIX is the most-specific mesh match.
+        local_len = best_len.call(tg_s, local_prefix)
+        if local_len > 0 && !out_specificed.call(tg_s, local_len)
+          badges << { label: "local", css: "bg-green-900/30 text-green-400 border-green-700",
+                      title: "Owned locally (LOCAL_PREFIX)" }
+        end
+
+        # Each trunk that carries this TG, per TrunkLink::isSharedTG.
+        trunk_routes.each do |t|
+          link_len = best_len.call(tg_s, t[:remote] + t[:routable])
+          via_wildcard = false
+          if link_len.zero?
+            next unless t[:wildcard]   # "*" default route: only when nothing else claims it
+            via_wildcard = true
+          end
+          next if out_specificed.call(tg_s, link_len)   # a longer prefix elsewhere wins
+
+          peer_count += 1
+          owns = link_len.positive? && best_len.call(tg_s, t[:remote]) == link_len
+          if via_wildcard
+            badges << { label: "\u21aa #{t[:label]} *", css: "bg-purple-900/20 text-purple-300 border-purple-800 border-dashed",
+                        url: t[:portal_url], title: "Default route via #{t[:label]} (ROUTABLE_PREFIXES=*)" }
+          elsif owns
+            badges << { label: t[:label], css: "bg-purple-900/30 text-purple-400 border-purple-700",
+                        url: t[:portal_url], title: "Owned by #{t[:label]} (REMOTE_PREFIX)" }
+          else
+            badges << { label: "\u21aa #{t[:label]}", css: "bg-purple-900/20 text-purple-300 border-purple-800 border-dashed",
+                        url: t[:portal_url], title: "Relayed over #{t[:label]} (ROUTABLE_PREFIXES)" }
+          end
+        end
+
+        badges << { label: "\u2014", css: nil } if badges.empty?
       end
+
+      { badges: badges, multi_peer: peer_count >= 2 }
     }
   end
 
