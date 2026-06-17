@@ -782,6 +782,11 @@
                       %i.bi.bi-tag.text-ghdim{style: "font-size:.7rem"}
                       %span.text-xs.text-ghmuted Remote Prefix
                       %span.text-xs.font-mono.text-cyan-400.ml-auto= cfg['REMOTE_PREFIX']
+                  - if cfg['ROUTABLE_PREFIXES'].present?
+                    .flex.items-center.gap-2
+                      %i.bi.bi-signpost-split.text-ghdim{style: "font-size:.7rem"}
+                      %span.text-xs.text-ghmuted Routable Prefixes
+                      %span.text-xs.font-mono.text-cyan-400.ml-auto= cfg['ROUTABLE_PREFIXES']
                   - if cfg['BLACKLIST_TGS'].present?
                     .flex.items-center.gap-2
                       %i.bi.bi-slash-circle.text-ghdim{style: "font-size:.7rem"}
