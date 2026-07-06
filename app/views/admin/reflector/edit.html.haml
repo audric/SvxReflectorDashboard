@@ -69,6 +69,7 @@
   - help["ALLOW_MONITOR"] = "A regular expression that must match the callsign of nodes allowed to monitor this talkgroup. Uses the same regex format as ALLOW."
   - help["LOCAL_PREFIX"] = "GeuReflector: A comma-separated list of TG number prefixes that this reflector owns. Talkgroups whose number starts with one of these prefixes belong to this reflector. Example: LOCAL_PREFIX=1 means this reflector owns TGs 1, 10, 100, 1234, etc."
   - help["CLUSTER_TGS"] = "GeuReflector: A comma-separated list of TG numbers that should be broadcast to ALL trunk peers regardless of prefix ownership. These are network-wide channels (like BrandMeister nationwide). Must not overlap with any LOCAL_PREFIX or REMOTE_PREFIX. Example: CLUSTER_TGS=222,2221,91"
+  - help["LOCAL_ALIASES"] = "GeuReflector: Re-home a short local TG under one of this reflector's owned prefixes so it routes across the trunk mesh while local users keep dialing the short number. Comma-separated entries of the form localTG:aliasTG[/dir]; aliasTG must fall under a LOCAL_PREFIX. dir is 'in' (mesh->local only), 'out' (local->mesh only), or omitted for two-way. Example: with LOCAL_PREFIX=262, LOCAL_ALIASES=8:2620008 makes local TG 8 reachable mesh-wide as 2620008. Ignored on satellite nodes."
   - help["MQTT_HOST"] = "MQTT broker hostname or IP address. The bundled Mosquitto container is reachable at 'mqtt' from within Docker."
   - help["MQTT_PORT"] = "MQTT broker port. The bundled Mosquitto container listens on 1883. Use 8883 for external brokers with TLS."
   - help["MQTT_USERNAME"] = "Username for MQTT broker authentication."
@@ -318,6 +319,12 @@
                     %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CLUSTER_TGS')", title: "Help"}
                       %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
                   %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][CLUSTER_TGS]", value: @config.global['CLUSTER_TGS'], placeholder: "e.g. 222,2221,91"}
+              .mb-4
+                %label.block.text-sm.text-gray-500.mb-1
+                  LOCAL_ALIASES
+                  %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('LOCAL_ALIASES')", title: "Help"}
+                    %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][LOCAL_ALIASES]", value: @config.global['LOCAL_ALIASES'], placeholder: "e.g. 8:2620008,9:2620009/out"}
 
               %h6.text-sm.font-semibold.text-gray-400.mb-3 Trunk Peers
               #trunk-peers.space-y-4

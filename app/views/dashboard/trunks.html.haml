@@ -661,11 +661,14 @@
                         %i.bi.bi-tag.text-ghdim{style: "font-size:.7rem"}
                         %span.text-xs.text-ghmuted Remote Prefix
                         %span.text-xs.font-mono.text-cyan-400.ml-auto= Array(trunk['remote_prefix']).flatten.flat_map { |x| x.to_s.split(',') }.map(&:strip).join(', ')
-                    - if trunk['routable_prefixes'].present?
+                    - if trunk['routable_prefixes'].present? || trunk['routable_wildcard']
                       .flex.items-center.gap-2
                         %i.bi.bi-signpost-split.text-ghdim{style: "font-size:.7rem"}
                         %span.text-xs.text-ghmuted Routable Prefixes
-                        %span.text-xs.font-mono.text-cyan-400.ml-auto= Array(trunk['routable_prefixes']).flatten.flat_map { |x| x.to_s.split(',') }.map(&:strip).join(', ')
+                        %span.text-xs.font-mono.text-cyan-400.ml-auto
+                          = Array(trunk['routable_prefixes']).flatten.flat_map { |x| x.to_s.split(',') }.map(&:strip).join(', ')
+                          - if trunk['routable_wildcard']
+                            %span.text-purple-300{title: "Default route (ROUTABLE_PREFIXES=*)"}= trunk['routable_prefixes'].present? ? ', *' : '* (default route)'
                   - if trunk['connected'] && trunk['active_talkers'].is_a?(Hash) && trunk['active_talkers'].any?
                     .mt-3.pt-3.border-t.border-ghborder2
                       .text-xs.text-ghmuted.mb-1.5
@@ -734,6 +737,20 @@
             - if @cluster_tgs.any?
               %span.text-xs.text-ghmuted.ml-3 CLUSTER_TGS:
               %span.text-xs.font-mono.text-cyan-400.ml-1= @cluster_tgs.join(', ')
+
+        - if @local_aliases.present?
+          .mb-4.px-4.py-3.rounded-lg.border.border-ghborder{class: "bg-amber-900/10 border-amber-700/40"}
+            .flex.items-center.gap-2.mb-2
+              %i.bi.bi-signpost-2.text-amber-400{style: "font-size:.75rem"}
+              %span.text-xs.text-amber-300.font-semibold.uppercase Local Aliases
+              %span.text-xs.text-ghmuted Short local TGs re-homed under an owned prefix for mesh routing
+            .flex.flex-wrap.gap-2
+              - @local_aliases.each do |short, info|
+                %span.inline-flex.items-center.gap-1.text-xs.px-2.py-1.rounded.font-mono.border{class: "bg-amber-900/20 text-amber-300 border-amber-700/60"}
+                  %span.font-semibold= short
+                  %i.bi.bi-arrow-right{style: "font-size:.6rem"}
+                  %span= info[:long]
+                  %span.text-ghmuted.not-italic{class: "text-[0.65rem]"}= "(#{info[:direction]})"
 
         - if @reflector_config['twin'].is_a?(Hash) && @reflector_config['twin'].any?
           - twin = @reflector_config['twin']
@@ -937,6 +954,14 @@
                       %i.bi.bi-tag.text-ghdim{style: "font-size:.7rem"}
                       %span.text-xs.text-ghmuted Prefix
                       %span.text-xs.font-mono.text-cyan-400.ml-auto= Array(trunk['remote_prefix']).join(', ')
+                  - if trunk['routable_prefixes'].present? || trunk['routable_wildcard']
+                    .flex.items-center.gap-2
+                      %i.bi.bi-signpost-split.text-ghdim{style: "font-size:.7rem"}
+                      %span.text-xs.text-ghmuted Routable
+                      %span.text-xs.font-mono.text-cyan-400.ml-auto
+                        = Array(trunk['routable_prefixes']).flatten.flat_map { |x| x.to_s.split(',') }.map(&:strip).join(', ')
+                        - if trunk['routable_wildcard']
+                          %span.text-purple-300{title: "Default route (ROUTABLE_PREFIXES=*)"}= trunk['routable_prefixes'].present? ? ', *' : '* (default route)'
 
                 - if trunk['connected'] && trunk['active_talkers'].present? && trunk['active_talkers'].any?
                   .trunk-talkers.mt-3.pt-3.border-t.border-ghborder2

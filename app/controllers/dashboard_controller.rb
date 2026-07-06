@@ -61,6 +61,12 @@ class DashboardController < ApplicationController
     config = ReflectorConfig.load
     split = ->(v) { v.to_s.split(",").map(&:strip).reject(&:blank?) }
     local_prefix = split.call(config.global["LOCAL_PREFIX"])
+
+    # LOCAL_ALIASES re-home a short local TG under an owned prefix: locally it
+    # stays the short number, but on the mesh it routes as the long owned
+    # number. Routing badges must be computed on the long number.
+    aliases = parse_local_aliases(config)
+    @local_aliases = aliases
     trunk_routes = config.trunks.map { |name, cfg|
       status_url = cfg["STATUS_URL"].presence
       parsed = status_url ? (URI.parse(status_url) rescue nil) : nil
@@ -98,25 +104,35 @@ class DashboardController < ApplicationController
         badges << { label: parent_host, css: "bg-purple-900/30 text-purple-400 border-purple-700",
                     url: "https://#{parent_host}", title: "Routed to parent #{parent_host}" }
       else
+        # An aliased short TG routes on the mesh under its long owned number;
+        # local delivery still uses the short number. Compute prefix routing on
+        # the long number and flag the re-homing.
+        al = aliases[tg_s]
+        route_s = al ? al[:long] : tg_s
+        if al
+          badges << { label: "→ #{al[:long]}", css: "bg-amber-900/30 text-amber-400 border-amber-700",
+                      title: "Local TG #{tg_s} re-homed on the mesh as #{al[:long]} (#{al[:direction]})" }
+        end
+
         # Local owns the TG when a LOCAL_PREFIX is the most-specific mesh match.
-        local_len = best_len.call(tg_s, local_prefix)
-        if local_len > 0 && !out_specificed.call(tg_s, local_len)
+        local_len = best_len.call(route_s, local_prefix)
+        if local_len > 0 && !out_specificed.call(route_s, local_len)
           badges << { label: "local", css: "bg-green-900/30 text-green-400 border-green-700",
                       title: "Owned locally (LOCAL_PREFIX)" }
         end
 
         # Each trunk that carries this TG, per TrunkLink::isSharedTG.
         trunk_routes.each do |t|
-          link_len = best_len.call(tg_s, t[:remote] + t[:routable])
+          link_len = best_len.call(route_s, t[:remote] + t[:routable])
           via_wildcard = false
           if link_len.zero?
             next unless t[:wildcard]   # "*" default route: only when nothing else claims it
             via_wildcard = true
           end
-          next if out_specificed.call(tg_s, link_len)   # a longer prefix elsewhere wins
+          next if out_specificed.call(route_s, link_len)   # a longer prefix elsewhere wins
 
           peer_count += 1
-          owns = link_len.positive? && best_len.call(tg_s, t[:remote]) == link_len
+          owns = link_len.positive? && best_len.call(route_s, t[:remote]) == link_len
           if via_wildcard
             badges << { label: "\u21aa #{t[:label]} *", css: "bg-purple-900/20 text-purple-300 border-purple-800 border-dashed",
                         url: t[:portal_url], title: "Default route via #{t[:label]} (ROUTABLE_PREFIXES=*)" }
@@ -240,6 +256,7 @@ class DashboardController < ApplicationController
     @local_config = ReflectorConfig.load
     @local_trunks = @local_config.trunks
     @local_prefix = @local_config.global['LOCAL_PREFIX']
+    @local_aliases = parse_local_aliases(@local_config)
 
     # Read remote peer status from Redis (cached by trunk status threads)
     # Falls back to direct fetch if Redis key is missing (e.g. after restart)
@@ -350,6 +367,18 @@ class DashboardController < ApplicationController
     config = ReflectorConfig.load
     val = config.global["SQL_TIMEOUT"].to_i
     @sql_timeout_ms = val > 0 ? val * 1000 : nil
+  end
+
+  # Parse [GLOBAL] LOCAL_ALIASES=localTG:aliasTG[/dir] into
+  # { "<short>" => { long: "<long>", direction: "two-way"|"in"|"out" } }.
+  # Malformed entries are skipped (the reflector rejects them at load too).
+  def parse_local_aliases(config)
+    config.global["LOCAL_ALIASES"].to_s.split(",").each_with_object({}) do |entry, h|
+      lhs, dir = entry.strip.split("/", 2)
+      short_s, long_s = lhs.to_s.split(":", 2).map { |x| x.to_s.strip }
+      next if short_s !~ /\A\d+\z/ || long_s.to_s !~ /\A\d+\z/
+      h[short_s] = { long: long_s, direction: (dir.presence || "two-way").strip.downcase }
+    end
   end
 
   def merge_external_nodes

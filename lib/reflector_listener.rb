@@ -134,6 +134,7 @@ class ReflectorListener
     data['trunks']      = {} unless data['trunks'].is_a?(Hash)
     data['satellites']  = {} unless data['satellites'].is_a?(Hash)
     data['cluster_tgs'] = [] unless data['cluster_tgs'].is_a?(Array)
+    data['local_aliases'] = {} unless data['local_aliases'].is_a?(Hash)
 
     # Nodes: drop non-Hash entries, sanitize qth
     data['nodes'].reject! { |_, v| !v.is_a?(Hash) }
@@ -170,6 +171,12 @@ class ReflectorListener
     # cluster_tgs: keep only integers/numeric strings
     data['cluster_tgs'] = data['cluster_tgs'].select { |v| v.is_a?(Integer) || v.to_s =~ /\A\d+\z/ }.map(&:to_i)
 
+    # local_aliases: { "<shortTG>" => { "alias" => <longTG>, "direction" => ... } }
+    # keyed by numeric short TG, alias must be numeric; drop anything malformed.
+    data['local_aliases'].reject! do |short, v|
+      short.to_s !~ /\A\d+\z/ || !v.is_a?(Hash) || v['alias'].to_s !~ /\A\d+\z/
+    end
+
     data
   end
 
@@ -193,7 +200,7 @@ class ReflectorListener
       curr_cluster_tgs = status_data.fetch('cluster_tgs', [])
 
       # Extract config fields from /status (GeuReflector includes them inline)
-      curr_config = status_data.slice('mode', 'version', 'local_prefix', 'satellite', 'twin', 'cluster_tgs', 'http_port', 'listen_port').compact
+      curr_config = status_data.slice('mode', 'version', 'local_prefix', 'satellite', 'twin', 'cluster_tgs', 'local_aliases', 'http_port', 'listen_port').compact
 
       # Merge remote trunk nodes (tagged with _external)
       merge_trunk_status_nodes(curr)
