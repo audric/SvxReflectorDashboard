@@ -669,6 +669,10 @@ class Bridge < ApplicationRecord
     lines << "NAME=EchoLink"
     lines << "ID=2"
     lines << "TIMEOUT=60"
+    # Forward EchoLink audio across the logic link into the reflector. SvxLink
+    # defaults MUTE_LOGIC_LINKING to 1 (audio stays local), which would keep
+    # inbound EchoLink traffic from ever reaching ReflectorLogicLocal.
+    lines << "MUTE_LOGIC_LINKING=0"
     lines << "SERVERS=#{echolink_servers.presence || "servers.echolink.org"}"
     lines << "CALLSIGN=#{echolink_callsign}"
     lines << "PASSWORD=#{echolink_password}"
