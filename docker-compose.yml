@@ -189,6 +189,11 @@ services:
     build: ./mumble_bridge
     profiles: ["build-only"]
 
+  usrp_bridge:
+    image: ghcr.io/audric/svxreflectordashboard-usrp-bridge
+    build: ./usrp_bridge
+    profiles: ["build-only"]
+
   mqtt:
     image: eclipse-mosquitto:2
     logging: *default-logging

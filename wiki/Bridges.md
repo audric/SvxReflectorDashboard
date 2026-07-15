@@ -225,9 +225,46 @@ All `FILTER_*` and `AGC_*` variables (both directions) apply as for the other Go
 
 A server-wide **welcome message** (shown in the client on connect) can be set under **Admin → System Info → Settings → Mumble**; it is applied live via Ice.
 
+### USRP bridge
+
+Connects a local SVXReflector to the **DVSwitch ecosystem** (Analog_Bridge, MMDVM_Bridge, and thus AllStar/DMR/YSF/… behind them) and to DL1HRC's [svxlink `UsrpLogic`](https://github.com/dl1hrc/svxlink/tree/svxlink-usrp) over the **USRP protocol** — the simple UDP transport used across DVSwitch. Runs as a standalone Go binary (`usrp-bridge-<id>`).
+
+USRP carries **raw 8 kHz 16-bit PCM** (no vocoder), so the bridge is one generic PCM pipe: it re-samples between the reflector side (Opus 16 kHz, like every other Go bridge) and the 8 kHz USRP wire, applying the same voice bandpass filter + AGC on both directions.
+
+Key features:
+- **Persistent UDP peer link** — USRP has no call setup; the bridge sends to `USRP_HOST:USRP_TX_PORT` and listens on `USRP_RX_PORT`. By convention our TX port is the peer's RX port and vice-versa.
+- **No vocoder** — 8 kHz signed 16-bit little-endian PCM, 160 samples (320 bytes) per 20 ms frame, behind a 32-byte USRP header. Cheap and lossless across the link.
+- **Half-duplex, first-talker-wins** — while the reflector TG is talking, inbound USRP audio is held off, and vice-versa.
+- **Talker metadata (TLV)** — on transmit the bridge sends a `TLV_TAG_SET_INFO` (0x08) record carrying the reflector talker's callsign and TG so the DVSwitch/MMDVM side can display it; inbound TLV is parsed and the remote talker's callsign is published to Redis (`usrp_rx:<callsign>`) and shown on the dashboard node card.
+- **Auto-reconnect** with exponential backoff on the reflector side dropping, plus an audio-inactivity watchdog that releases the reflector talker if the peer never sends a clean PTT-off.
+
+Environment variables passed to the container:
+
+| Variable | Purpose |
+|---|---|
+| `REFLECTOR_HOST` | Local SVXReflector hostname |
+| `REFLECTOR_PORT` | Local SVXReflector port |
+| `REFLECTOR_AUTH_KEY` | Authentication key for the local reflector |
+| `REFLECTOR_TG` | Talkgroup to bridge |
+| `CALLSIGN` | Bridge callsign on the local reflector |
+| `USRP_HOST` | DVSwitch peer hostname or IP (Analog_Bridge, MMDVM_Bridge, …) |
+| `USRP_TX_PORT` | Port we send audio to — the peer's RX port (default 41234) |
+| `USRP_RX_PORT` | Port we listen on — the peer's TX port (default 41233) |
+| `REDIS_URL` | Redis connection (optional, for RX talker metadata) |
+
+All `AGC_*` and `FILTER_*` variables exist for both directions (`SVX_TO_EXT_*` and `EXT_TO_SVX_*`). See [Audio processing](#audio-processing) for details.
+
+Audio path:
+```
+SVX → USRP:  Opus 16kHz → PCM 16kHz → HPF → LPF → AGC → downsample 8kHz → 160-sample USRP voice frames (keyup=1)
+USRP → SVX:  8kHz USRP frames → upsample 16kHz → HPF → LPF → AGC → 20ms Opus frames → UDP
+```
+
+> **Note on wire byte order:** USRP header integer fields are big-endian (network order), while the audio samples are little-endian int16 — the long-standing DVSwitch convention the bridge follows.
+
 ## Audio processing
 
-All Go-based bridges (XLX, DMR, YSF, AllStar, Zello, IAX, SIP, Mumble) apply a three-stage audio processing pipeline on both directions (reflector→remote and remote→reflector).
+All Go-based bridges (XLX, DMR, YSF, AllStar, Zello, IAX, SIP, Mumble, USRP) apply a three-stage audio processing pipeline on both directions (reflector→remote and remote→reflector).
 
 > **Note:** This processing only applies inside the Go bridge binaries. The core analog path (radio → SVXLink repeater → reflector) has no filtering from the dashboard — audio processing on the repeater side is handled by SVXLink's own audio chain (PREAMP, PEAK_METER, LADSPA plugins), configured by the repeater operator.
 
@@ -286,7 +323,7 @@ Each SVXLink bridge writes a `node_info.json` file that the SVXLink process send
 
 | Field | Value |
 |---|---|
-| `nodeClass` | `"echolink"`, `"bridge"`, `"xlx"`, `"zello"`, `"mumble"`, etc. |
+| `nodeClass` | `"echolink"`, `"bridge"`, `"xlx"`, `"zello"`, `"mumble"`, `"usrp"`, etc. |
 | `nodeLocation` | Custom location string, defaults to bridge name |
 | `hidden` | Always `false` |
 | `sysop` | Sysop name (optional) |
@@ -355,6 +392,7 @@ bridge/
     zello_bridge.env        # Zello bridge env config
     zello_private_key.pem   # Zello JWT private key
     mumble_bridge.env       # Mumble bridge env config
+    usrp_bridge.env         # USRP bridge env config
     backups/
       20260307_143022/      # Snapshot directories
         svxlink.conf

@@ -49,5 +49,7 @@
         = render 'form_sip'
       - elsif @bridge.mumble?
         = render 'form_mumble'
+      - elsif @bridge.usrp?
+        = render 'form_usrp'
       - else
         = render 'form'

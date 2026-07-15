@@ -62,7 +62,7 @@
             %i.bi.bi-plus.mr-1
             New Bridge
             %i.bi.bi-chevron-down{style: "font-size: 0.6rem"}
-          - bridge_meta = {'reflector' => ['bi-diagram-3', 'Reflector'], 'echolink' => ['bi-headset', 'EchoLink'], 'xlx' => ['bi-globe', 'XLX'], 'dmr' => ['bi-broadcast-pin', 'DMR'], 'ysf' => ['bi-soundwave', 'YSF'], 'allstar' => ['bi-telephone', 'AllStar'], 'zello' => ['bi-phone', 'Zello'], 'iax' => ['bi-phone-vibrate', 'IAX'], 'sip' => ['bi-headset-vr', 'SIP'], 'mumble' => ['bi-mic', 'Mumble']}
+          - bridge_meta = {'reflector' => ['bi-diagram-3', 'Reflector'], 'echolink' => ['bi-headset', 'EchoLink'], 'xlx' => ['bi-globe', 'XLX'], 'dmr' => ['bi-broadcast-pin', 'DMR'], 'ysf' => ['bi-soundwave', 'YSF'], 'allstar' => ['bi-telephone', 'AllStar'], 'zello' => ['bi-phone', 'Zello'], 'iax' => ['bi-phone-vibrate', 'IAX'], 'sip' => ['bi-headset-vr', 'SIP'], 'mumble' => ['bi-mic', 'Mumble'], 'usrp' => ['bi-hdd-network', 'USRP']}
           #new-menu.absolute.right-0.mt-1.w-48.rounded-md.border.border-gray-600.bg-ghcard.shadow-xl.z-50.hidden
             - Bridge::BRIDGE_TYPES.each_with_index do |bt, i|
               - icon, label = bridge_meta[bt] || ['bi-link-45deg', bt.titleize]
@@ -244,6 +244,13 @@
                       .flex.items-center.gap-2
                         %span.text-ghmuted Mumble:
                         %span.text-gray-300.font-mono= "#{bridge.mumble_host}:#{bridge.mumble_port} ##{bridge.mumble_channel}"
+                      .flex.items-center.gap-2
+                        %span.text-ghmuted Reflector:
+                        %span.text-gray-300.font-mono= "#{bridge.local_callsign}@#{bridge.local_host}:#{bridge.local_port} TG#{bridge.local_default_tg}"
+                    - elsif bridge.usrp?
+                      .flex.items-center.gap-2
+                        %span.text-ghmuted USRP:
+                        %span.text-gray-300.font-mono= "#{bridge.usrp_host} tx#{bridge.usrp_tx_port || 41234}/rx#{bridge.usrp_rx_port || 41233}"
                       .flex.items-center.gap-2
                         %span.text-ghmuted Reflector:
                         %span.text-gray-300.font-mono= "#{bridge.local_callsign}@#{bridge.local_host}:#{bridge.local_port} TG#{bridge.local_default_tg}"

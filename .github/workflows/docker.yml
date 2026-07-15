@@ -17,6 +17,7 @@ env:
   ZELLO_IMAGE: ghcr.io/${{ github.repository_owner }}/svxreflectordashboard-zello-bridge
   IAX_IMAGE: ghcr.io/${{ github.repository_owner }}/svxreflectordashboard-iax-bridge
   SIP_IMAGE: ghcr.io/${{ github.repository_owner }}/svxreflectordashboard-sip-bridge
+  USRP_IMAGE: ghcr.io/${{ github.repository_owner }}/svxreflectordashboard-usrp-bridge
   MUMBLE_BRIDGE_IMAGE: ghcr.io/${{ github.repository_owner }}/svxreflectordashboard-mumble-bridge
   MUMBLE_IMAGE: ghcr.io/${{ github.repository_owner }}/svxreflectordashboard-mumble
   PLATFORMS: linux/amd64,linux/arm64
@@ -407,6 +408,43 @@ jobs:
       - uses: docker/build-push-action@v7
         with:
           context: ./mumble_bridge
+          platforms: ${{ env.PLATFORMS }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-usrp-bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-qemu-action@v4
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.USRP_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: ./usrp_bridge
           platforms: ${{ env.PLATFORMS }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}

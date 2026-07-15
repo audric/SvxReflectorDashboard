@@ -15,7 +15,7 @@ A Rails web application for monitoring amateur radio [SVXReflector](https://www.
 - CTCSS tone-to-talkgroup matrix with CHIRP CSV export
 - GeuReflector support — trunk link status, satellite monitoring, cluster TG indicators, and network-wide analytics
 - Web admin for SVXReflector/GeuReflector configuration (global settings, certificates, users, passwords, TG rules, trunk peers, satellites)
-- Multi-protocol bridge management — SVXLink reflector-to-reflector, EchoLink, XLX (DCS/DExtra), DMR, YSF, AllStar, Zello, IAX (Asterisk/HOIP), SIP (PJSIP), and Mumble (self-hosted voice server with per-user access) bridges with auto-generated configs, snapshot backups, and 30-day archive on delete
+- Multi-protocol bridge management — SVXLink reflector-to-reflector, EchoLink, XLX (DCS/DExtra), DMR, YSF, AllStar, Zello, IAX (Asterisk/HOIP), SIP (PJSIP), Mumble (self-hosted voice server with per-user access), and USRP (DVSwitch / svxlink UsrpLogic) bridges with auto-generated configs, snapshot backups, and 30-day archive on delete
 - User management with callsign validation, admin approval, and role-based permissions
 
 ## Quick start
@@ -54,6 +54,7 @@ iax_bridge          → Go binary, generic Asterisk/HOIP bridge via IAX2 (OPUS �
 sip_bridge          → Go + C (PJSIP) bridge to any SIP endpoint, UDP/TCP/TLS with DTMF/PIN gate
 zello_bridge        → Go binary, Zello bridge (OPUS 48kHz ↔ 16kHz via WebSocket)
 mumble_bridge       → Go binary, relays a TG ↔ Mumble channel (half-duplex, OPUS, no vocoder)
+usrp_bridge         → Go binary, USRP bridge to DVSwitch/svxlink UsrpLogic (8kHz PCM over UDP, no vocoder)
 mumble              → Mumble voice server (mumblevoip/mumble-server + ZeroC Ice mgmt) — users connect with any Mumble client; managed live by the dashboard
 mqtt                → Mosquitto 2 broker for GeuReflector event publishing
 redis               → ActionCable + snapshot cache + RX metadata + audio pub/sub

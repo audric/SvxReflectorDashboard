@@ -1,7 +1,7 @@
 class Bridge < ApplicationRecord
   has_many :bridge_tg_mappings, dependent: :destroy
 
-  ALL_BRIDGE_TYPES = %w[reflector echolink xlx dmr ysf allstar zello iax sip mumble].freeze
+  ALL_BRIDGE_TYPES = %w[reflector echolink xlx dmr ysf allstar zello iax sip mumble usrp].freeze
   BRIDGE_TYPES = (ENV.fetch('BRIDGE_TYPES', 'reflector').split(',').map(&:strip) & ALL_BRIDGE_TYPES).freeze
 
   validates :name, presence: true, uniqueness: true
@@ -97,6 +97,13 @@ class Bridge < ApplicationRecord
     validates :mumble_channel, presence: true
   end
 
+  # USRP-specific validations (DVSwitch / svxlink UsrpLogic peer)
+  with_options if: :usrp? do
+    validates :usrp_host, presence: true
+    validates :usrp_tx_port, presence: true, numericality: { greater_than: 0, less_than: 65536 }
+    validates :usrp_rx_port, presence: true, numericality: { greater_than: 0, less_than: 65536 }
+  end
+
   # Returns the 8-char DCS callsign: base callsign (space-padded to 7) + suffix letter.
   def dcs_callsign
     "%-7s%s" % [xlx_callsign.to_s.upcase, xlx_callsign_suffix.to_s.upcase]
@@ -148,6 +155,10 @@ class Bridge < ApplicationRecord
     bridge_type == "mumble"
   end
 
+  def usrp?
+    bridge_type == "usrp"
+  end
+
   # Username the bot registers/logs in with on the Mumble server. Defaults to
   # the reflector callsign when no dedicated bot username is set.
   def mumble_username
@@ -155,7 +166,7 @@ class Bridge < ApplicationRecord
   end
 
   def has_agc?
-    xlx? || dmr? || ysf? || allstar? || zello? || iax? || sip? || mumble?
+    xlx? || dmr? || ysf? || allstar? || zello? || iax? || sip? || mumble? || usrp?
   end
 
   AGC_DEFAULTS = {
@@ -197,6 +208,8 @@ class Bridge < ApplicationRecord
       "sip-bridge-#{id}"
     elsif mumble?
       "mumble-bridge-#{id}"
+    elsif usrp?
+      "usrp-bridge-#{id}"
     else
       "svxlink-bridge-#{id}"
     end
@@ -224,12 +237,14 @@ class Bridge < ApplicationRecord
       generate_sip_config
     elsif mumble?
       generate_mumble_config
+    elsif usrp?
+      generate_usrp_config
     elsif echolink?
       generate_echolink_config
     else
       generate_reflector_config
     end
-    write_node_info unless xlx? || dmr? || ysf? || allstar? || zello? || iax? || sip? || mumble?
+    write_node_info unless xlx? || dmr? || ysf? || allstar? || zello? || iax? || sip? || mumble? || usrp?
   end
 
   def echolink_conf_path
@@ -500,6 +515,24 @@ class Bridge < ApplicationRecord
     lines.concat(agc_env_lines)
     lines << ""
     File.write(config_dir.join("mumble_bridge.env"), lines.join("\n"))
+  end
+
+  def generate_usrp_config
+    lines = []
+    lines << "# USRP Bridge configuration (passed as env vars to container)"
+    lines << "REFLECTOR_HOST=#{local_host}"
+    lines << "REFLECTOR_PORT=#{local_port}"
+    lines << "REFLECTOR_AUTH_KEY=#{local_auth_key}"
+    lines << "REFLECTOR_TG=#{local_default_tg}"
+    lines << "CALLSIGN=#{local_callsign}"
+    lines << "USRP_HOST=#{usrp_host}"
+    lines << "USRP_TX_PORT=#{usrp_tx_port || 41234}"
+    lines << "USRP_RX_PORT=#{usrp_rx_port || 41233}"
+    lines << "NODE_LOCATION=#{node_location.presence || name}"
+    lines << "SYSOP=#{sysop}" if sysop.present?
+    lines.concat(agc_env_lines)
+    lines << ""
+    File.write(config_dir.join("usrp_bridge.env"), lines.join("\n"))
   end
 
   def generate_iax_config
@@ -804,7 +837,8 @@ class Bridge < ApplicationRecord
              config_dir.join("zello_bridge.env"), config_dir.join("zello_private_key.pem"),
              config_dir.join("iax_bridge.env"),
              config_dir.join("sip_bridge.env"),
-             config_dir.join("mumble_bridge.env")].select(&:exist?)
+             config_dir.join("mumble_bridge.env"),
+             config_dir.join("usrp_bridge.env")].select(&:exist?)
     return if files.empty?
 
     migrate_legacy_backups if Dir.glob(config_dir.join("*.bak")).any?

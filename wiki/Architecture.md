@@ -14,6 +14,7 @@ ysf_bridge    → Go binary, YSF bridge (OPUS ↔ IMBE transcoding)
 allstar_bridge→ Go binary, AllStar bridge (OPUS ↔ µLaw via IAX2)
 zello_bridge  → Go binary, Zello channel bridge (OPUS 48kHz ↔ 16kHz via WebSocket)
 mumble_bridge → Go binary, relays an SVX TG ↔ Mumble channel (half-duplex, OPUS, no vocoder)
+usrp_bridge   → Go binary, USRP bridge to DVSwitch/svxlink UsrpLogic (8kHz PCM over UDP, no vocoder)
 mumble        → Mumble voice server (mumblevoip/mumble-server); users connect with any Mumble client
 mqtt          → Eclipse Mosquitto 2 MQTT broker for GeuReflector event publishing
 redis         → ActionCable adapter + audio pub/sub + web node metadata cache
@@ -136,7 +137,7 @@ Browser mic → MediaStreamTrackProcessor → Opus encoder
 
 ### Audio path — protocol bridges
 
-All Go-based bridges (XLX, DMR, YSF, AllStar, Zello, IAX, SIP, Mumble) apply a three-stage audio processing pipeline:
+All Go-based bridges (XLX, DMR, YSF, AllStar, Zello, IAX, SIP, Mumble, USRP) apply a three-stage audio processing pipeline:
 
 ```
 SVX → Remote:  OPUS decode → PCM → HPF 300Hz → LPF 3kHz → AGC + Limiter → Vocoder encode
@@ -146,6 +147,13 @@ Remote → SVX:  Vocoder decode → PCM → HPF 300Hz → LPF 3kHz → AGC + Lim
 - **HPF/LPF** — 2nd-order Butterworth bandpass (300–3000 Hz), removes hum and HF noise
 - **AGC** — automatic gain control with configurable attack/decay rates
 - **Hard limiter** — absolute ceiling at 90% of full scale, prevents vocoder clipping
+
+The vocoder stage is present only for the digital-voice bridges (XLX/DMR/YSF). The **no-vocoder** bridges (Zello, Mumble, USRP) substitute plain resampling for it — USRP, for example, re-samples 8 kHz PCM ↔ Opus 16 kHz rather than encoding a vocoder frame:
+
+```
+SVX → USRP:  OPUS decode 16kHz → HPF → LPF → AGC + Limiter → downsample 8kHz → USRP PCM (UDP)
+USRP → SVX:  USRP PCM 8kHz → upsample 16kHz → HPF → LPF → AGC + Limiter → OPUS encode 16kHz
+```
 
 All parameters are configurable per-bridge from the admin UI. See [[Bridges#audio-processing]] for details.
 
