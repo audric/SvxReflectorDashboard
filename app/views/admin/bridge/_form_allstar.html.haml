@@ -35,9 +35,9 @@
           = f.text_field :allstar_password, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "Node password"
           %p.text-xs.text-ghmuted.mt-1 AllStar node password
         .mb-1
-          %label.block.text-sm.text-gray-500.mb-1 SERVER
-          = f.text_field :allstar_server, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. register.allstarlink.org"
-          %p.text-xs.text-ghmuted.mt-1 AllStar registration server
+          %label.block.text-sm.text-gray-500.mb-1 NODE HOST / IP
+          = f.text_field :allstar_server, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "e.g. 193.70.17.196"
+          %p.text-xs.text-ghmuted.mt-1 Hostname or IP of the AllStar node to connect to (IAX2)
         .mb-1
           %label.block.text-sm.text-gray-500.mb-1 PORT
           = f.number_field :allstar_port, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext", placeholder: "4569"
