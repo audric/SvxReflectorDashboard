@@ -310,6 +310,20 @@ func BuildConfigPacket(rptID uint32, callsign string, rxFreq, txFreq string,
 	return buf
 }
 
+// SigRPTO is the RPTO (repeater options) command signature.
+const SigRPTO = "RPTO"
+
+// BuildOptionsPacket creates an RPTO packet carrying a free-form options
+// string, sent after RPTC config is accepted. Some masters (e.g. ADN's
+// DMR peer server) parse this for static-TG pinning, e.g. "TS2=22270;TIMER=0".
+func BuildOptionsPacket(rptID uint32, options string) []byte {
+	buf := make([]byte, 8+len(options))
+	copy(buf[0:4], SigRPTO)
+	binary.BigEndian.PutUint32(buf[4:8], rptID)
+	copy(buf[8:], options)
+	return buf
+}
+
 // BuildPongPacket creates an RPTPONG response to MSTPING.
 func BuildPongPacket(rptID uint32) []byte {
 	buf := make([]byte, 11)

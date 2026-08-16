@@ -328,7 +328,7 @@
                 - dmr = node['dmr_rx']
                 .mb-2.flex.items-center.gap-2.flex-wrap{id: "node-#{callsign}-dmr-rx", class: (dmr ? '' : 'hidden')}
                   %i.bi.bi-broadcast-pin.text-amber-400
-                  %span.text-amber-300.font-mono.font-semibold{id: "node-#{callsign}-dmr-srcid"}= dmr&.dig('src_id')
+                  %span.text-amber-300.font-mono.font-semibold{id: "node-#{callsign}-dmr-srcid"}= dmr&.dig('callsign') || dmr&.dig('src_id')
                   %span.text-gray-500.text-xs{id: "node-#{callsign}-dmr-tg"}
                     TG
                     %span.text-gray-400= dmr&.dig('talkgroup')
@@ -798,7 +798,7 @@
             if (dmr && dmr.src_id) {
               dmrRow.classList.remove('hidden');
               var srcEl = document.getElementById('node-' + callsign + '-dmr-srcid');
-              if (srcEl) srcEl.textContent = dmr.src_id;
+              if (srcEl) srcEl.textContent = dmr.callsign || dmr.src_id;
               var tgEl = document.getElementById('node-' + callsign + '-dmr-tg');
               if (tgEl) tgEl.querySelector('span').textContent = dmr.talkgroup;
               var tsEl = document.getElementById('node-' + callsign + '-dmr-ts');
@@ -978,7 +978,7 @@
           var dmr = n.dmr_rx;
           h += '<div class="mb-2 flex items-center gap-2 flex-wrap' + (dmr && dmr.src_id ? '' : ' hidden') + '" id="node-' + cs + '-dmr-rx">';
           h += '<i class="bi bi-broadcast-pin text-amber-400"></i>';
-          h += '<span class="text-amber-300 font-mono font-semibold" id="node-' + cs + '-dmr-srcid">' + (dmr && dmr.src_id ? dmr.src_id : '') + '</span>';
+          h += '<span class="text-amber-300 font-mono font-semibold" id="node-' + cs + '-dmr-srcid">' + (dmr && (dmr.callsign || dmr.src_id) ? (dmr.callsign || dmr.src_id) : '') + '</span>';
           h += '<span class="text-gray-500 text-xs" id="node-' + cs + '-dmr-tg">TG <span class="text-gray-400">' + (dmr && dmr.talkgroup ? dmr.talkgroup : '') + '</span></span>';
           h += '<span class="text-gray-500 text-xs" id="node-' + cs + '-dmr-ts">TS <span class="text-gray-400">' + (dmr && dmr.timeslot ? dmr.timeslot : '') + '</span></span>';
           h += '</div>';
