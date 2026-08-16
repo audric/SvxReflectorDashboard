@@ -677,8 +677,14 @@ module Admin
           "SYSOP=#{bridge.sysop}",
           "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
         ] + agc_env_array(bridge),
+        ExposedPorts: {
+          "#{bridge.usrp_rx_port || 41233}/udp" => {}
+        },
         HostConfig: {
-          RestartPolicy: { Name: "unless-stopped" }
+          RestartPolicy: { Name: "unless-stopped" },
+          PortBindings: {
+            "#{bridge.usrp_rx_port || 41233}/udp" => [{ "HostPort" => "#{bridge.usrp_rx_port || 41233}" }]
+          }
         }
       }
       body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
@@ -726,6 +732,18 @@ module Admin
           RestartPolicy: { Name: "unless-stopped" }
         }
       }
+      if bridge.echolink?
+        body[:ExposedPorts] = {
+          "5200/tcp" => {},
+          "5198/udp" => {},
+          "5199/udp" => {}
+        }
+        body[:HostConfig][:PortBindings] = {
+          "5200/tcp" => [{ "HostPort" => "5200" }],
+          "5198/udp" => [{ "HostPort" => "5198" }],
+          "5199/udp" => [{ "HostPort" => "5199" }]
+        }
+      end
       body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
 
       result = docker_api_post_json("/containers/create?name=#{bridge.container_name}", body)
