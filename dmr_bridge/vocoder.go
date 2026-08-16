@@ -1,22 +1,11 @@
 package main
 
-/*
-#cgo LDFLAGS: -L/usr/local/lib -lvocoder_wrapper -lmbevocoder -lstdc++ -lm
-#cgo CFLAGS: -I/usr/local/include
-
-#include <stdint.h>
-
-// C wrapper for DroidStar MBEVocoder (DMR AMBE+2)
-extern void* mbe_vocoder_new();
-extern void  mbe_vocoder_free(void* voc);
-extern void  mbe_vocoder_decode_dmr(void* voc, uint8_t* ambe, int16_t* pcm);
-extern void  mbe_vocoder_encode_dmr(void* voc, int16_t* pcm, uint8_t* ambe);
-*/
-import "C"
-
 import (
+	"encoding/binary"
+	"fmt"
+	"io"
+	"os/exec"
 	"sync"
-	"unsafe"
 )
 
 // PCM audio parameters
@@ -26,29 +15,48 @@ const (
 	AMBEFrameSize = 9    // 9 bytes = 72 bits DMR AMBE+2
 )
 
-// Vocoder wraps DroidStar's MBEVocoder for DMR AMBE+2 2450x1150.
-// The library is NOT thread-safe, so all calls are serialized with a mutex.
+// Vocoder wraps a persistent md380_helper subprocess (the real MD380
+// radio firmware running under qemu-arm emulation) for DMR AMBE+2
+// 2450x1150 encode/decode. The subprocess speaks a simple framed
+// protocol over stdin/stdout: 'D'+9 bytes AMBE -> 320 bytes PCM,
+// 'E'+320 bytes PCM -> 9 bytes AMBE. Requests are serialized by mu,
+// matching the subprocess's single request-in-flight design.
 type Vocoder struct {
-	handle unsafe.Pointer
+	cmd    *exec.Cmd
+	stdin  io.WriteCloser
+	stdout io.ReadCloser
 	mu     sync.Mutex
 }
 
-// NewVocoder creates and initializes a new MBEVocoder instance.
+// NewVocoder starts the md380_helper subprocess (runs under qemu-arm via
+// the host's registered binfmt_misc handler; no qemu binary needed in
+// this container).
 func NewVocoder() (*Vocoder, error) {
-	h := C.mbe_vocoder_new()
-	if h == nil {
-		return nil, nil
+	cmd := exec.Command("/usr/local/bin/md380_helper")
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return nil, fmt.Errorf("md380_helper stdin: %w", err)
 	}
-	return &Vocoder{handle: h}, nil
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("md380_helper stdout: %w", err)
+	}
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("md380_helper start: %w", err)
+	}
+	return &Vocoder{cmd: cmd, stdin: stdin, stdout: stdout}, nil
 }
 
-// Close destroys the vocoder instance.
+// Close terminates the subprocess.
 func (v *Vocoder) Close() {
 	v.mu.Lock()
 	defer v.mu.Unlock()
-	if v.handle != nil {
-		C.mbe_vocoder_free(v.handle)
-		v.handle = nil
+	if v.stdin != nil {
+		v.stdin.Close()
+	}
+	if v.cmd != nil && v.cmd.Process != nil {
+		v.cmd.Process.Kill()
+		v.cmd.Wait()
 	}
 }
 
@@ -58,11 +66,19 @@ func (v *Vocoder) Decode(ambe [9]byte) [PCMFrameSize]int16 {
 	defer v.mu.Unlock()
 
 	var pcm [PCMFrameSize]int16
-	C.mbe_vocoder_decode_dmr(
-		v.handle,
-		(*C.uint8_t)(unsafe.Pointer(&ambe[0])),
-		(*C.int16_t)(unsafe.Pointer(&pcm[0])),
-	)
+	req := make([]byte, 1+9)
+	req[0] = 'D'
+	copy(req[1:], ambe[:])
+	if _, err := v.stdin.Write(req); err != nil {
+		return pcm
+	}
+	buf := make([]byte, PCMFrameSize*2)
+	if _, err := io.ReadFull(v.stdout, buf); err != nil {
+		return pcm
+	}
+	for i := 0; i < PCMFrameSize; i++ {
+		pcm[i] = int16(binary.LittleEndian.Uint16(buf[i*2 : i*2+2]))
+	}
 	return pcm
 }
 
@@ -72,10 +88,18 @@ func (v *Vocoder) Encode(pcm [PCMFrameSize]int16) [9]byte {
 	defer v.mu.Unlock()
 
 	var ambe [9]byte
-	C.mbe_vocoder_encode_dmr(
-		v.handle,
-		(*C.int16_t)(unsafe.Pointer(&pcm[0])),
-		(*C.uint8_t)(unsafe.Pointer(&ambe[0])),
-	)
+	req := make([]byte, 1+PCMFrameSize*2)
+	req[0] = 'E'
+	for i := 0; i < PCMFrameSize; i++ {
+		binary.LittleEndian.PutUint16(req[1+i*2:1+i*2+2], uint16(pcm[i]))
+	}
+	if _, err := v.stdin.Write(req); err != nil {
+		return ambe
+	}
+	buf := make([]byte, 9)
+	if _, err := io.ReadFull(v.stdout, buf); err != nil {
+		return ambe
+	}
+	copy(ambe[:], buf)
 	return ambe
 }
