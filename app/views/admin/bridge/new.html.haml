@@ -51,5 +51,7 @@
         = render 'form_janus'
       - elsif @bridge.mumble?
         = render 'form_mumble'
+      - elsif @bridge.usrp?
+        = render 'form_usrp'
       - else
         = render 'form'

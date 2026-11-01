@@ -16,9 +16,15 @@ import (
 )
 
 const (
-	SVXSampleRate = 48000
-	SVXFrameSize  = 960 // 20ms @ 48kHz (SVX Opus frame)
-	MumbleFrame   = 480 // 10ms @ 48kHz (gumble outgoing frame)
+	SVXSampleRate = 48000 // SVX<->Mumble internal PCM rate (Mumble/gumble is 48kHz native)
+	SVXFrameSize  = 960   // 20ms @ 48kHz — SVX->Mumble decode buffer
+	MumbleFrame   = 480   // 10ms @ 48kHz (gumble outgoing frame)
+
+	// SVX-bound Opus is encoded at 16kHz to match the SvxLink ecosystem
+	// (svxlink/SVXConnect decode at 16kHz; 48kHz frames arrive as silence
+	// there). Mumble->SVX PCM is downsampled 48k->16k before encoding.
+	SVXEncRate  = 16000
+	SVXEncFrame = 320 // 20ms @ 16kHz
 )
 
 func main() {
@@ -42,16 +48,18 @@ func main() {
 	log.Printf("Config: SVX=%s:%d TG=%d | Mumble=%s:%d user=%s channel=%q",
 		svxHost, svxPort, svxTG, mumbleHost, mumblePort, mumbleUser, mumbleChannel)
 
-	// Opus codec for the SVX side (both directions 48kHz mono).
+	// SVX Opus: decode incoming TG audio at 48kHz (libopus upsamples
+	// svxlink's 16kHz stream to Mumble's native rate); encode SVX-bound
+	// audio at 16kHz to match the SvxLink ecosystem.
 	svxDec, err := opus.NewDecoder(SVXSampleRate, 1)
 	if err != nil {
 		log.Fatalf("OPUS decoder init: %v", err)
 	}
-	svxEnc, err := opus.NewEncoder(SVXSampleRate, 1, opus.AppVoIP)
+	svxEnc, err := opus.NewEncoder(SVXEncRate, 1, opus.AppVoIP)
 	if err != nil {
 		log.Fatalf("OPUS encoder init: %v", err)
 	}
-	svxEnc.SetBitrate(24000)
+	svxEnc.SetBitrate(16000)
 	svxEnc.SetComplexity(5)
 
 	sigCh := make(chan os.Signal, 1)
@@ -102,7 +110,10 @@ func runBridge(
 		filtSvxToMum = NewVoiceFilterFromEnv("FILTER_SVX_TO_EXT_", float64(SVXSampleRate))
 		filtMumToSvx = NewVoiceFilterFromEnv("FILTER_EXT_TO_SVX_", float64(SVXSampleRate))
 
-		// Reframe buffer for Mumble -> SVX (accumulate to 960 samples).
+		// Downsampler for Mumble -> SVX: 48kHz PCM -> 16kHz before Opus encode.
+		decim = NewDecimator3()
+
+		// Reframe buffer for Mumble -> SVX (accumulate to SVXEncFrame samples).
 		mumBuf   []int16
 		mumBufMu sync.Mutex
 
@@ -213,6 +224,7 @@ func runBridge(
 
 		filtMumToSvx.Reset()
 		agcMumToSvx.Reset()
+		decim.Reset()
 		mumBufMu.Lock()
 		mumBuf = mumBuf[:0]
 		mumBufMu.Unlock()
@@ -239,14 +251,15 @@ func runBridge(
 		copy(work, pcm)
 		filtMumToSvx.Process(work)
 		agcMumToSvx.Process(work)
+		work16 := decim.Process(work) // 48kHz -> 16kHz for SVX-bound Opus
 
 		sent := 0
 		mumBufMu.Lock()
-		mumBuf = append(mumBuf, work...)
-		for len(mumBuf) >= SVXFrameSize {
-			chunk := make([]int16, SVXFrameSize)
-			copy(chunk, mumBuf[:SVXFrameSize])
-			mumBuf = mumBuf[SVXFrameSize:]
+		mumBuf = append(mumBuf, work16...)
+		for len(mumBuf) >= SVXEncFrame {
+			chunk := make([]int16, SVXEncFrame)
+			copy(chunk, mumBuf[:SVXEncFrame])
+			mumBuf = mumBuf[SVXEncFrame:]
 			mumBufMu.Unlock()
 
 			opusBuf := make([]byte, 512)

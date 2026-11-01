@@ -10,7 +10,7 @@ Welcome to the SVX Dashboard wiki — the complete reference for deploying, usin
 - **[[User Management]]** — registration, approval, and permissions
 - **[[Google OAuth]]** — optional Google sign-in setup
 - **[[Rate Limiting]]** — `/status` throttling policy and tuning
-- **[[Bridges]]** — multi-protocol bridges (reflector, EchoLink, XLX, DMR, YSF, AllStar, Zello, IAX, SIP, Mumble), audio processing (filter/AGC), config generation, backups
+- **[[Bridges]]** — multi-protocol bridges (reflector, EchoLink, XLX, DMR, YSF, AllStar, Zello, IAX, SIP, Mumble, USRP), audio processing (filter/AGC), config generation, backups
 - **[[Audio Bridge]]** — the Go service that connects browsers to the reflector
 - **[[Reflector Protocol]]** — SVXReflector protocol V2 wire format
 - **[[Troubleshooting]]** — common issues and fixes

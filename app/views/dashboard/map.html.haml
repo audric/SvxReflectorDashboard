@@ -27,6 +27,7 @@
     %link{rel: "stylesheet", href: "/vendor/leaflet/leaflet.css"}
     :css
       body { background: #0d1117; margin: 0; }
+      .dark-tiles { filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9); }
       #map { height: calc(100vh - 72px); width: 100%; position: relative; z-index: 0; }
       @media (min-width: 1024px) {
         body { padding-top: 0 !important; }
@@ -213,8 +214,8 @@
         // ── Tile layers ────────────────────────────────────────────────────────────
         var tileLayers = {
           '<i class="bi bi-moon-stars mr-1"></i>Dark': L.tileLayer(
-            'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-            { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>', subdomains: 'abcd', maxZoom: 19 }
+            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', maxZoom: 19, className: 'dark-tiles' }
           ),
           '<i class="bi bi-signpost-2 mr-1"></i>Street': L.tileLayer(
             'https://tile.openstreetmap.org/{z}/{x}/{y}.png',

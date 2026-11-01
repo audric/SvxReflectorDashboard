@@ -28,7 +28,7 @@
     :css
       body { background: #0d1117; }
       .accordion-body { max-height: 0; overflow: hidden; padding-top: 0; padding-bottom: 0; transition: max-height 0.3s ease, padding 0.3s ease; }
-      .accordion-body.open { max-height: 5000px; padding-top: 1rem; padding-bottom: 1rem; }
+      .accordion-body.open { padding-top: 1rem; padding-bottom: 1rem; }
       .accordion-chevron { transition: transform 0.3s ease; }
       .accordion-chevron.open { transform: rotate(180deg); }
 
@@ -69,6 +69,7 @@
   - help["ALLOW_MONITOR"] = "A regular expression that must match the callsign of nodes allowed to monitor this talkgroup. Uses the same regex format as ALLOW."
   - help["LOCAL_PREFIX"] = "GeuReflector: A comma-separated list of TG number prefixes that this reflector owns. Talkgroups whose number starts with one of these prefixes belong to this reflector. Example: LOCAL_PREFIX=1 means this reflector owns TGs 1, 10, 100, 1234, etc."
   - help["CLUSTER_TGS"] = "GeuReflector: A comma-separated list of TG numbers that should be broadcast to ALL trunk peers regardless of prefix ownership. These are network-wide channels (like BrandMeister nationwide). Must not overlap with any LOCAL_PREFIX or REMOTE_PREFIX. Example: CLUSTER_TGS=222,2221,91"
+  - help["LOCAL_ALIASES"] = "GeuReflector: Re-home a short local TG under one of this reflector's owned prefixes so it routes across the trunk mesh while local users keep dialing the short number. Comma-separated entries of the form localTG:aliasTG[/dir]; aliasTG must fall under a LOCAL_PREFIX. dir is 'in' (mesh->local only), 'out' (local->mesh only), or omitted for two-way. Example: with LOCAL_PREFIX=262, LOCAL_ALIASES=8:2620008 makes local TG 8 reachable mesh-wide as 2620008. Ignored on satellite nodes."
   - help["MQTT_HOST"] = "MQTT broker hostname or IP address. The bundled Mosquitto container is reachable at 'mqtt' from within Docker."
   - help["MQTT_PORT"] = "MQTT broker port. The bundled Mosquitto container listens on 1883. Use 8883 for external brokers with TLS."
   - help["MQTT_USERNAME"] = "Username for MQTT broker authentication."
@@ -89,6 +90,7 @@
   - help["TRUNK_BLACKLIST_TGS"] = "Comma-separated TG filter patterns (exact: 666, prefix: 777*, range: 100-199). These TGs are never carried on this link."
   - help["TRUNK_ALLOW_TGS"] = "If set, ONLY these TGs are exchanged. Same syntax as BLACKLIST_TGS."
   - help["TRUNK_TG_MAP"] = "Bidirectional TG remap: peer_tg:local_tg (comma-separated). Mapped TGs bypass prefix routing."
+  - help["TRUNK_ROUTABLE_PREFIXES"] = "Comma-separated extra TG prefixes this link will carry, in addition to the peer's REMOTE_PREFIX. Use it to route TGs the peer doesn't own (e.g. cluster or third-party prefixes). Empty = only REMOTE_PREFIX is routed."
   - help["SATELLITE_FILTER"] = "Bidirectional TG scope for this satellite link (same grammar as BLACKLIST_TGS/ALLOW_TGS — exact: 666, prefix: 777*, range: 100-199, comma-separated). Outbound: non-matching local events stay on the satellite. Inbound: the satellite advertises the filter to the parent (MsgTrunkFilter) so the parent skips forwarding non-matching TGs. Empty = no filtering. Requires GeuReflector ≥ v1.3.4 on the parent for inbound suppression."
   - help["REDIS_HOST"] = "Redis server hostname or IP address. Default: 127.0.0.1."
   - help["REDIS_PORT"] = "Redis TCP port. Default: 6379."
@@ -317,6 +319,12 @@
                     %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('CLUSTER_TGS')", title: "Help"}
                       %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
                   %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][CLUSTER_TGS]", value: @config.global['CLUSTER_TGS'], placeholder: "e.g. 222,2221,91"}
+              .mb-4
+                %label.block.text-sm.text-gray-500.mb-1
+                  LOCAL_ALIASES
+                  %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('LOCAL_ALIASES')", title: "Help"}
+                    %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                %input.w-full.px-3.py-2.rounded-md.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[global][LOCAL_ALIASES]", value: @config.global['LOCAL_ALIASES'], placeholder: "e.g. 8:2620008,9:2620009/out"}
 
               %h6.text-sm.font-semibold.text-gray-400.mb-3 Trunk Peers
               #trunk-peers.space-y-4
@@ -386,6 +394,12 @@
                                 %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('TRUNK_TG_MAP')", title: "Help"}
                                   %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
                               %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_tg_maps][]", value: trunk['TG_MAP'], placeholder: "100:200,101:201"}
+                            .col-span-2
+                              %label.block.text-sm.text-gray-500.mb-1
+                                ROUTABLE_PREFIXES (comma-separated)
+                                %button.ml-1.text-gray-500.hover:text-blue-400.cursor-pointer{type: "button", onclick: "showHelp('TRUNK_ROUTABLE_PREFIXES')", title: "Help"}
+                                  %i.bi.bi-question-circle{style: "font-size: 0.75rem"}
+                              %input.w-full.px-2.py-1.rounded.border.border-gray-600.text-sm{class: "bg-[#0d1117]", type: "text", name: "config[trunk_routable_prefixes][]", value: trunk['ROUTABLE_PREFIXES'], placeholder: "9,72"}
 
               %h6.text-sm.font-semibold.text-gray-400.mb-3.mt-4 Twin (HA Pair)
               .p-2.rounded.border.text-xs.mb-3{class: "border-gray-700 text-ghmuted bg-ghbg"}
@@ -940,7 +954,20 @@
       function toggleSection(id) {
         var body = document.getElementById('body-' + id);
         var chevron = document.getElementById('chevron-' + id);
-        body.classList.toggle('open');
+        var opening = !body.classList.contains('open');
+        if (opening) {
+          body.style.maxHeight = body.scrollHeight + 'px';
+          body.classList.add('open');
+          body.addEventListener('transitionend', function handler(e) {
+            if (e.propertyName === 'max-height' && body.classList.contains('open')) body.style.maxHeight = 'none';
+            body.removeEventListener('transitionend', handler);
+          });
+        } else {
+          body.style.maxHeight = body.scrollHeight + 'px';
+          body.offsetHeight; // force reflow so the collapse below animates from this height
+          body.classList.remove('open');
+          body.style.maxHeight = '0px';
+        }
         chevron.classList.toggle('open');
         var btn = document.getElementById('btn-' + id);
         if (btn) {
@@ -1144,7 +1171,7 @@
         tr.innerHTML = '<td class="py-2 pr-2"><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[user_callsigns][]" placeholder="CALLSIGN"></td>' +
           '<td class="py-2 pr-2"><select class="user-group-select w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" name="config[user_groups][]"></select></td>' +
           '<td class="py-2 text-center"><button type="button" class="text-red-400 hover:text-red-300 cursor-pointer" onclick="confirmRemove(this,\'tr\')"><i class="bi bi-x-lg"></i></button></td>';
-        tbody.appendChild(tr);
+        tbody.insertBefore(tr, tbody.firstChild);
         syncGroupSelects();
         var body = document.getElementById('body-users');
         if (!body.classList.contains('open')) toggleSection('users');
@@ -1204,6 +1231,7 @@
               '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">BLACKLIST_TGS <button type="button" class="ml-1 text-gray-500 hover:text-blue-400 cursor-pointer" onclick="showHelp(\'TRUNK_BLACKLIST_TGS\')" title="Help"><i class="bi bi-question-circle" style="font-size:0.75rem"></i></button></label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_blacklist_tgs][]" placeholder="666,777*,100-199"></div>' +
               '<div class="col-span-1"><label class="block text-sm text-gray-500 mb-1">ALLOW_TGS <button type="button" class="ml-1 text-gray-500 hover:text-blue-400 cursor-pointer" onclick="showHelp(\'TRUNK_ALLOW_TGS\')" title="Help"><i class="bi bi-question-circle" style="font-size:0.75rem"></i></button></label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_allow_tgs][]"></div>' +
               '<div class="col-span-2"><label class="block text-sm text-gray-500 mb-1">TG_MAP <button type="button" class="ml-1 text-gray-500 hover:text-blue-400 cursor-pointer" onclick="showHelp(\'TRUNK_TG_MAP\')" title="Help"><i class="bi bi-question-circle" style="font-size:0.75rem"></i></button></label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_tg_maps][]" placeholder="100:200,101:201"></div>' +
+              '<div class="col-span-2"><label class="block text-sm text-gray-500 mb-1">ROUTABLE_PREFIXES (comma-separated) <button type="button" class="ml-1 text-gray-500 hover:text-blue-400 cursor-pointer" onclick="showHelp(\'TRUNK_ROUTABLE_PREFIXES\')" title="Help"><i class="bi bi-question-circle" style="font-size:0.75rem"></i></button></label><input class="w-full px-2 py-1 rounded border border-gray-600 text-sm bg-[#0d1117]" type="text" name="config[trunk_routable_prefixes][]" placeholder="9,72"></div>' +
             '</div></details></div>' +
           '</div>';
         container.appendChild(div);

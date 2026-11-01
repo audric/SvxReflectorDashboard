@@ -16,12 +16,10 @@ import (
 )
 
 const (
-	SVXSampleRate   = 48000
-	SVXFrameSize    = 960  // 20ms at 48kHz
-	ZelloDecodeRate = 48000 // decode Zello OPUS at 48kHz (OPUS resamples internally)
+	SVXSampleRate   = 16000 // SvxLink ecosystem decodes Opus at 16kHz (matches every other bridge + Zello native rate)
+	SVXFrameSize    = 320  // 20ms at 16kHz
 	ZelloEncodeRate = 16000
 	ZelloEncFrame   = 960  // 60ms at 16kHz
-	SVXPerZello     = 3    // 60ms / 20ms = 3 SVX frames per Zello frame
 )
 
 func main() {
@@ -67,7 +65,7 @@ func main() {
 	zelloEnc.SetBitrate(16000)
 	zelloEnc.SetComplexity(5)
 
-	// Zello→SVX: decode Zello OPUS at 48kHz (OPUS resamples internally), encode for SVX at 48kHz
+	// Zello→SVX: decode Zello OPUS at 16kHz (Zello native rate), encode for SVX at 16kHz (SvxLink convention)
 	zelloDec, err := opus.NewDecoder(SVXSampleRate, 1)
 	if err != nil {
 		log.Fatalf("OPUS decoder (Zello→SVX) init: %v", err)
@@ -76,7 +74,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("OPUS encoder (SVX) init: %v", err)
 	}
-	svxEnc.SetBitrate(24000)
+	svxEnc.SetBitrate(16000)
 	svxEnc.SetComplexity(5)
 
 	log.Println("OPUS codecs initialized (4 instances: 2 decoders + 2 encoders)")
@@ -180,7 +178,7 @@ func runBridge(
 	}
 
 	// --- SVX → Zello audio path ---
-	// Receive OPUS 48kHz from SVX, decode to PCM 16kHz, buffer 60ms, encode OPUS 16kHz for Zello
+	// Receive OPUS 16kHz from SVX, decode to PCM 16kHz, buffer 60ms, encode OPUS 16kHz for Zello
 	svx.SetAudioCallback(func(opusFrame []byte) {
 		zelloTalkMu.Lock()
 		if zelloTalking {
@@ -350,7 +348,7 @@ func runBridge(
 
 		// Decode Zello OPUS at 48kHz (OPUS handles 16kHz→48kHz internally)
 		// Buffer large enough for up to 120ms (Zello may send multi-frame packets)
-		pcm := make([]int16, SVXSampleRate/1000*120) // 5760 samples max
+		pcm := make([]int16, SVXSampleRate/1000*120) // 1920 samples max (120ms @ 16kHz)
 		n, err := zelloDec.Decode(opusData, pcm)
 		if err != nil {
 			log.Printf("[Zello→SVX] OPUS decode error: %v", err)

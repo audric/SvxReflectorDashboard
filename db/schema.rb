@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_27_090108) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_15_120000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -81,6 +81,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_090108) do
     t.integer "dmr_id"
     t.string "dmr_password"
     t.integer "dmr_port"
+    t.string "dmr_protocol", default: "homebrew"
     t.integer "dmr_talkgroup"
     t.integer "dmr_timeslot"
     t.string "echolink_accept_incoming"
@@ -176,6 +177,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_090108) do
     t.integer "timeout"
     t.integer "udp_heartbeat_interval"
     t.datetime "updated_at", null: false
+    t.string "usrp_host"
+    t.integer "usrp_rx_port", default: 41233
+    t.integer "usrp_tx_port", default: 41234
     t.boolean "verbose"
     t.string "xlx_callsign"
     t.string "xlx_callsign_suffix"

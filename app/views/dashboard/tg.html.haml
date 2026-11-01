@@ -226,14 +226,18 @@
                     - else
                       %span.text-ghdim —
                   %td.px-4.py-3
-                    - route = @route_for.call(tg_num)
-                    - if route[:css]
-                      - if route[:url]
-                        %a.text-xs.px-1.5.py-0.5.rounded-full.border.font-mono.hover:brightness-125.transition{class: route[:css], href: route[:url], target: "_blank", rel: "noopener"}= route[:label]
-                      - else
-                        %span.text-xs.px-1.5.py-0.5.rounded-full.border.font-mono{class: route[:css]}= route[:label]
-                    - else
-                      %span.text-xs.text-ghmuted= route[:label]
+                    - route = @routes_for.call(tg_num)
+                    .flex.flex-wrap.items-center.gap-1
+                      - if route[:multi_peer]
+                        %i.bi.bi-exclamation-triangle-fill.text-amber-400{style: "font-size:.72rem", title: "Carried by multiple trunk peers — overlapping prefixes may cause routing loops or ambiguity"}
+                      - route[:badges].each do |b|
+                        - if b[:css]
+                          - if b[:url]
+                            %a.text-xs.px-1.5.py-0.5.rounded-full.border.font-mono.hover:brightness-125.transition{class: b[:css], href: b[:url], target: "_blank", rel: "noopener", title: b[:title]}= b[:label]
+                          - else
+                            %span.text-xs.px-1.5.py-0.5.rounded-full.border.font-mono{class: b[:css], title: b[:title]}= b[:label]
+                        - else
+                          %span.text-xs.text-ghmuted= b[:label]
 
     - nodes_json = @nodes.to_json.html_safe
     - db_tgs = @tgs_db.map { |t| { tg: t.tg.to_i, name: t.name, description: t.description.to_s } }

@@ -80,7 +80,41 @@ All `AGC_*` and `FILTER_*` variables exist for both directions (`SVX_TO_EXT_*` a
 
 ### DMR bridge
 
-Connects a local SVXReflector to a DMR network (e.g. BrandMeister). Runs as a standalone Go binary (`dmr-bridge-<id>`) that transcodes audio between OPUS (SVXReflector) and AMBE (DMR). Includes voice bandpass filter and AGC on both directions.
+Connects a local SVXReflector to a DMR network. Runs as a standalone Go binary (`dmr-bridge-<id>`) that transcodes audio between OPUS (SVXReflector) and AMBE+2 (DMR) via the MBEVocoder from DroidStar. Includes voice bandpass filter and AGC on both directions.
+
+The bridge supports two transport protocols, selected with the **Protocol** dropdown in the admin UI:
+
+- **MMDVM Homebrew** (`homebrew`, default) — logs in as a repeater using the MMDVM Homebrew protocol (`RPTL`/`RPTK`/`RPTC` handshake, default UDP port 62030). Use this for HBlink, TGIF, DMR+, IPSC2 and other masters that accept repeater logins.
+- **Open DMR Terminal / STFU** (`odmrtp`) — connects as a lightweight terminal using BrandMeister's Open DMR Terminal Protocol (the REWIND protocol, default UDP port 54006), authenticated with a SHA-256 challenge response over your BrandMeister **self-care hotspot password**. DVSwitch's "STFU" tool is another implementation of the same protocol.
+
+> **BrandMeister requires Open DMR Terminal for bridges.** BrandMeister's policy prohibits "peer bridging" over the MMDVM/Homebrew protocol, so a Homebrew login to a BrandMeister master will be ignored (connection times out). Select **Open DMR Terminal / STFU** for BrandMeister.
+
+Notes:
+- **DMR ID** for Open DMR Terminal must be the plain registered ID **without** the two-digit hotspot/SSID suffix.
+- **Timeslot** and **color code** apply to MMDVM Homebrew only; they are ignored (and hidden in the UI) for Open DMR Terminal.
+- Leave **Port** blank to use the protocol default (Homebrew 62030, ODMRTP 54006).
+
+Environment variables passed to the container:
+
+| Variable | Purpose |
+|---|---|
+| `REFLECTOR_HOST` | Local SVXReflector hostname |
+| `REFLECTOR_PORT` | Local SVXReflector port |
+| `REFLECTOR_AUTH_KEY` | Authentication key for the local reflector |
+| `REFLECTOR_TG` | Talkgroup to bridge |
+| `DMR_PROTOCOL` | `homebrew` (default) or `odmrtp` (BrandMeister Open DMR Terminal; `stfu` is accepted as an alias) |
+| `DMR_HOST` | DMR master / terminal server hostname or IP |
+| `DMR_PORT` | UDP port (default: 62030 for Homebrew, 54006 for ODMRTP) |
+| `DMR_ID` | Your registered DMR ID (no SSID suffix for ODMRTP) |
+| `DMR_PASSWORD` | Master password (Homebrew) or self-care hotspot password (ODMRTP) |
+| `DMR_TALKGROUP` | DMR talkgroup to bridge |
+| `DMR_TIMESLOT` | Timeslot 1 or 2 (Homebrew only) |
+| `DMR_COLOR_CODE` | Color code 0–15 (Homebrew only) |
+| `DMR_CALLSIGN` | Callsign reported to the DMR network (defaults to the local callsign) |
+| `CALLSIGN` | Bridge callsign on the local reflector |
+| `REDIS_URL` | Redis connection for DMR RX metadata publishing |
+
+All `AGC_*` and `FILTER_*` variables exist for both directions (`SVX_TO_EXT_*` and `EXT_TO_SVX_*`). See [Audio Processing](#audio-processing) for details.
 
 ### YSF bridge
 
@@ -191,9 +225,46 @@ All `FILTER_*` and `AGC_*` variables (both directions) apply as for the other Go
 
 A server-wide **welcome message** (shown in the client on connect) can be set under **Admin → System Info → Settings → Mumble**; it is applied live via Ice.
 
+### USRP bridge
+
+Connects a local SVXReflector to the **DVSwitch ecosystem** (Analog_Bridge, MMDVM_Bridge, and thus AllStar/DMR/YSF/… behind them) and to DL1HRC's [svxlink `UsrpLogic`](https://github.com/dl1hrc/svxlink/tree/svxlink-usrp) over the **USRP protocol** — the simple UDP transport used across DVSwitch. Runs as a standalone Go binary (`usrp-bridge-<id>`).
+
+USRP carries **raw 8 kHz 16-bit PCM** (no vocoder), so the bridge is one generic PCM pipe: it re-samples between the reflector side (Opus 16 kHz, like every other Go bridge) and the 8 kHz USRP wire, applying the same voice bandpass filter + AGC on both directions.
+
+Key features:
+- **Persistent UDP peer link** — USRP has no call setup; the bridge sends to `USRP_HOST:USRP_TX_PORT` and listens on `USRP_RX_PORT`. By convention our TX port is the peer's RX port and vice-versa.
+- **No vocoder** — 8 kHz signed 16-bit little-endian PCM, 160 samples (320 bytes) per 20 ms frame, behind a 32-byte USRP header. Cheap and lossless across the link.
+- **Half-duplex, first-talker-wins** — while the reflector TG is talking, inbound USRP audio is held off, and vice-versa.
+- **Talker metadata (TLV)** — on transmit the bridge sends a `TLV_TAG_SET_INFO` (0x08) record carrying the reflector talker's callsign and TG so the DVSwitch/MMDVM side can display it; inbound TLV is parsed and the remote talker's callsign is published to Redis (`usrp_rx:<callsign>`) and shown on the dashboard node card.
+- **Auto-reconnect** with exponential backoff on the reflector side dropping, plus an audio-inactivity watchdog that releases the reflector talker if the peer never sends a clean PTT-off.
+
+Environment variables passed to the container:
+
+| Variable | Purpose |
+|---|---|
+| `REFLECTOR_HOST` | Local SVXReflector hostname |
+| `REFLECTOR_PORT` | Local SVXReflector port |
+| `REFLECTOR_AUTH_KEY` | Authentication key for the local reflector |
+| `REFLECTOR_TG` | Talkgroup to bridge |
+| `CALLSIGN` | Bridge callsign on the local reflector |
+| `USRP_HOST` | DVSwitch peer hostname or IP (Analog_Bridge, MMDVM_Bridge, …) |
+| `USRP_TX_PORT` | Port we send audio to — the peer's RX port (default 41234) |
+| `USRP_RX_PORT` | Port we listen on — the peer's TX port (default 41233) |
+| `REDIS_URL` | Redis connection (optional, for RX talker metadata) |
+
+All `AGC_*` and `FILTER_*` variables exist for both directions (`SVX_TO_EXT_*` and `EXT_TO_SVX_*`). See [Audio processing](#audio-processing) for details.
+
+Audio path:
+```
+SVX → USRP:  Opus 16kHz → PCM 16kHz → HPF → LPF → AGC → downsample 8kHz → 160-sample USRP voice frames (keyup=1)
+USRP → SVX:  8kHz USRP frames → upsample 16kHz → HPF → LPF → AGC → 20ms Opus frames → UDP
+```
+
+> **Note on wire byte order:** USRP header integer fields are big-endian (network order), while the audio samples are little-endian int16 — the long-standing DVSwitch convention the bridge follows.
+
 ## Audio processing
 
-All Go-based bridges (XLX, DMR, YSF, AllStar, Zello, IAX, SIP, Mumble) apply a three-stage audio processing pipeline on both directions (reflector→remote and remote→reflector).
+All Go-based bridges (XLX, DMR, YSF, AllStar, Zello, IAX, SIP, Mumble, USRP) apply a three-stage audio processing pipeline on both directions (reflector→remote and remote→reflector).
 
 > **Note:** This processing only applies inside the Go bridge binaries. The core analog path (radio → SVXLink repeater → reflector) has no filtering from the dashboard — audio processing on the repeater side is handled by SVXLink's own audio chain (PREAMP, PEAK_METER, LADSPA plugins), configured by the repeater operator.
 
@@ -252,7 +323,7 @@ Each SVXLink bridge writes a `node_info.json` file that the SVXLink process send
 
 | Field | Value |
 |---|---|
-| `nodeClass` | `"echolink"`, `"bridge"`, `"xlx"`, `"zello"`, `"mumble"`, etc. |
+| `nodeClass` | `"echolink"`, `"bridge"`, `"xlx"`, `"zello"`, `"mumble"`, `"usrp"`, etc. |
 | `nodeLocation` | Custom location string, defaults to bridge name |
 | `hidden` | Always `false` |
 | `sysop` | Sysop name (optional) |
@@ -321,6 +392,7 @@ bridge/
     zello_bridge.env        # Zello bridge env config
     zello_private_key.pem   # Zello JWT private key
     mumble_bridge.env       # Mumble bridge env config
+    usrp_bridge.env         # USRP bridge env config
     backups/
       20260307_143022/      # Snapshot directories
         svxlink.conf

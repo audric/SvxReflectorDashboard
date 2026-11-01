@@ -51,32 +51,104 @@ class DashboardController < ApplicationController
       end
     end
 
-    # Routing info: local prefix, trunk prefixes, cluster TGs
+    # Routing info. Mirrors GeuReflector's TrunkLink::isSharedTG /
+    # Reflector::hasPrefixRoute (src/svxlink/reflector/{TrunkLink,Reflector}.cpp):
+    #   \u2022 REMOTE_PREFIX  = TGs the peer owns
+    #   \u2022 ROUTABLE_PREFIXES = extra prefixes the link carries; "*" is a
+    #     zero-length DEFAULT ROUTE (lowest precedence, never transits)
+    #   \u2022 Routing is longest-prefix-match across the WHOLE mesh: a link carries
+    #     a TG only if no strictly-longer prefix matches it anywhere.
     config = ReflectorConfig.load
-    local_prefix = config.global["LOCAL_PREFIX"].to_s.split(",").map(&:strip).reject(&:blank?)
+    split = ->(v) { v.to_s.split(",").map(&:strip).reject(&:blank?) }
+    local_prefix = split.call(config.global["LOCAL_PREFIX"])
+
+    # LOCAL_ALIASES re-home a short local TG under an owned prefix: locally it
+    # stays the short number, but on the mesh it routes as the long owned
+    # number. Routing badges must be computed on the long number.
+    aliases = parse_local_aliases(config)
+    @local_aliases = aliases
     trunk_routes = config.trunks.map { |name, cfg|
       status_url = cfg["STATUS_URL"].presence
       parsed = status_url ? (URI.parse(status_url) rescue nil) : nil
       portal_url = parsed ? "#{parsed.scheme}://#{parsed.host}" : nil
-      { name: name, prefix: cfg["REMOTE_PREFIX"].to_s.split(",").map(&:strip).reject(&:blank?), trunk_host: cfg["HOST"], portal_url: portal_url }
+      routable = split.call(cfg["ROUTABLE_PREFIXES"])
+      { name: name, label: cfg["HOST"].presence || name.sub(/\ATRUNK_/, ""),
+        remote: split.call(cfg["REMOTE_PREFIX"]),
+        routable: routable.reject { |p| p == "*" }, wildcard: routable.include?("*"),
+        portal_url: portal_url }
     }
     cluster_tgs = @cluster_tgs
 
+    # Mesh-wide prefix set (== Reflector::m_all_prefixes). "*" excluded.
+    all_prefixes = local_prefix + trunk_routes.flat_map { |t| t[:remote] + t[:routable] }
+
     parent_host = @reflector_config.dig('satellite', 'parent_host') || @reflector_config.dig('satellite', 'host') || config.global['SATELLITE_OF']
 
-    @route_for = ->(tg_num) {
+    # Length of the longest entry of `list` that is a prefix of tg_s (0 if none).
+    best_len = ->(tg_s, list) { list.select { |p| tg_s.start_with?(p) }.map(&:length).max || 0 }
+    # Does a strictly-longer mesh prefix match tg_s? (the longest-prefix loser test)
+    out_specificed = ->(tg_s, len) { all_prefixes.any? { |p| p.length > len && tg_s.start_with?(p) } }
+
+    # Returns { badges: [...], multi_peer: bool }. A TG resolves to local and/or
+    # one or more trunk peers; multi_peer flags \u22652 peers carrying the same TG
+    # (overlapping prefixes \u2192 routing-loop / ambiguity risk).
+    @routes_for = ->(tg_num) {
       tg_s = tg_num.to_s
+      badges = []
+      peer_count = 0
+
       if cluster_tgs.include?(tg_num)
-        { label: "cluster", css: "bg-cyan-900/30 text-cyan-400 border-cyan-700" }
+        badges << { label: "cluster", css: "bg-cyan-900/30 text-cyan-400 border-cyan-700",
+                    title: "Cluster TG \u2014 broadcast to all trunk peers" }
       elsif @reflector_mode == 'satellite' && parent_host.present?
-        { label: parent_host, css: "bg-purple-900/30 text-purple-400 border-purple-700", url: "https://#{parent_host}" }
-      elsif (trunk = trunk_routes.filter_map { |t| match = t[:prefix].select { |p| tg_s.start_with?(p) }.max_by(&:length); match ? [t, match.length] : nil }.max_by(&:last)&.first)
-        { label: trunk[:trunk_host] || trunk[:name].sub(/\ATRUNK_/, ""), css: "bg-purple-900/30 text-purple-400 border-purple-700", url: trunk[:portal_url] }
-      elsif local_prefix.any? { |p| tg_s.start_with?(p) }
-        { label: "local", css: "bg-green-900/30 text-green-400 border-green-700" }
+        badges << { label: parent_host, css: "bg-purple-900/30 text-purple-400 border-purple-700",
+                    url: "https://#{parent_host}", title: "Routed to parent #{parent_host}" }
       else
-        { label: "\u2014", css: nil }
+        # An aliased short TG routes on the mesh under its long owned number;
+        # local delivery still uses the short number. Compute prefix routing on
+        # the long number and flag the re-homing.
+        al = aliases[tg_s]
+        route_s = al ? al[:long] : tg_s
+        if al
+          badges << { label: "→ #{al[:long]}", css: "bg-amber-900/30 text-amber-400 border-amber-700",
+                      title: "Local TG #{tg_s} re-homed on the mesh as #{al[:long]} (#{al[:direction]})" }
+        end
+
+        # Local owns the TG when a LOCAL_PREFIX is the most-specific mesh match.
+        local_len = best_len.call(route_s, local_prefix)
+        if local_len > 0 && !out_specificed.call(route_s, local_len)
+          badges << { label: "local", css: "bg-green-900/30 text-green-400 border-green-700",
+                      title: "Owned locally (LOCAL_PREFIX)" }
+        end
+
+        # Each trunk that carries this TG, per TrunkLink::isSharedTG.
+        trunk_routes.each do |t|
+          link_len = best_len.call(route_s, t[:remote] + t[:routable])
+          via_wildcard = false
+          if link_len.zero?
+            next unless t[:wildcard]   # "*" default route: only when nothing else claims it
+            via_wildcard = true
+          end
+          next if out_specificed.call(route_s, link_len)   # a longer prefix elsewhere wins
+
+          peer_count += 1
+          owns = link_len.positive? && best_len.call(route_s, t[:remote]) == link_len
+          if via_wildcard
+            badges << { label: "\u21aa #{t[:label]} *", css: "bg-purple-900/20 text-purple-300 border-purple-800 border-dashed",
+                        url: t[:portal_url], title: "Default route via #{t[:label]} (ROUTABLE_PREFIXES=*)" }
+          elsif owns
+            badges << { label: t[:label], css: "bg-purple-900/30 text-purple-400 border-purple-700",
+                        url: t[:portal_url], title: "Owned by #{t[:label]} (REMOTE_PREFIX)" }
+          else
+            badges << { label: "\u21aa #{t[:label]}", css: "bg-purple-900/20 text-purple-300 border-purple-800 border-dashed",
+                        url: t[:portal_url], title: "Relayed over #{t[:label]} (ROUTABLE_PREFIXES)" }
+          end
+        end
+
+        badges << { label: "\u2014", css: nil } if badges.empty?
       end
+
+      { badges: badges, multi_peer: peer_count >= 2 }
     }
   end
 
@@ -105,6 +177,10 @@ class DashboardController < ApplicationController
   def stats
     fetch_nodes
     fetch_extended
+
+    @twin_configured = @reflector_config.dig('twin', 'host').present?
+    @stats_scope = @twin_configured ? (params[:scope].presence_in(%w[single pair]) || 'single') : 'single'
+    merge_twin_nodes if @stats_scope == 'pair'
 
     visible = @nodes.reject { |_, n| n['hidden'] }
 
@@ -154,6 +230,16 @@ class DashboardController < ApplicationController
     @top_nodes_airtime   = @airtime_by_cs.slice(*@top_nodes.keys)
     @top_bridges_airtime = @airtime_by_cs.slice(*@top_bridges.keys)
 
+    nodes_air_keys           = @airtime_by_cs.select { |k, _| node_callsigns.include?(k) }.sort_by { |_, ms| -ms }.first(20).map(&:first)
+    nodes_air_counts         = scope.talks.where(callsign: nodes_air_keys).group(:callsign).count
+    @top_nodes_alt           = nodes_air_keys.each_with_object({}) { |k, h| h[k] = nodes_air_counts[k] || 0 }
+    @top_nodes_alt_airtime   = nodes_air_keys.each_with_object({}) { |k, h| h[k] = @airtime_by_cs[k] || 0 }
+
+    bridges_air_keys         = @airtime_by_cs.select { |k, _| bridge_callsigns.include?(k) }.sort_by { |_, ms| -ms }.first(20).map(&:first)
+    bridges_air_counts       = scope.talks.where(callsign: bridges_air_keys).group(:callsign).count
+    @top_bridges_alt         = bridges_air_keys.each_with_object({}) { |k, h| h[k] = bridges_air_counts[k] || 0 }
+    @top_bridges_alt_airtime = bridges_air_keys.each_with_object({}) { |k, h| h[k] = @airtime_by_cs[k] || 0 }
+
     # ── Web users ─ Redis SCAN (non-blocking) + 30s cache ──────────────
     users = Rails.cache.fetch("stats:users", expires_in: 30.seconds) do
       sessions = redis.scan_each(match: "session:*").to_a
@@ -174,6 +260,7 @@ class DashboardController < ApplicationController
     @local_config = ReflectorConfig.load
     @local_trunks = @local_config.trunks
     @local_prefix = @local_config.global['LOCAL_PREFIX']
+    @local_aliases = parse_local_aliases(@local_config)
 
     # Read remote peer status from Redis (cached by trunk status threads)
     # Falls back to direct fetch if Redis key is missing (e.g. after restart)
@@ -286,6 +373,18 @@ class DashboardController < ApplicationController
     @sql_timeout_ms = val > 0 ? val * 1000 : nil
   end
 
+  # Parse [GLOBAL] LOCAL_ALIASES=localTG:aliasTG[/dir] into
+  # { "<short>" => { long: "<long>", direction: "two-way"|"in"|"out" } }.
+  # Malformed entries are skipped (the reflector rejects them at load too).
+  def parse_local_aliases(config)
+    config.global["LOCAL_ALIASES"].to_s.split(",").each_with_object({}) do |entry, h|
+      lhs, dir = entry.strip.split("/", 2)
+      short_s, long_s = lhs.to_s.split(":", 2).map { |x| x.to_s.strip }
+      next if short_s !~ /\A\d+\z/ || long_s.to_s !~ /\A\d+\z/
+      h[short_s] = { long: long_s, direction: (dir.presence || "two-way").strip.downcase }
+    end
+  end
+
   def merge_external_nodes
     return unless @external_reflectors.is_a?(Hash)
     @external_reflectors.each do |ref_name, ref_data|
@@ -295,6 +394,21 @@ class DashboardController < ApplicationController
         next if @nodes.key?(cs) # local node takes precedence
         @nodes[cs] = node.merge('_external' => ref_name, '_external_portal' => ref_data[:portal_url], '_external_type' => 'svx')
       end
+    end
+  end
+
+  # Folds the HA-pair twin's live node roster (status.twin.nodes, mirrored
+  # by GeuReflector's twin link) into @nodes for the "pair" stats scope.
+  # Only affects live counts computed from @nodes — historical stats stay
+  # per-instance since node_events isn't shared between twins.
+  def merge_twin_nodes
+    twin_nodes = @reflector_config.dig('twin', 'nodes')
+    return unless twin_nodes.is_a?(Array)
+    twin_nodes.each do |node|
+      next unless node.is_a?(Hash)
+      cs = node['callsign']
+      next if cs.blank? || @nodes.key?(cs)
+      @nodes[cs] = node.merge('_external_type' => 'twin')
     end
   end
 

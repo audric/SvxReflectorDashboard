@@ -357,6 +357,15 @@
                     on
                     %span.text-gray-400= zello&.dig('channel')
 
+                -# USRP RX info (USRP / DVSwitch bridges)
+                - usrp = node['usrp_rx']
+                .mb-2.flex.items-center.gap-2.flex-wrap{id: "node-#{callsign}-usrp-rx", class: (usrp ? '' : 'hidden')}
+                  %i.bi.bi-hdd-network.text-emerald-400
+                  %span.text-emerald-300.font-mono.font-semibold{id: "node-#{callsign}-usrp-from"}= usrp&.dig('from')
+                  %span.text-gray-500.text-xs{id: "node-#{callsign}-usrp-tg", class: (usrp&.dig('tg').present? ? '' : 'hidden')}
+                    TG
+                    %span.text-gray-400= usrp&.dig('tg')
+
                 -# M17 RX info (M17 bridges)
                 - m17 = node['m17_rx']
                 .mb-2.flex.items-center.gap-2.flex-wrap{id: "node-#{callsign}-m17-rx", class: (m17 ? '' : 'hidden')}
@@ -840,6 +849,24 @@
             }
           }
 
+          // USRP RX info
+          var usrpRow = document.getElementById('node-' + callsign + '-usrp-rx');
+          if (usrpRow) {
+            var ur = n.usrp_rx;
+            if (ur && ur.from) {
+              usrpRow.classList.remove('hidden');
+              var uFromEl = document.getElementById('node-' + callsign + '-usrp-from');
+              if (uFromEl) uFromEl.textContent = ur.from;
+              var uTgEl = document.getElementById('node-' + callsign + '-usrp-tg');
+              if (uTgEl) {
+                if (ur.tg) { uTgEl.classList.remove('hidden'); uTgEl.querySelector('span').textContent = ur.tg; }
+                else { uTgEl.classList.add('hidden'); }
+              }
+            } else {
+              usrpRow.classList.add('hidden');
+            }
+          }
+
           // M17 RX info
           var m17Row = document.getElementById('node-' + callsign + '-m17-rx');
           if (m17Row) {
@@ -971,6 +998,14 @@
           h += '<i class="bi bi-phone text-amber-400"></i>';
           h += '<span class="text-amber-300 font-mono font-semibold" id="node-' + cs + '-zello-from">' + (zr && zr.from ? esc(zr.from) : '') + '</span>';
           h += '<span class="text-gray-500 text-xs' + (zr && zr.channel ? '' : ' hidden') + '" id="node-' + cs + '-zello-channel">on <span class="text-gray-400">' + (zr && zr.channel ? esc(zr.channel) : '') + '</span></span>';
+          h += '</div>';
+
+          // USRP RX info
+          var ur = n.usrp_rx;
+          h += '<div class="mb-2 flex items-center gap-2 flex-wrap' + (ur && ur.from ? '' : ' hidden') + '" id="node-' + cs + '-usrp-rx">';
+          h += '<i class="bi bi-hdd-network text-emerald-400"></i>';
+          h += '<span class="text-emerald-300 font-mono font-semibold" id="node-' + cs + '-usrp-from">' + (ur && ur.from ? esc(ur.from) : '') + '</span>';
+          h += '<span class="text-gray-500 text-xs' + (ur && ur.tg ? '' : ' hidden') + '" id="node-' + cs + '-usrp-tg">TG <span class="text-gray-400">' + (ur && ur.tg ? esc(ur.tg) : '') + '</span></span>';
           h += '</div>';
 
           // M17 RX info

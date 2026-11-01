@@ -334,7 +334,7 @@ module Admin
       # Trunk mode: reflector or satellite — strip the opposite mode's keys
       trunk_mode = params.dig(:config, :trunk_mode).to_s
       satellite_keys = %w[SATELLITE_OF SATELLITE_PORT SATELLITE_SECRET SATELLITE_ID SATELLITE_FILTER]
-      reflector_only_keys = %w[LOCAL_PREFIX CLUSTER_TGS TWIN_LISTEN_PORT]
+      reflector_only_keys = %w[LOCAL_PREFIX CLUSTER_TGS LOCAL_ALIASES TWIN_LISTEN_PORT]
 
       # Global settings
       (params.dig(:config, :global) || {}).each do |key, value|
@@ -410,6 +410,7 @@ module Admin
         trunk_blacklist_tgs = Array(cfg[:trunk_blacklist_tgs])
         trunk_allow_tgs = Array(cfg[:trunk_allow_tgs])
         trunk_tg_maps = Array(cfg[:trunk_tg_maps])
+        trunk_routable_prefixes = Array(cfg[:trunk_routable_prefixes])
         trunk_names.each_with_index do |name, i|
           next if name.blank?
           section = name.strip.upcase
@@ -423,7 +424,8 @@ module Admin
             "PEER_ID" => trunk_peer_ids[i].to_s.strip,
             "BLACKLIST_TGS" => trunk_blacklist_tgs[i].to_s.strip,
             "ALLOW_TGS" => trunk_allow_tgs[i].to_s.strip,
-            "TG_MAP" => trunk_tg_maps[i].to_s.strip
+            "TG_MAP" => trunk_tg_maps[i].to_s.strip,
+            "ROUTABLE_PREFIXES" => trunk_routable_prefixes[i].to_s.strip
           }.reject { |_, v| v.blank? }
           trunk_data["PAIRED"] = "1" if trunk_paireds[i] == "1"
           config.trunks[section] = trunk_data
@@ -488,16 +490,76 @@ module Admin
       sync_redis_config(config) if config.redis_mode?
       publish_trunk_status_urls(config)
 
+      config_warning = [routable_prefix_conflicts(config), local_alias_warnings(config)].compact.join(" ").presence
+
       if params[:restart] == "1"
         restart_svxreflector
         refresh_reflector_config_cache
-        redirect_to edit_admin_reflector_path, notice: "Configuration saved and svxreflector restarted."
+        redirect_to edit_admin_reflector_path, notice: "Configuration saved and svxreflector restarted.", alert: config_warning
       else
         send_hot_cfg_commands(config)
-        redirect_to edit_admin_reflector_path, notice: "Configuration saved (hot-reloadable fields applied via CFG pipe)."
+        redirect_to edit_admin_reflector_path, notice: "Configuration saved (hot-reloadable fields applied via CFG pipe).", alert: config_warning
       end
     end
     private
+
+    # Non-blocking sanity check: warns when a trunk's ROUTABLE_PREFIXES entry
+    # overlaps a prefix already defined elsewhere (the reflector's LOCAL_PREFIX,
+    # CLUSTER_TGS, the same trunk's REMOTE_PREFIX, or another trunk's
+    # REMOTE_PREFIX/ROUTABLE_PREFIXES). Such overlaps risk routing ambiguity or
+    # loops. Returns a flash-ready string, or nil when there are no conflicts.
+    def routable_prefix_conflicts(config)
+      split = ->(v) { v.to_s.split(",").map(&:strip).reject(&:blank?) }
+      local   = split.call(config.global["LOCAL_PREFIX"])
+      cluster = split.call(config.global["CLUSTER_TGS"])
+      msgs = []
+      config.trunks.each do |name, cfg|
+        split.call(cfg["ROUTABLE_PREFIXES"]).each do |p|
+          sources = []
+          sources << "LOCAL_PREFIX" if local.include?(p)
+          sources << "CLUSTER_TGS" if cluster.include?(p)
+          sources << "this trunk's REMOTE_PREFIX" if split.call(cfg["REMOTE_PREFIX"]).include?(p)
+          config.trunks.each do |other, ocfg|
+            next if other == name
+            sources << "#{other} (REMOTE_PREFIX)"     if split.call(ocfg["REMOTE_PREFIX"]).include?(p)
+            sources << "#{other} (ROUTABLE_PREFIXES)" if split.call(ocfg["ROUTABLE_PREFIXES"]).include?(p)
+          end
+          msgs << "#{name}: routable prefix \"#{p}\" also in #{sources.join(', ')}" if sources.any?
+        end
+      end
+      return nil if msgs.empty?
+      "Heads up — overlapping routable prefixes may cause routing loops or ambiguity: #{msgs.join('; ')}."
+    end
+
+    # Non-blocking sanity check for LOCAL_ALIASES=localTG:aliasTG[/dir]. The
+    # reflector rejects (and skips) invalid entries at load; this mirrors those
+    # rules so the operator sees why an alias won't take effect. Warns when:
+    # the aliasTG is not owned by any LOCAL_PREFIX, the short side IS owned by a
+    # prefix (nothing to re-home), a short key is duplicated, or an entry is
+    # malformed. Returns a flash-ready string, or nil when all entries are sane.
+    def local_alias_warnings(config)
+      raw = config.global["LOCAL_ALIASES"].to_s.strip
+      return nil if raw.blank?
+      prefixes = config.global["LOCAL_PREFIX"].to_s.split(",").map(&:strip).reject(&:blank?)
+      owned = ->(tg) { prefixes.any? { |p| tg.to_s.start_with?(p) } }
+      seen = {}
+      msgs = []
+      raw.split(",").each do |entry|
+        lhs, dir = entry.strip.split("/", 2)
+        short_s, alias_s = lhs.to_s.split(":", 2).map { |x| x.to_s.strip }
+        if short_s.to_s !~ /\A\d+\z/ || alias_s.to_s !~ /\A\d+\z/
+          msgs << "\"#{entry.strip}\" is not localTG:aliasTG"
+          next
+        end
+        msgs << "#{dir} is not a valid direction (use in or out)" if dir.present? && !%w[in out].include?(dir.strip.downcase)
+        msgs << "alias #{alias_s} is not owned by any LOCAL_PREFIX" unless owned.call(alias_s)
+        msgs << "short TG #{short_s} is already owned by a LOCAL_PREFIX (no alias needed)" if owned.call(short_s)
+        msgs << "short TG #{short_s} is aliased more than once" if seen[short_s]
+        seen[short_s] = true
+      end
+      return nil if msgs.empty?
+      "Check LOCAL_ALIASES — the reflector will skip: #{msgs.join('; ')}."
+    end
 
     def require_reflector_admin
       require_admin
@@ -593,6 +655,7 @@ module Admin
         peer_fields["port"] = trunk["PORT"] if trunk["PORT"].present?
         peer_fields["secret"] = trunk["SECRET"] if trunk["SECRET"].present?
         peer_fields["remote_prefix"] = trunk["REMOTE_PREFIX"] if trunk["REMOTE_PREFIX"].present?
+        peer_fields["routable_prefixes"] = trunk["ROUTABLE_PREFIXES"] if trunk["ROUTABLE_PREFIXES"].present?
         peer_fields["peer_id"] = trunk["PEER_ID"] if trunk["PEER_ID"].present?
         r.hset(peer_key, peer_fields) if peer_fields.any?
       end

@@ -134,6 +134,7 @@ class ReflectorListener
     data['trunks']      = {} unless data['trunks'].is_a?(Hash)
     data['satellites']  = {} unless data['satellites'].is_a?(Hash)
     data['cluster_tgs'] = [] unless data['cluster_tgs'].is_a?(Array)
+    data['local_aliases'] = {} unless data['local_aliases'].is_a?(Hash)
 
     # Nodes: drop non-Hash entries, sanitize qth
     data['nodes'].reject! { |_, v| !v.is_a?(Hash) }
@@ -170,6 +171,12 @@ class ReflectorListener
     # cluster_tgs: keep only integers/numeric strings
     data['cluster_tgs'] = data['cluster_tgs'].select { |v| v.is_a?(Integer) || v.to_s =~ /\A\d+\z/ }.map(&:to_i)
 
+    # local_aliases: { "<shortTG>" => { "alias" => <longTG>, "direction" => ... } }
+    # keyed by numeric short TG, alias must be numeric; drop anything malformed.
+    data['local_aliases'].reject! do |short, v|
+      short.to_s !~ /\A\d+\z/ || !v.is_a?(Hash) || v['alias'].to_s !~ /\A\d+\z/
+    end
+
     data
   end
 
@@ -193,7 +200,7 @@ class ReflectorListener
       curr_cluster_tgs = status_data.fetch('cluster_tgs', [])
 
       # Extract config fields from /status (GeuReflector includes them inline)
-      curr_config = status_data.slice('mode', 'version', 'local_prefix', 'satellite', 'twin', 'cluster_tgs', 'http_port', 'listen_port').compact
+      curr_config = status_data.slice('mode', 'version', 'local_prefix', 'satellite', 'twin', 'cluster_tgs', 'local_aliases', 'http_port', 'listen_port').compact
 
       # Merge remote trunk nodes (tagged with _external)
       merge_trunk_status_nodes(curr)
@@ -212,6 +219,7 @@ class ReflectorListener
       enrich_ysf_rx(curr)
       enrich_m17_rx(curr)
       enrich_zello_rx(curr)
+      enrich_usrp_rx(curr)
 
       # ── Diffs ──────────────────────────────────────────────────────────
       changed, removed = diff_nodes(curr, @prev)
@@ -266,6 +274,7 @@ class ReflectorListener
       next true if node['ysf_rx'] != p['ysf_rx']
       next true if node['m17_rx'] != p['m17_rx']
       next true if node['zello_rx'] != p['zello_rx']
+      next true if node['usrp_rx'] != p['usrp_rx']
       # Also trigger when any RX squelch opens/closes (gives fresh siglev data)
       node_rx = node.dig('qth', 0, 'rx') || {}
       prev_rx = p.dig('qth', 0, 'rx') || {}
@@ -473,7 +482,7 @@ class ReflectorListener
           next unless cluster_set.include?(tg) ||
                       tg_matches_filter?(@trunk_allow_filters[node['_external']], tg)
           type    = node['isTalker'] ? NodeEvent::TALKING_START : NodeEvent::TALKING_STOP
-          rx_meta = node['dstar_rx'] || node['dmr_rx'] || node['ysf_rx'] || node['zello_rx']
+          rx_meta = node['dstar_rx'] || node['dmr_rx'] || node['ysf_rx'] || node['zello_rx'] || node['usrp_rx']
           dur     = (type == NodeEvent::TALKING_STOP) ? node['_last_duration_ms'] : nil
           NodeEvent.create!(callsign: cs, tg: node['tg'].to_i,
                             node_class: node['nodeClass'], node_location: node['nodeLocation'],
@@ -494,7 +503,7 @@ class ReflectorListener
         # isTalker transition
         if node['isTalker'] != prev_node['isTalker']
           type = node['isTalker'] ? NodeEvent::TALKING_START : NodeEvent::TALKING_STOP
-          rx_meta = node['dstar_rx'] || node['dmr_rx'] || node['ysf_rx'] || node['zello_rx']
+          rx_meta = node['dstar_rx'] || node['dmr_rx'] || node['ysf_rx'] || node['zello_rx'] || node['usrp_rx']
           meta = rx_meta ? rx_meta.to_json : nil
           # MqttSource stashes _last_duration_ms on the node when a talker_stop
           # MQTT event carries the field. Plain HTTP polling never sets it.
@@ -733,6 +742,23 @@ class ReflectorListener
     end
   rescue => e
     STDERR.puts "[Poller] Zello RX enrich error: #{e.message}"
+  end
+
+  def self.enrich_usrp_rx(nodes)
+    redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'))
+    keys = redis.keys('usrp_rx:*')
+    return if keys.empty?
+
+    keys.each do |key|
+      callsign = key.sub('usrp_rx:', '').strip
+      next unless nodes.key?(callsign)
+      val = redis.get(key)
+      next unless val
+      data = JSON.parse(val) rescue next
+      nodes[callsign]['usrp_rx'] = data
+    end
+  rescue => e
+    STDERR.puts "[Poller] USRP RX enrich error: #{e.message}"
   end
 
   def self.enrich_web_nodes(nodes)

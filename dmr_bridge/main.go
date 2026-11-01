@@ -20,6 +20,28 @@ import (
 //   SVXReflector (OPUS/UDP) → decode OPUS → PCM 8kHz → AGC → encode AMBE+2 → DMRD → DMR Master
 //   DMR Master (DMRD/AMBE+2) → decode AMBE+2 → PCM 8kHz → AGC → encode OPUS → SVXReflector (UDP)
 
+// dmrConn abstracts the DMR transport so the audio pipeline is identical for
+// the MMDVM Homebrew repeater protocol (DMRClient) and the BrandMeister Open
+// DMR Terminal / REWIND protocol (ODMRTPClient).
+type dmrConn interface {
+	Connect() error
+	RunReader()
+	Done() <-chan struct{}
+	Close()
+	SetVoiceCallback(func(srcID uint32, frames [3][9]byte))
+	SetCallStartCallback(func(srcID, dstID uint32))
+	SetCallEndCallback(func(srcID uint32))
+	StartTX()
+	SendVoice(ambe [9]byte) error
+	StopTX() error
+}
+
+// isODMRTP reports whether the configured DMR protocol is the BrandMeister
+// Open DMR Terminal protocol ("stfu" is the common DVSwitch alias).
+func isODMRTP(proto string) bool {
+	return proto == "odmrtp" || proto == "stfu"
+}
+
 func main() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 	log.Println("DMR Bridge starting...")
@@ -32,7 +54,12 @@ func main() {
 	callsign := envRequired("CALLSIGN")
 
 	dmrHost := envRequired("DMR_HOST")
-	dmrPort := envInt("DMR_PORT", DMRDPort)
+	dmrProtocol := strings.ToLower(envDefault("DMR_PROTOCOL", "homebrew"))
+	dmrDefaultPort := DMRDPort
+	if isODMRTP(dmrProtocol) {
+		dmrDefaultPort = ODMRTPPort
+	}
+	dmrPort := envInt("DMR_PORT", dmrDefaultPort)
 	dmrID := uint32(envInt("DMR_ID", 0))
 	dmrPassword := envRequired("DMR_PASSWORD")
 	dmrTalkgroup := uint32(envInt("DMR_TALKGROUP", 9990))
@@ -44,8 +71,8 @@ func main() {
 
 	redisURL := os.Getenv("REDIS_URL")
 
-	log.Printf("Config: SVX=%s:%d TG=%d | DMR=%s:%d ID=%d TG=%d TS=%d CC=%d | cs=%s",
-		svxHost, svxPort, svxTG, dmrHost, dmrPort, dmrID, dmrTalkgroup, dmrTimeslot+1, dmrColorCode, callsign)
+	log.Printf("Config: SVX=%s:%d TG=%d | DMR[%s]=%s:%d ID=%d TG=%d TS=%d CC=%d | cs=%s",
+		svxHost, svxPort, svxTG, dmrProtocol, dmrHost, dmrPort, dmrID, dmrTalkgroup, dmrTimeslot+1, dmrColorCode, callsign)
 
 	// --- Initialize vocoder ---
 	voc, err := NewVocoder()
@@ -78,7 +105,7 @@ func main() {
 
 	for {
 		err := runBridge(svxHost, svxPort, svxAuthKey, svxTG, callsign, nodeLocation, sysop,
-			dmrHost, dmrPort, dmrID, dmrPassword, dmrCallsign, dmrTalkgroup, dmrTimeslot, dmrColorCode,
+			dmrProtocol, dmrHost, dmrPort, dmrID, dmrPassword, dmrCallsign, dmrTalkgroup, dmrTimeslot, dmrColorCode,
 			redisURL, voc, opusDec, opusEnc, sigCh)
 
 		if err == errShutdown {
@@ -109,7 +136,7 @@ var errShutdown = fmt.Errorf("shutdown")
 
 func runBridge(
 	svxHost string, svxPort int, svxAuthKey string, svxTG uint32, callsign string, nodeLocation string, sysop string,
-	dmrHost string, dmrPort int, dmrID uint32, dmrPassword string, dmrCallsign string,
+	dmrProtocol string, dmrHost string, dmrPort int, dmrID uint32, dmrPassword string, dmrCallsign string,
 	dmrTalkgroup uint32, dmrTimeslot byte, dmrColorCode byte,
 	redisURL string, voc *Vocoder, opusDec *opus.Decoder, opusEnc *opus.Encoder,
 	sigCh <-chan os.Signal,
@@ -151,17 +178,27 @@ func runBridge(
 	}
 	redisKey := "dmr_rx:" + strings.TrimSpace(callsign)
 
+	remoteTgLabel := fmt.Sprintf("DMR TG%d TS%d", dmrTalkgroup, dmrTimeslot+1)
+	if isODMRTP(dmrProtocol) {
+		remoteTgLabel = fmt.Sprintf("BM TG%d", dmrTalkgroup)
+	}
+
 	svx := NewSVXLinkClient(svxHost, svxPort, svxAuthKey, callsign, nodeLocation, sysop)
 	svx.SetExtraNodeInfo(map[string]interface{}{
 		"nodeClass":  "dmr",
 		"remoteHost": dmrHost,
 		"links": []map[string]interface{}{
-			{"localTg": svxTG, "remoteTg": fmt.Sprintf("DMR TG%d TS%d", dmrTalkgroup, dmrTimeslot+1)},
+			{"localTg": svxTG, "remoteTg": remoteTgLabel},
 		},
 	})
 
-	dmr := NewDMRClient(dmrHost, dmrPort, dmrID, dmrPassword, dmrCallsign,
-		dmrTalkgroup, dmrTimeslot, dmrColorCode)
+	var dmr dmrConn
+	if isODMRTP(dmrProtocol) {
+		dmr = NewODMRTPClient(dmrHost, dmrPort, dmrID, dmrPassword, dmrCallsign, dmrTalkgroup)
+	} else {
+		dmr = NewDMRClient(dmrHost, dmrPort, dmrID, dmrPassword, dmrCallsign,
+			dmrTalkgroup, dmrTimeslot, dmrColorCode)
+	}
 
 	// --- SVXReflector → DMR audio path ---
 	// OPUS → PCM → AMBE+2 (3 frames buffered per DMRD packet)

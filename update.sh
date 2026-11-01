@@ -105,6 +105,16 @@ else
   echo "=== Update complete ==="
 fi
 
+# Reclaim disk: each image pull retags :latest to a new digest and orphans the
+# previous one as a dangling <none> image. Left unpruned these accumulate
+# indefinitely (hundreds of images / tens of GB) until the disk fills and the
+# SQLite DB hits "disk I/O error". Prune dangling images + build cache only —
+# tagged images referenced by containers are never touched.
+echo ""
+echo "Cleaning up stale images and build cache..."
+docker image prune -f 2>/dev/null || true
+docker builder prune -f 2>/dev/null || true
+
 echo ""
 echo "Bridge containers are managed from /admin/bridges."
 echo ""

@@ -90,6 +90,11 @@ module Admin
           mumble_port: 64738,
           mumble_channel: "TG1"
         )
+      elsif bridge_type == "usrp"
+        defaults.merge!(
+          usrp_tx_port: 41234,
+          usrp_rx_port: 41233
+        )
       else
         defaults.merge!(
           remote_port: 5300,
@@ -216,7 +221,7 @@ module Admin
         :echolink_reject_conf, :echolink_use_gsm_only, :echolink_bind_addr,
         :echolink_servers, :default_active,
         :xlx_host, :xlx_port, :xlx_module, :xlx_callsign, :xlx_callsign_suffix, :xlx_mycall, :xlx_mycall_suffix, :xlx_reflector_name, :xlx_protocol,
-        :dmr_host, :dmr_port, :dmr_id, :dmr_password, :dmr_talkgroup, :dmr_timeslot, :dmr_color_code, :dmr_callsign,
+        :dmr_protocol, :dmr_host, :dmr_port, :dmr_id, :dmr_password, :dmr_talkgroup, :dmr_timeslot, :dmr_color_code, :dmr_callsign,
         :ysf_host, :ysf_port, :ysf_callsign, :ysf_description, :ysf_dgid,
         :allstar_node, :allstar_password, :allstar_server, :allstar_port,
         :iax_username, :iax_password, :iax_server, :iax_port,
@@ -226,6 +231,7 @@ module Admin
         :sip_dtmf, :sip_dtmf_delay, :sip_caller_id, :sip_log_level, :sip_pin, :sip_pin_timeout, :sip_vox_timeout, :sip_ptt_key, :sip_max_call_duration,
         :zello_username, :zello_password, :zello_channel, :zello_channel_password, :zello_issuer_id, :zello_private_key,
         :mumble_host, :mumble_port, :mumble_channel, :mumble_bot_password, :mumble_bot_username, :mumble_welcome, :mumble_description,
+        :usrp_host, :usrp_tx_port, :usrp_rx_port,
         :agc_target_level, :agc_attack_rate, :agc_decay_rate, :agc_max_gain, :agc_min_gain, :agc_limit_level,
         :filter_hpf_cutoff, :filter_lpf_cutoff,:janus_url
       )
@@ -299,6 +305,9 @@ module Admin
       elsif bridge.mumble?
         pull_image("ghcr.io/audric/svxreflectordashboard-mumble-bridge") rescue nil
         start_mumble_container(bridge)
+      elsif bridge.usrp?
+        pull_image("ghcr.io/audric/svxreflectordashboard-usrp-bridge") rescue nil
+        start_usrp_container(bridge)
       else
         pull_image("ghcr.io/audric/svxlink-docker")
         start_svxlink_container(bridge)
@@ -367,8 +376,9 @@ module Admin
           "REFLECTOR_AUTH_KEY=#{bridge.local_auth_key}",
           "REFLECTOR_TG=#{bridge.local_default_tg}",
           "CALLSIGN=#{bridge.local_callsign}",
+          "DMR_PROTOCOL=#{bridge.dmr_protocol_or_default}",
           "DMR_HOST=#{bridge.dmr_host}",
-          "DMR_PORT=#{bridge.dmr_port || 62030}",
+          "DMR_PORT=#{bridge.dmr_port_or_default}",
           "DMR_ID=#{bridge.dmr_id}",
           "DMR_PASSWORD=#{bridge.dmr_password}",
           "DMR_TALKGROUP=#{bridge.dmr_talkgroup}",
@@ -687,6 +697,43 @@ module Admin
       end
     end
 
+    def start_usrp_container(bridge)
+      network = docker_network
+      body = {
+        Image: "ghcr.io/audric/svxreflectordashboard-usrp-bridge",
+        Labels: {
+          "svx.bridge" => "true",
+          "svx.bridge.id" => bridge.id.to_s,
+          "svx.bridge.name" => bridge.name,
+          "com.docker.compose.project" => "",
+          "com.docker.compose.service" => ""
+        },
+        Env: [
+          "REFLECTOR_HOST=#{bridge.local_host}",
+          "REFLECTOR_PORT=#{bridge.local_port}",
+          "REFLECTOR_AUTH_KEY=#{bridge.local_auth_key}",
+          "REFLECTOR_TG=#{bridge.local_default_tg}",
+          "CALLSIGN=#{bridge.local_callsign}",
+          "USRP_HOST=#{bridge.usrp_host}",
+          "USRP_TX_PORT=#{bridge.usrp_tx_port || 41234}",
+          "USRP_RX_PORT=#{bridge.usrp_rx_port || 41233}",
+          "NODE_LOCATION=#{bridge.node_location.presence || bridge.name}",
+          "SYSOP=#{bridge.sysop}",
+          "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
+        ] + agc_env_array(bridge),
+        HostConfig: {
+          RestartPolicy: { Name: "unless-stopped" }
+        }
+      }
+      body[:NetworkingConfig] = { EndpointsConfig: { network => {} } } if network
+
+      result = docker_api_post_json("/containers/create?name=#{bridge.container_name}", body)
+      if result && result["Id"]
+        docker_api_post("/containers/#{result["Id"]}/start")
+        Rails.logger.info "[Bridge] Created and started USRP container #{bridge.container_name}"
+      end
+    end
+
     def start_svxlink_container(bridge)
       bridge.generate_config
       network = docker_network
@@ -776,7 +823,7 @@ module Admin
       statuses = {}
       containers.each do |c|
         c["Names"].each do |n|
-          if n =~ /\A\/(?:svxlink|xlx|dmr|ysf|allstar|zello|iax|sip|janus|mumble)-bridge-(\d+)\z/
+          if n =~ /\A\/(?:svxlink|xlx|dmr|ysf|allstar|zello|iax|sip|mumble|janus|usrp)-bridge-(\d+)\z/
             statuses[Regexp.last_match(1).to_i] = c["State"]
           end
         end
