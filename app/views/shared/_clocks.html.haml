@@ -1,0 +1,72 @@
+-# Live YOUR TIME (viewer's timezone) and UTC clocks, ticking every second.
+:css
+  .svx-clocks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; width: min(310px, calc(100vw - 24px)); }
+  .svx-clock { display: flex; flex-direction: column; justify-content: center; min-width: 0; padding: 6px 10px; border: 1px solid; border-radius: 9px; line-height: 1.15; }
+  .svx-clock--local { background: linear-gradient(110deg, #062621, #072c24); border-color: #07945d; }
+  .svx-clock--utc   { background: linear-gradient(110deg, #061e36, #062b46); border-color: #2189cd; }
+  .svx-clock-label { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 800; letter-spacing: .04em; white-space: nowrap; }
+  .svx-clock--local .svx-clock-label { color: #36d89d; }
+  .svx-clock--utc   .svx-clock-label { color: #59b6f7; }
+  .svx-clock-value { display: block; margin-top: 3px; font: 750 20px/1.12 ui-monospace, SFMono-Regular, Consolas, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; color: #f4f8fd; }
+  .svx-clock-meta { margin-top: 3px; font-size: 9px; color: #a7b6c4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  [data-theme="light"] .svx-clock--local { background: #e6fff3; border-color: #138a55; }
+  [data-theme="light"] .svx-clock--utc   { background: #eaf5ff; border-color: #1e7ebc; }
+  [data-theme="light"] .svx-clock-value { color: #203243; }
+  [data-theme="light"] .svx-clock-meta  { color: #506477; }
+  [data-theme="light"] .svx-clock--local .svx-clock-label { color: #08774e; }
+  [data-theme="light"] .svx-clock--utc   .svx-clock-label { color: #0d75b7; }
+  @media (max-width: 420px) {
+    .svx-clocks { gap: 6px; }
+    .svx-clock { padding: 6px 7px; }
+    .svx-clock-value { font-size: clamp(16px, 4.7vw, 20px); }
+    .svx-clock-label { font-size: 9px; }
+    .svx-clock-meta { font-size: 8px; }
+  }
+
+.svx-clocks{role: "group", "aria-label" => "Local and UTC clocks"}
+  .svx-clock.svx-clock--local#svx-clock-local-box{title: "Your local time"}
+    .svx-clock-label
+      %i.bi.bi-clock
+      %span YOUR TIME
+    %strong.svx-clock-value#svx-clock-local --:--:--
+    .svx-clock-meta#svx-clock-local-meta ----------
+  .svx-clock.svx-clock--utc{title: "Coordinated Universal Time (UTC+0, no daylight saving)"}
+    .svx-clock-label
+      %i.bi.bi-globe2
+      %span UTC
+    %strong.svx-clock-value#svx-clock-utc --:--:--
+    .svx-clock-meta#svx-clock-utc-meta ---------- · UTC+0
+
+:javascript
+  (function() {
+    var lt = document.getElementById('svx-clock-local'), lm = document.getElementById('svx-clock-local-meta');
+    var ut = document.getElementById('svx-clock-utc'),   um = document.getElementById('svx-clock-utc-meta');
+    if (!lt || !ut) return;
+    var tz = '', zoneFmt = null;
+    try {
+      tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      zoneFmt = new Intl.DateTimeFormat('en-GB', { timeZoneName: 'short' });
+    } catch (e) {}
+    var box = document.getElementById('svx-clock-local-box');
+    if (box && tz) box.title = 'Your local time (' + tz + ')';
+    function p(n) { return String(n).padStart(2, '0'); }
+    function zoneName(d) {
+      if (zoneFmt && zoneFmt.formatToParts) {
+        var parts = zoneFmt.formatToParts(d);
+        for (var i = 0; i < parts.length; i++) if (parts[i].type === 'timeZoneName') return parts[i].value;
+      }
+      var off = -d.getTimezoneOffset();
+      return 'UTC' + (off < 0 ? '-' : '+') + p(Math.floor(Math.abs(off) / 60)) + ':' + p(Math.abs(off) % 60);
+    }
+    function tick() {
+      var d = new Date();
+      lt.textContent = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+      ut.textContent = p(d.getUTCHours()) + ':' + p(d.getUTCMinutes()) + ':' + p(d.getUTCSeconds());
+      lm.textContent = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' · ' + zoneName(d);
+      um.textContent = d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()) + ' · UTC+0';
+    }
+    tick();
+    // Align ticks to the second boundary so the display never lags visibly.
+    setTimeout(function() { tick(); setInterval(tick, 1000); }, 1000 - (Date.now() % 1000));
+    document.addEventListener('visibilitychange', function() { if (!document.hidden) tick(); });
+  })();

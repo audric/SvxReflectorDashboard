@@ -181,7 +181,8 @@
             %i.bi.bi-arrow-repeat.text-yellow-500{style: "font-size:.75rem"}
             %span.font-bold.text-lg.text-yellow-400{id: 'stat-updates'} 0
             %span.text-xs.text-ghdim Updates
-        .flex.items-center.gap-2
+        .flex.items-center.flex-wrap.gap-2
+          = render 'shared/clocks'
           %button#toggle-detail.px-2.5.py-1.5.text-sm.rounded.border.border-ghborder.text-ghmuted.hover:text-gray-200.hover:border-gray-500.cursor-pointer.transition-colors{type: "button", title: "Toggle node details"}
             %i.bi.bi-eye-fill#toggle-detail-icon
             %span.ml-1#toggle-detail-label Detailed
