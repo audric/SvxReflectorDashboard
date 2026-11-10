@@ -6,8 +6,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Build MBEVocoder from DroidStar (DMR AMBE+2 2450x1150 encode + decode)
-RUN git clone --depth 1 https://github.com/nostar/DroidStar.git /tmp/droidstar \
+# Pinned: later upstream commits removed the mbelib sources used below.
+RUN git init -q /tmp/droidstar \
     && cd /tmp/droidstar \
+    && git fetch -q --depth 1 https://github.com/nostar/DroidStar.git 28b10be62b4c7b53c6720a0f083e8ee7a450effb \
+    && git checkout -q FETCH_HEAD \
     && gcc -c -O2 -Imbe \
         mbe/mbelib.c mbe/ambe3600x2400.c mbe/ambe3600x2450.c mbe/ecc.c \
     && g++ -c -O2 -I. -Imbe -Iimbe_vocoder \
