@@ -1014,7 +1014,7 @@
                 - type_style = {'trunk_connected' => ['bg-cyan-700 text-white', 'bi-diagram-3'], 'trunk_disconnected' => ['bg-red-700 text-white', 'bi-diagram-3'], 'remote_talk_start' => ['bg-emerald-600 text-white', 'bi-mic-fill'], 'remote_talk_stop' => ['bg-gray-600 text-white', 'bi-mic-mute'], 'satellite_connected' => ['bg-purple-600 text-white', 'bi-broadcast'], 'satellite_disconnected' => ['bg-red-700 text-white', 'bi-broadcast']}.fetch(ev.event_type, ['bg-gray-600 text-white', 'bi-dot'])
                 - rx = ev.metadata.present? ? (JSON.parse(ev.metadata) rescue nil) : nil
                 .px-3.py-1.5.border-b.border-ghborder2.hover:bg-ghcard.flex.items-center.gap-2.flex-wrap
-                  %span.text-gray-500.font-mono.shrink-0{style: "font-size:.72rem"}= ev.created_at.strftime('%Y-%m-%d %H:%M')
+                  %span.text-gray-500.font-mono.shrink-0{style: "font-size:.72rem", "data-ts" => ev.created_at.utc.iso8601}= ev.created_at.utc.strftime('%Y-%m-%d %H:%M UTC')
                   %span.event-type-badge.shrink-0{class: type_style[0]}
                     %i.bi{class: "#{type_style[1]} mr-1"}
                     = ev.event_type.tr('_', ' ')
@@ -1034,13 +1034,17 @@
               No trunk events recorded yet.
 
     - trunks_json = @trunks.to_json.html_safe
+    = render 'shared/local_time'
     :javascript
       (function() {
         'use strict';
         var trunks = #{trunks_json};
 
         function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-        function now() { var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+        // Server timestamp of the message being processed (falls back to the
+        // browser clock for broadcasts that carry no _ts).
+        var msgTs = null;
+        function now() { return window.svxFmtTime(msgTs ? new Date(msgTs) : new Date(), false); }
 
         // Update trunk cards live
         function updateTrunkCards(trunksData) {
@@ -1182,6 +1186,7 @@
             try { envelope = JSON.parse(ev.data); } catch(e) { return; }
             if (!envelope.message) return;
             var msg = envelope.message;
+            msgTs = msg._ts || null;
             if (msg.trunks) {
               trunks = msg.trunks;
               updateTrunkCards(msg.trunks);
