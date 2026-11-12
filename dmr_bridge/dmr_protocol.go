@@ -13,8 +13,10 @@ const (
 	SigRPTL = "RPTL" // Login request
 	SigRPTK = "RPTK" // Auth response
 	SigRPTC = "RPTC" // Config
-	SigRPTP = "RPTPONG"
-	SigMSTP = "MSTPING"
+	SigRPTP  = "RPTPONG"
+	SigMSTP  = "MSTPING"
+	SigRPTG  = "RPTPING"
+	SigMSTPO = "MSTPONG"
 	SigMSTA = "MSTACK"
 	SigMSTC = "MSTCL"  // Master close
 	SigDMRD = "DMRD"   // Voice/data frame
@@ -48,7 +50,7 @@ var AMBESilence = [9]byte{0xB9, 0xE8, 0x81, 0x48, 0x00, 0x00, 0x00, 0x00, 0x00}
 var VoiceSyncPattern = [7]byte{0x07, 0x55, 0xFD, 0x7D, 0xF7, 0x5F, 0x70}
 
 // Voice LC header SYNC pattern
-var DataSyncBS = [6]byte{0xD5, 0xD7, 0xF7, 0x7F, 0xD7, 0x57}
+var DataSyncBS = [6]byte{0x6D, 0x5D, 0x7F, 0x77, 0xFD, 0x75}
 
 // Voice terminator SYNC pattern
 var DataSyncMS = [6]byte{0x77, 0xD5, 0x5F, 0x7D, 0xFD, 0x77}
@@ -81,11 +83,12 @@ func deinterleaveDMR(burst [33]byte) [3][9]byte {
 	copy(ambe[0:108], bits[0:108])
 	copy(ambe[108:216], bits[156:264])
 
-	// De-interleave: AMBE bits are interleaved across 3 frames
-	// Per ETSI, bit i of the AMBE payload goes to frame (i % 3), position (i / 3)
+	// The 216 AMBE bits are three contiguous 72-bit AMBE+2 codewords
+	// (frame 0 = bits 0-71, frame 1 = bits 72-143, frame 2 = bits
+	// 144-215) -- concatenated, not bit-interleaved across frames.
 	for i := 0; i < 216; i++ {
-		frameIdx := i % 3
-		bitPos := i / 3
+		frameIdx := i / 72
+		bitPos := i % 72
 		byteIdx := bitPos / 8
 		bitOffset := 7 - uint(bitPos%8)
 		if ambe[i] == 1 {
@@ -99,11 +102,13 @@ func deinterleaveDMR(burst [33]byte) [3][9]byte {
 // interleaveDMR builds a 264-bit burst payload from 3 AMBE frames and SYNC/EMB data.
 // syncData: 48 bits (6 bytes) for the SYNC/EMB field at positions 108-155.
 func interleaveDMR(frames [3][9]byte, syncData [6]byte) [33]byte {
-	// Interleave 3 frames into 216 AMBE bits
+	// Concatenate 3 AMBE+2 frames into 216 bits (frame 0 = bits 0-71,
+	// frame 1 = bits 72-143, frame 2 = bits 144-215), not
+	// bit-interleaved across frames.
 	var ambe [216]byte
 	for i := 0; i < 216; i++ {
-		frameIdx := i % 3
-		bitPos := i / 3
+		frameIdx := i / 72
+		bitPos := i % 72
 		byteIdx := bitPos / 8
 		bitOffset := 7 - uint(bitPos%8)
 		ambe[i] = (frames[frameIdx][byteIdx] >> bitOffset) & 1
@@ -134,10 +139,34 @@ func ExtractAMBE(payload [33]byte) [3][9]byte {
 	return deinterleaveDMR(payload)
 }
 
+// embRowMasks are the 7 basis codewords of the ETSI TS 102 361-1
+// Quadratic Residue (16,7,6) generator matrix (Annex B.3.2), each packed
+// as a 16-bit value with bit 15 = column 0 (MSB-first) through bit 0 =
+// column 15.
+var embRowMasks = [7]uint16{
+	0x804F, 0x411E, 0x21B7, 0x11E2, 0x09C9, 0x04E5, 0x0273,
+}
+
+// buildEMB computes the 16-bit Embedded Signalling (EMB) field per ETSI
+// TS 102 361-1 9.1.2: 4-bit colour code, 1-bit PI, 2-bit LCSS, followed
+// by 9 bits of Quadratic Residue (16,7,6) parity (Annex B.3.2). Returns
+// the two 8-bit halves that flank the 32-bit embedded data field in a
+// voice burst.
+func buildEMB(colourCode, pi, lcss byte) (first8, last8 byte) {
+	data := (colourCode&0x0F)<<3 | (pi&0x01)<<2 | (lcss & 0x03)
+	var out uint16
+	for i := 0; i < 7; i++ {
+		if data&(1<<uint(6-i)) != 0 {
+			out ^= embRowMasks[i]
+		}
+	}
+	return byte(out >> 8), byte(out)
+}
+
 // BuildAMBEPayload builds a 33-byte burst payload from 3 AMBE frames.
-// burstIndex: 0-5 (A-F) determines the SYNC/EMB pattern.
-// embLC: embedded LC data for bursts B-E (nil for A/F).
-func BuildAMBEPayload(frames [3][9]byte, burstIndex int) [33]byte {
+// burstIndex: 0-5 (A-F) determines the SYNC/EMB pattern. colourCode is
+// embedded in the EMB field for bursts B-F per ETSI TS 102 361-1 9.1.2.
+func BuildAMBEPayload(frames [3][9]byte, burstIndex int, colourCode byte) [33]byte {
 	var syncData [6]byte
 
 	switch burstIndex {
@@ -146,10 +175,13 @@ func BuildAMBEPayload(frames [3][9]byte, burstIndex int) [33]byte {
 		// Using the 7-byte pattern mapped to 6 bytes for the SYNC field
 		copy(syncData[:], VoiceSyncPattern[:6])
 	default:
-		// Bursts B-E: EMB + embedded LC (simplified: use null EMB)
-		// Burst F: EMB only
-		// For simplicity, fill with EMB pattern (CC=0, PI=0, LCSS=0)
-		// Real implementations should encode proper EMB + RC
+		// Bursts B-F: EMB (colour code + PI + LCSS + QR(16,7,6) parity)
+		// flanking a 32-bit embedded-signalling field. LCSS is kept at 0
+		// (continuation, never start/stop) so receivers never attempt to
+		// reassemble an embedded LC from the null 32-bit field below.
+		first8, last8 := buildEMB(colourCode, 0, 0)
+		syncData[0] = first8
+		syncData[5] = last8
 	}
 
 	return interleaveDMR(frames, syncData)
@@ -158,7 +190,12 @@ func BuildAMBEPayload(frames [3][9]byte, burstIndex int) [33]byte {
 // BuildDMRDFrame builds a 53-byte DMRD voice frame.
 func BuildDMRDFrame(seq byte, srcID, dstID uint32, rptID uint32, slot, callType byte,
 	frameType byte, voiceSeq byte, streamID uint32, payload [33]byte) []byte {
-	frame := make([]byte, DMRDFrameSize)
+	// Some masters/tools (e.g. YSF2DMR) require the extended 55-byte
+	// Homebrew DMRD packet (53-byte standard frame + 2 trailing bytes,
+	// commonly RSSI/BER) and hard-crash on any other length. We don't
+	// have real signal-quality data to report, so the 2 extra bytes are
+	// left zeroed -- harmless padding for receivers that ignore them.
+	frame := make([]byte, DMRDFrameSize+2)
 
 	// Signature
 	copy(frame[0:4], SigDMRD)
@@ -332,29 +369,54 @@ func BuildPongPacket(rptID uint32) []byte {
 	return buf
 }
 
+// BuildPingPacket creates an RPTPING keepalive sent proactively by the
+// repeater/client to the master, as required by the MMDVM Homebrew
+// protocol (e.g. HBLink3). The master should reply with MSTPONG.
+func BuildPingPacket(rptID uint32) []byte {
+	buf := make([]byte, 11)
+	copy(buf[0:7], SigRPTG)
+	binary.BigEndian.PutUint32(buf[7:11], rptID)
+	return buf
+}
+
 // BuildVoiceLCHeader builds a DMRD frame for a Voice LC Header.
 // This signals the start of a voice call.
-func BuildVoiceLCHeader(seq byte, srcID, dstID, rptID, streamID uint32, slot, callType byte) []byte {
-	var payload [33]byte
-
-	// Build Full LC: PF=0, FLCO=0 (group voice), FID=0, service options=0
-	var lc [12]byte
+func buildFullLC(dstID, srcID uint32, callType byte) [12]byte {
+	var lc [9]byte
 	if callType == CallTypePrivate {
 		lc[0] = 0x03 // FLCO = Unit to Unit Voice Call
 	}
-	// Destination ID
 	lc[3] = byte(dstID >> 16)
 	lc[4] = byte(dstID >> 8)
 	lc[5] = byte(dstID)
-	// Source ID
 	lc[6] = byte(srcID >> 16)
 	lc[7] = byte(srcID >> 8)
 	lc[8] = byte(srcID)
 
-	// BPTC(196,96) encode the 96-bit LC into the 33-byte payload
-	// Simplified: pack the LC into the payload with data sync pattern
-	encodeBPTC(lc[:9], &payload)
+	parity := rs129Encode(lc[:])
 
+	var full [12]byte
+	copy(full[0:9], lc[:])
+	// RS(12,9) parity bytes are stored reversed: in[9]=parity[2],
+	// in[10]=parity[1], in[11]=parity[0] (matches CRS129::check).
+	full[9] = parity[2]
+	full[10] = parity[1]
+	full[11] = parity[0]
+	return full
+}
+
+func BuildVoiceLCHeader(seq byte, srcID, dstID, rptID, streamID uint32, slot, callType byte) []byte {
+	var payload [33]byte
+	full := buildFullLC(dstID, srcID, callType)
+	bptc19696Encode(full, &payload)
+	// Data Sync pattern (BS_SOURCED_DATA_SYNC, verified byte-for-byte
+	// against a real HBLink3/YSF2DMR capture): occupies payload[12]'s low
+	// 6 bits, all of payload[13:19], and payload[19]. Applied after the
+	// BPTC encode so it doesn't get clobbered, and OR'd (not assigned) on
+	// payload[12] to preserve the BPTC tail bits already written there.
+	payload[12] |= 0x04
+	copy(payload[13:19], DataSyncBS[:])
+	payload[19] = 0x7E
 	return BuildDMRDFrame(seq, srcID, dstID, rptID, slot, callType,
 		FrameTypeDataSync, 0x01, streamID, payload)
 }
@@ -362,41 +424,13 @@ func BuildVoiceLCHeader(seq byte, srcID, dstID, rptID, streamID uint32, slot, ca
 // BuildVoiceTerminator builds a DMRD frame for a Voice Terminator with LC.
 func BuildVoiceTerminator(seq byte, srcID, dstID, rptID, streamID uint32, slot, callType byte) []byte {
 	var payload [33]byte
-
-	// Same Full LC as header
-	var lc [12]byte
-	if callType == CallTypePrivate {
-		lc[0] = 0x03
-	}
-	lc[3] = byte(dstID >> 16)
-	lc[4] = byte(dstID >> 8)
-	lc[5] = byte(dstID)
-	lc[6] = byte(srcID >> 16)
-	lc[7] = byte(srcID >> 8)
-	lc[8] = byte(srcID)
-
-	encodeBPTC(lc[:9], &payload)
-
+	full := buildFullLC(dstID, srcID, callType)
+	bptc19696Encode(full, &payload)
+	payload[12] |= 0x04
+	copy(payload[13:19], DataSyncBS[:])
+	payload[19] = 0x7E
 	return BuildDMRDFrame(seq, srcID, dstID, rptID, slot, callType,
 		FrameTypeDataSync, 0x02, streamID, payload)
-}
-
-// encodeBPTC performs a simplified BPTC(196,96) encoding of LC data into burst payload.
-// This is a minimal implementation that places LC data in the correct positions.
-func encodeBPTC(lc []byte, payload *[33]byte) {
-	// Place LC data into the info part of the burst
-	// The full BPTC encoding involves column parity and Hamming codes,
-	// but for basic operation we place the data bytes and let the
-	// receiver handle FEC.
-	//
-	// Data layout in BPTC(196,96):
-	// 196 total bits = 96 data + 100 parity/reserved
-	// Rows 0-12 x Cols 0-14 matrix, data at specific positions
-	//
-	// Simplified: embed raw LC in burst halves around the SYNC
-	copy(payload[0:9], lc[:9])
-	// Add data sync pattern in the middle
-	copy(payload[13:19], DataSyncBS[:])
 }
 
 func padRight(s string, length int) string {

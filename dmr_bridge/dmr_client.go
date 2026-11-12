@@ -29,6 +29,7 @@ type DMRClient struct {
 	txBurst    int // 0-5 (A-F) burst counter
 	txBuf      [][9]byte
 	txMu       sync.Mutex
+	txActive   bool
 
 	// Callbacks
 	onVoice     func(srcID uint32, frames [3][9]byte)
@@ -224,6 +225,14 @@ func (c *DMRClient) RunReader() {
 			continue
 		}
 
+		// MSTPONG — master's reply to our own RPTPING keepalive.
+		if n >= 7 && string(data[:7]) == SigMSTPO {
+			c.mu.Lock()
+			c.missedPings = 0
+			c.mu.Unlock()
+			continue
+		}
+
 		// MSTCL — master close
 		if n >= 5 && string(data[:5]) == SigMSTC {
 			log.Println("[DMR] Master sent close")
@@ -244,8 +253,13 @@ func (c *DMRClient) RunReader() {
 			if frame.Slot != c.timeslot {
 				continue
 			}
-			// Skip our own transmissions
-			if frame.RptID == c.rptID {
+			// Skip our own active transmission, matched by stream ID rather
+			// than RptID: some masters stamp RptID with our own ID on every
+			// incoming frame addressed to us, not just true echoes.
+			c.txMu.Lock()
+			selfEcho := c.txActive && frame.StreamID == c.txStreamID
+			c.txMu.Unlock()
+			if selfEcho {
 				continue
 			}
 
@@ -289,6 +303,7 @@ func (c *DMRClient) StartTX() {
 	defer c.txMu.Unlock()
 
 	c.txStreamID = rand.Uint32()
+	c.txActive = true
 	c.txSeq = 0
 	c.txBurst = 0
 	c.txBuf = c.txBuf[:0]
@@ -320,7 +335,7 @@ func (c *DMRClient) SendVoice(ambe [9]byte) error {
 	copy(frames[2][:], c.txBuf[2][:])
 	c.txBuf = c.txBuf[:0]
 
-	payload := BuildAMBEPayload(frames, c.txBurst)
+	payload := BuildAMBEPayload(frames, c.txBurst, c.colorCode)
 
 	// Determine frame type
 	var frameType byte
@@ -356,7 +371,7 @@ func (c *DMRClient) StopTX() error {
 		copy(frames[2][:], c.txBuf[2][:])
 		c.txBuf = c.txBuf[:0]
 
-		payload := BuildAMBEPayload(frames, c.txBurst)
+		payload := BuildAMBEPayload(frames, c.txBurst, c.colorCode)
 		var frameType byte
 		if c.txBurst == 0 {
 			frameType = FrameTypeVoiceSync
@@ -374,8 +389,35 @@ func (c *DMRClient) StopTX() error {
 		c.txStreamID, c.timeslot, CallTypeGroup)
 	_, err := c.conn.Write(term)
 
+	c.txActive = false
 	log.Printf("[DMR] TX stop: stream=%08X", c.txStreamID)
 	return err
+}
+
+// RunPinger proactively sends RPTPING to the master on a fixed interval,
+// as required by the MMDVM Homebrew protocol (HBLink3 and compatible
+// masters expect the repeater to initiate keepalives; they do not always
+// send MSTPING on their own).
+func (c *DMRClient) RunPinger() {
+	log.Println("[DMR] RunPinger goroutine started")
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-c.Done():
+			log.Println("[DMR] RunPinger stopping (done)")
+			return
+		case <-ticker.C:
+			if c.isClosed() {
+				log.Println("[DMR] RunPinger stopping (closed)")
+				return
+			}
+			if _, err := c.conn.Write(BuildPingPacket(c.rptID)); err != nil {
+				log.Printf("[DMR] RPTPING send error: %v", err)
+			}
+		}
+	}
 }
 
 func (c *DMRClient) isClosed() bool {

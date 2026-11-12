@@ -293,6 +293,14 @@ func (c *ODMRTPClient) StartTX() {
 	log.Printf("[ODMRTP] TX start: TG=%d src=%d", c.talkgroup, c.dmrID)
 	sh := buildSuperHeader(rewindSessionGroupVoice, c.dmrID, c.talkgroup, c.callsign)
 	c.sendRealtime(rewindTypeSuperHeader, sh)
+	// The SuperHeader above is only an optional display enhancement (per
+	// REWIND_OPTION_SUPER_HEADER); it does NOT announce the call to
+	// BrandMeister's DMR routing core. That requires the real DMR Voice
+	// Header (Grp_V_Ch_Usr LC PDU) -- same 12-byte LC+RS(12,9) content our
+	// Homebrew path already builds and has verified correct. Without this,
+	// BrandMeister silently never opens/routes the call.
+	lc := buildFullLC(c.talkgroup, c.dmrID, CallTypeGroup)
+	c.sendRealtime(rewindTypeDMRStart, lc[:])
 }
 
 // SendVoice buffers an AMBE frame and emits an audio packet every 3 frames.
