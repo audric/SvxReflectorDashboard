@@ -105,7 +105,7 @@
                       %span.text-gray-400.text-xs.truncate{style: "max-width:150px", title: rx['text']}= rx['text']
                   - elsif rx['src_id'].present?
                     %i.bi.bi-broadcast-pin.text-amber-400{style: "font-size:.65rem"}
-                    %span.text-amber-300.font-mono.text-xs= rx['src_id']
+                    %span.text-amber-300.font-mono.text-xs= rx['callsign'].presence || rx['src_id']
                     - if rx['talkgroup'].present?
                       %span.text-gray-500.text-xs= "TG#{rx['talkgroup']}"
                   - elsif rx['src_radio'].present?
@@ -226,7 +226,7 @@
           var dm = node.dmr_rx;
           if (dm && dm.src_id) {
             h += '<i class="bi bi-broadcast-pin text-amber-400" style="font-size:.65rem"></i>';
-            h += '<span class="text-amber-300 font-mono text-xs">' + esc(dm.src_id) + '</span>';
+            h += '<span class="text-amber-300 font-mono text-xs">' + esc(dm.callsign || dm.src_id) + '</span>';
             if (dm.talkgroup) h += '<span class="text-gray-500 text-xs">TG' + esc(dm.talkgroup) + '</span>';
           }
           var ys = node.ysf_rx;

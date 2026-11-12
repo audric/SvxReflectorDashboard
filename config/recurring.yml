@@ -3,3 +3,10 @@ production:
     class: PruneNodeEventsJob
     args: [tg_join, tg_leave, connected, disconnected, remote_talk_start, remote_talk_stop]
     schedule: every day at 4am
+  refresh_dmr_ids:
+    class: RefreshDmrIdsJob
+    schedule: every day at 3am
+  ensure_dmr_ids:
+    class: RefreshDmrIdsJob
+    args: [ensure]
+    schedule: every 10 minutes

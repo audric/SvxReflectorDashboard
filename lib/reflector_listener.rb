@@ -687,6 +687,12 @@ class ReflectorListener
       val = redis.get(key)
       next unless val
       data = JSON.parse(val) rescue next
+      # Resolve the talker's callsign from the radioid.net table that
+      # RefreshDmrIdsJob keeps in Redis (absent until the first load).
+      if data.is_a?(Hash) && data['src_id'].present? && data['callsign'].blank?
+        cs = redis.hget('dmr:ids', data['src_id'].to_s)
+        data['callsign'] = cs if cs.present?
+      end
       nodes[callsign]['dmr_rx'] = data
     end
   rescue => e
