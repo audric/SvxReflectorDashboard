@@ -46,6 +46,7 @@ class Bridge < ApplicationRecord
     validates :dmr_talkgroup, presence: true, numericality: { greater_than: 0 }
     validates :dmr_timeslot, presence: true, inclusion: { in: [1, 2], message: "must be 1 or 2" }
     validates :dmr_color_code, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 15, message: "must be 0-15" }, allow_nil: true
+    validates :dmr_options, length: { maximum: 300 }, format: { without: /[\r\n]/, message: "must be a single line" }, allow_blank: true
   end
 
   # YSF-specific validations

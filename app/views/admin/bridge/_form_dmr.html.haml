@@ -65,6 +65,10 @@
           %label.block.text-sm.text-gray-500.mb-1 CALLSIGN
           = f.text_field :dmr_callsign, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext uppercase", placeholder: "e.g. F1ABC", style: "text-transform: uppercase"
           %p.text-xs.text-ghmuted.mt-1 Callsign reported to DMR network (defaults to local callsign)
+        .mb-1
+          %label.block.text-sm.text-gray-500.mb-1 OPTIONS STRING
+          = f.text_field :dmr_options, class: "w-full px-3 py-2 rounded-md border border-gray-600 text-sm bg-[#0d1117] text-ghtext font-mono", placeholder: "e.g. TS2=22270;TIMER=0"
+          %p.text-xs.text-ghmuted.mt-1 Optional RPTO options string sent after config (e.g. ADN-style static TG pinning). Leave empty to skip.
 
   -# ── Local Reflector ──
   .rounded-lg.border.border-gray-600.bg-ghcard.mb-4

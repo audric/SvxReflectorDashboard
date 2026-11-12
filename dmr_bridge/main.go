@@ -66,6 +66,7 @@ func main() {
 	dmrTimeslot := byte(envInt("DMR_TIMESLOT", 2) - 1) // 1-based → 0-based
 	dmrColorCode := byte(envInt("DMR_COLOR_CODE", 1))
 	dmrCallsign := envDefault("DMR_CALLSIGN", callsign)
+	dmrOptions := envDefault("DMR_OPTIONS", "")
 	nodeLocation := envDefault("NODE_LOCATION", "")
 	sysop := envDefault("SYSOP", "")
 
@@ -105,7 +106,7 @@ func main() {
 
 	for {
 		err := runBridge(svxHost, svxPort, svxAuthKey, svxTG, callsign, nodeLocation, sysop,
-			dmrProtocol, dmrHost, dmrPort, dmrID, dmrPassword, dmrCallsign, dmrTalkgroup, dmrTimeslot, dmrColorCode,
+			dmrProtocol, dmrHost, dmrPort, dmrID, dmrPassword, dmrCallsign, dmrOptions, dmrTalkgroup, dmrTimeslot, dmrColorCode,
 			redisURL, voc, opusDec, opusEnc, sigCh)
 
 		if err == errShutdown {
@@ -136,7 +137,7 @@ var errShutdown = fmt.Errorf("shutdown")
 
 func runBridge(
 	svxHost string, svxPort int, svxAuthKey string, svxTG uint32, callsign string, nodeLocation string, sysop string,
-	dmrProtocol string, dmrHost string, dmrPort int, dmrID uint32, dmrPassword string, dmrCallsign string,
+	dmrProtocol string, dmrHost string, dmrPort int, dmrID uint32, dmrPassword string, dmrCallsign string, dmrOptions string,
 	dmrTalkgroup uint32, dmrTimeslot byte, dmrColorCode byte,
 	redisURL string, voc *Vocoder, opusDec *opus.Decoder, opusEnc *opus.Encoder,
 	sigCh <-chan os.Signal,
@@ -196,7 +197,7 @@ func runBridge(
 	if isODMRTP(dmrProtocol) {
 		dmr = NewODMRTPClient(dmrHost, dmrPort, dmrID, dmrPassword, dmrCallsign, dmrTalkgroup)
 	} else {
-		dmr = NewDMRClient(dmrHost, dmrPort, dmrID, dmrPassword, dmrCallsign,
+		dmr = NewDMRClient(dmrHost, dmrPort, dmrID, dmrPassword, dmrCallsign, dmrOptions,
 			dmrTalkgroup, dmrTimeslot, dmrColorCode)
 	}
 

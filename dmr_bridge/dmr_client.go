@@ -16,6 +16,7 @@ type DMRClient struct {
 	rptID     uint32
 	password  string
 	callsign  string
+	options   string
 	talkgroup uint32
 	timeslot  byte
 	colorCode byte
@@ -42,7 +43,7 @@ type DMRClient struct {
 	missedPings int
 }
 
-func NewDMRClient(host string, port int, rptID uint32, password, callsign string,
+func NewDMRClient(host string, port int, rptID uint32, password, callsign, options string,
 	talkgroup uint32, timeslot, colorCode byte) *DMRClient {
 	return &DMRClient{
 		host:      host,
@@ -50,6 +51,7 @@ func NewDMRClient(host string, port int, rptID uint32, password, callsign string
 		rptID:     rptID,
 		password:  password,
 		callsign:  callsign,
+		options:   options,
 		talkgroup: talkgroup,
 		timeslot:  timeslot,
 		colorCode: colorCode,
@@ -133,6 +135,19 @@ func (c *DMRClient) Connect() error {
 		return fmt.Errorf("config ACK: %w", err)
 	}
 	log.Println("[DMR] Config accepted, connected to master")
+
+	// Step 4 (optional): Send RPTO (options string), e.g. for ADN-style
+	// static TG pinning ("TS2=22270;TIMER=0"). Not all masters expect or
+	// ACK this, so we send it best-effort and do not block waiting for a
+	// reply.
+	if c.options != "" {
+
+		if _, err := c.conn.Write(BuildOptionsPacket(c.rptID, c.options)); err != nil {
+			log.Printf("[DMR] send RPTO: %v", err)
+		} else {
+			log.Printf("[DMR] Sent options: %s", c.options)
+		}
+	}
 
 	return nil
 }
