@@ -1343,7 +1343,7 @@
           var nc = (n.nodeClass || '').toLowerCase();
           var icon = iconMap[nc] || 'bi-broadcast';
           var h = '';
-          h += '<td class="px-3 py-2 truncate" style="width:120px;max-width:120px"><i class="bi ' + icon + ' mr-1"></i><span class="capitalize">' + (nc || '—') + '</span></td>';
+          h += '<td class="px-3 py-2 truncate" style="width:120px;max-width:120px"><i class="bi ' + icon + ' mr-1"></i><span class="capitalize">' + (nc ? esc(nc) : '—') + '</span></td>';
           h += '<td class="px-3 py-2" id="node-row-' + cs + '-cs">' + buildCsCellHtml(cs, isTalker) + '</td>';
           h += '<td class="px-3 py-2" id="node-row-' + cs + '-sig">' + buildSigCellHtml(n) + '</td>';
           h += '<td class="px-3 py-2" id="node-row-' + cs + '-status">' + buildStatusCellHtml(isTalker, tg) + '</td>';
