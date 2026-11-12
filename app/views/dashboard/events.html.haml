@@ -58,6 +58,7 @@
           Events
           %span.ml-1.font-normal#events-count
             = "#{@recent_events.size} event#{'s' unless @recent_events.size == 1}"
+        = render 'shared/clocks'
         %input#events-search.px-3.py-1.text-xs.rounded.border.border-ghborder.bg-ghbg.text-ghtext{type: "text", placeholder: "Search callsign...", style: "width:140px;outline:none"}
       .overflow-x-auto.mb-3.pb-1{style: "-webkit-overflow-scrolling:touch"}
         .inline-flex.rounded.border.border-ghborder.overflow-hidden#event-filters
