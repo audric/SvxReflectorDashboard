@@ -1,13 +1,13 @@
 package main
 
 import (
-	"encoding/binary"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
 	"os"
-	"os/exec"
-	"sync"
+	"path/filepath"
 )
 
 // PCM audio parameters
@@ -17,114 +17,72 @@ const (
 	AMBEFrameSize = 9    // 9 bytes = 72 bits DMR AMBE+2
 )
 
-// Vocoder wraps a persistent md380_helper subprocess (the real MD380
-// radio firmware running under qemu-arm emulation) for DMR AMBE+2
-// 2450x1150 encode/decode. The subprocess speaks a simple framed
-// protocol over stdin/stdout: 'D'+9 bytes AMBE -> 320 bytes PCM,
-// 'E'+320 bytes PCM -> 9 bytes AMBE. Requests are serialized by mu,
-// matching the subprocess's single request-in-flight design.
+// MD380 firmware images the operator may supply. They are not distributed
+// with the bridge. The helper calls into the firmware at fixed addresses,
+// so only these exact images (identified by SHA-256) are accepted.
+const (
+	md380FirmwareFile = "md380fw.img"
+	md380FirmwareSHA  = "c0351f250a834660641bca3b06be931c80cc1ed0ef808356c550b99cd0f4c632"
+	md380RAMFile      = "md380ram.img"
+	md380RAMSHA       = "d40398183e9aa8db6288a62d9a0e0c233cb143ef5633680abd829cc03c719f66"
+)
+
+type vocoderBackend interface {
+	Decode(ambe [9]byte) [PCMFrameSize]int16
+	Encode(pcm [PCMFrameSize]int16) [9]byte
+	Close()
+}
+
+// Vocoder converts between DMR AMBE+2 2450x1150 frames and PCM using one
+// of two backends: the MD380 firmware when the operator has supplied it,
+// otherwise the built-in software vocoder.
 type Vocoder struct {
-	cmd    *exec.Cmd
-	stdin  io.WriteCloser
-	stdout io.ReadCloser
-	mu     sync.Mutex
-	closed bool
-	exited chan struct{}
+	vocoderBackend
 }
 
-// NewVocoder starts the md380_helper subprocess under the qemu-arm-static
-// emulator shipped in the image, so the host needs no qemu or binfmt_misc
-// setup.
+// NewVocoder picks the backend. MD380_FIRMWARE_DIR (default /firmware) is
+// where the operator-supplied firmware images are looked up.
 func NewVocoder() (*Vocoder, error) {
-	cmd := exec.Command("/usr/local/bin/qemu-arm-static", "/usr/local/bin/md380_helper")
-	cmd.Stderr = os.Stderr
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, fmt.Errorf("md380_helper stdin: %w", err)
+	dir := envDefault("MD380_FIRMWARE_DIR", "/firmware")
+	fw := filepath.Join(dir, md380FirmwareFile)
+	ram := filepath.Join(dir, md380RAMFile)
+
+	err := checkSHA256(fw, md380FirmwareSHA)
+	if err == nil {
+		err = checkSHA256(ram, md380RAMSHA)
 	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, fmt.Errorf("md380_helper stdout: %w", err)
-	}
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("md380_helper start: %w", err)
-	}
-	v := &Vocoder{cmd: cmd, stdin: stdin, stdout: stdout, exited: make(chan struct{})}
-	// Exit as soon as the helper goes away, even while idle, so the
-	// container restarts with a working vocoder before the next call.
-	go func() {
-		err := cmd.Wait()
-		v.mu.Lock()
-		closed := v.closed
-		v.mu.Unlock()
-		close(v.exited)
-		if !closed {
-			helperDied(fmt.Errorf("process exited: %v", err))
+	if err == nil {
+		var md *md380Vocoder
+		if md, err = newMD380Vocoder(fw, ram); err == nil {
+			log.Printf("[Vocoder] Using MD380 firmware vocoder (%s)", dir)
+			return &Vocoder{md}, nil
 		}
-	}()
-	return v, nil
+	}
+	if os.IsNotExist(err) {
+		log.Printf("[Vocoder] No MD380 firmware in %s, using built-in software vocoder", dir)
+	} else {
+		log.Printf("[Vocoder] MD380 firmware not usable (%v), using built-in software vocoder", err)
+	}
+
+	soft, err := newSoftVocoder()
+	if err != nil {
+		return nil, err
+	}
+	return &Vocoder{soft}, nil
 }
 
-// Close terminates the subprocess.
-func (v *Vocoder) Close() {
-	v.mu.Lock()
-	v.closed = true
-	if v.stdin != nil {
-		v.stdin.Close()
+func checkSHA256(path, want string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
 	}
-	if v.cmd != nil && v.cmd.Process != nil {
-		v.cmd.Process.Kill()
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return err
 	}
-	v.mu.Unlock()
-	<-v.exited
-}
-
-// Decode converts a 9-byte DMR AMBE+2 frame to 160 PCM samples (8kHz, 16-bit mono).
-func (v *Vocoder) Decode(ambe [9]byte) [PCMFrameSize]int16 {
-	v.mu.Lock()
-	defer v.mu.Unlock()
-
-	var pcm [PCMFrameSize]int16
-	req := make([]byte, 1+9)
-	req[0] = 'D'
-	copy(req[1:], ambe[:])
-	if _, err := v.stdin.Write(req); err != nil {
-		helperDied(err)
+	if got := hex.EncodeToString(h.Sum(nil)); got != want {
+		return fmt.Errorf("%s: unexpected SHA-256 %s", filepath.Base(path), got)
 	}
-	buf := make([]byte, PCMFrameSize*2)
-	if _, err := io.ReadFull(v.stdout, buf); err != nil {
-		helperDied(err)
-	}
-	for i := 0; i < PCMFrameSize; i++ {
-		pcm[i] = int16(binary.LittleEndian.Uint16(buf[i*2 : i*2+2]))
-	}
-	return pcm
-}
-
-// Encode converts 160 PCM samples (8kHz, 16-bit mono) to a 9-byte DMR AMBE+2 frame.
-func (v *Vocoder) Encode(pcm [PCMFrameSize]int16) [9]byte {
-	v.mu.Lock()
-	defer v.mu.Unlock()
-
-	var ambe [9]byte
-	req := make([]byte, 1+PCMFrameSize*2)
-	req[0] = 'E'
-	for i := 0; i < PCMFrameSize; i++ {
-		binary.LittleEndian.PutUint16(req[1+i*2:1+i*2+2], uint16(pcm[i]))
-	}
-	if _, err := v.stdin.Write(req); err != nil {
-		helperDied(err)
-	}
-	buf := make([]byte, 9)
-	if _, err := io.ReadFull(v.stdout, buf); err != nil {
-		helperDied(err)
-	}
-	copy(ambe[:], buf)
-	return ambe
-}
-
-// helperDied exits the bridge when the vocoder subprocess is gone: without
-// it every frame would be silence, so let the container restart instead.
-func helperDied(err error) {
-	log.Fatalf("[Vocoder] md380_helper stopped responding: %v", err)
+	return nil
 }

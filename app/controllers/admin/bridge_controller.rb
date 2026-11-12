@@ -357,6 +357,7 @@ module Admin
 
     def start_dmr_container(bridge)
       network = docker_network
+      FileUtils.mkdir_p(Bridge::MD380_FIRMWARE_DIR) rescue nil
       body = {
         Image: "ghcr.io/audric/svxreflectordashboard-dmr-bridge",
         Labels: {
@@ -387,6 +388,8 @@ module Admin
           "REDIS_URL=#{ENV.fetch('REDIS_URL', 'redis://redis:6379/1')}"
         ] + agc_env_array(bridge),
         HostConfig: {
+          # Operator-supplied MD380 firmware (optional), see Bridge::MD380_FIRMWARE_DIR
+          Binds: ["#{File.join(bridge_host_dir, 'md380')}:/firmware:ro"],
           RestartPolicy: { Name: "unless-stopped" }
         }
       }

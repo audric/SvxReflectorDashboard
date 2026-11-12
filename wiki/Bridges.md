@@ -80,7 +80,7 @@ All `AGC_*` and `FILTER_*` variables exist for both directions (`SVX_TO_EXT_*` a
 
 ### DMR bridge
 
-Connects a local SVXReflector to a DMR network. Runs as a standalone Go binary (`dmr-bridge-<id>`) that transcodes audio between OPUS (SVXReflector) and AMBE+2 (DMR) via the MBEVocoder from DroidStar. Includes voice bandpass filter and AGC on both directions.
+Connects a local SVXReflector to a DMR network. Runs as a standalone Go binary (`dmr-bridge-<id>`) that transcodes audio between OPUS (SVXReflector) and AMBE+2 (DMR) with a built-in software vocoder (MBEVocoder from DroidStar) or, optionally, the MD380 firmware vocoder (see below). Includes voice bandpass filter and AGC on both directions.
 
 The bridge supports two transport protocols, selected with the **Protocol** dropdown in the admin UI:
 
@@ -115,6 +115,21 @@ Environment variables passed to the container:
 | `REDIS_URL` | Redis connection for DMR RX metadata publishing |
 
 All `AGC_*` and `FILTER_*` variables exist for both directions (`SVX_TO_EXT_*` and `EXT_TO_SVX_*`). See [Audio Processing](#audio-processing) for details.
+
+**Optional MD380 firmware vocoder.** The built-in software vocoder works out of the box. For better audio the bridge can instead run the AMBE+2 codec from the TYT MD-380 radio firmware. The firmware is proprietary and is **not distributed with the dashboard or its images** — you supply it yourself:
+
+1. Obtain the two firmware images, `md380fw.img` and `md380ram.img`. The [md380_vocoder](https://github.com/nostar/md380_vocoder) project documents where they come from.
+2. Place both files in `bridge/md380/` inside the dashboard directory on the host.
+3. Stop and start the DMR bridge from the admin UI.
+
+Only these exact images are accepted, because the bridge calls into the firmware at fixed addresses:
+
+| File | SHA-256 |
+|---|---|
+| `md380fw.img` | `c0351f250a834660641bca3b06be931c80cc1ed0ef808356c550b99cd0f4c632` |
+| `md380ram.img` | `d40398183e9aa8db6288a62d9a0e0c233cb143ef5633680abd829cc03c719f66` |
+
+The DMR bridge form shows which vocoder is in use, and the bridge log has a `[Vocoder]` line at start-up. If the files are missing or do not match, the bridge keeps using the software vocoder. No emulation setup is needed on the host: the image ships its own `qemu-arm-static`. A DMR bridge created before this feature must be stopped and started once so its container gets the `/firmware` mount.
 
 ### YSF bridge
 

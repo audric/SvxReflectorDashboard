@@ -218,6 +218,31 @@ class Bridge < ApplicationRecord
 
   MAX_BACKUPS = 10
 
+  # Optional MD380 firmware vocoder for DMR bridges. The firmware is not
+  # distributed with the dashboard: the operator places the two image files
+  # in bridge/md380/ on the host, and DMR bridge containers mount that
+  # directory read-only at /firmware. The bridge accepts only these exact
+  # images and otherwise uses its built-in software vocoder.
+  MD380_FIRMWARE_DIR = Rails.root.join("bridge", "md380")
+  MD380_FIRMWARE_FILES = {
+    "md380fw.img"  => "c0351f250a834660641bca3b06be931c80cc1ed0ef808356c550b99cd0f4c632",
+    "md380ram.img" => "d40398183e9aa8db6288a62d9a0e0c233cb143ef5633680abd829cc03c719f66"
+  }.freeze
+
+  # :ok when both images are present and match, :missing when neither is
+  # there, :invalid when a file is absent or has an unexpected checksum.
+  def self.md380_firmware_status
+    present = MD380_FIRMWARE_FILES.keys.select { |f| File.file?(MD380_FIRMWARE_DIR.join(f)) }
+    return :missing if present.empty?
+    ok = MD380_FIRMWARE_FILES.all? do |file, sha|
+      path = MD380_FIRMWARE_DIR.join(file)
+      File.file?(path) && Digest::SHA256.file(path).hexdigest == sha
+    end
+    ok ? :ok : :invalid
+  rescue SystemCallError
+    :invalid
+  end
+
   def generate_config
     FileUtils.mkdir_p(config_dir, mode: 0o755)
     backup_configs
