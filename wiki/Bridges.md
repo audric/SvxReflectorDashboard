@@ -93,6 +93,8 @@ Notes:
 - **DMR ID** for Open DMR Terminal must be the plain registered ID **without** the two-digit hotspot/SSID suffix.
 - **Timeslot** and **color code** apply to MMDVM Homebrew only; they are ignored (and hidden in the UI) for Open DMR Terminal.
 - Leave **Port** blank to use the protocol default (Homebrew 62030, ODMRTP 54006).
+- **Options String** (MMDVM Homebrew only, optional) — a free-form string sent to the master as an `RPTO` packet right after the config is accepted. Some masters use it for static talkgroups, e.g. `TS2=22270;TIMER=0` on ADN-style servers. Single line, at most 300 characters; leave it empty to send nothing. Whether a given master acts on it depends on that master.
+- **Caller callsigns** — when a DMR station transmits through the bridge, the dashboard and the Events page show the caller's callsign instead of the numeric DMR ID. The lookup uses the public [radioid.net](https://radioid.net) user database, which a scheduled job loads into Redis every night at 03:00 (and within about 10 minutes of start-up when the table is missing). The table is only loaded on installs that have a DMR bridge. IDs not in the database are shown as the plain number. The job needs outbound HTTPS access to `radioid.net`.
 
 Environment variables passed to the container:
 
@@ -111,6 +113,8 @@ Environment variables passed to the container:
 | `DMR_TIMESLOT` | Timeslot 1 or 2 (Homebrew only) |
 | `DMR_COLOR_CODE` | Color code 0–15 (Homebrew only) |
 | `DMR_CALLSIGN` | Callsign reported to the DMR network (defaults to the local callsign) |
+| `DMR_OPTIONS` | Optional `RPTO` options string sent after login (Homebrew only), e.g. `TS2=22270;TIMER=0` |
+| `MD380_FIRMWARE_DIR` | Where the bridge looks for operator-supplied MD380 firmware (default `/firmware`, mounted from `bridge/md380/`) |
 | `CALLSIGN` | Bridge callsign on the local reflector |
 | `REDIS_URL` | Redis connection for DMR RX metadata publishing |
 

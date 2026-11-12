@@ -195,6 +195,8 @@ Note: HPF/LPF/AGC only applies inside the Go bridge. The SVXLink repeater's audi
 | `reflector:config` | String (JSON) | GeuReflector `/config` endpoint cache (mode, topology) |
 | `web_node_info` | Hash | Per-callsign browser metadata for web listeners |
 | `dstar_rx:<callsign>` | String (JSON) | D-STAR RX metadata from XLX bridges (MYCALL, suffix, slow data text). Set with 30s TTL on voice start, updated with decoded text each superframe, deleted on stream end. |
+| `dmr_rx:<callsign>` | String (JSON) | DMR RX metadata from DMR bridges (source DMR ID, talkgroup, timeslot). The poller adds the caller's callsign from `dmr:ids` when known. |
+| `dmr:ids` | Hash | DMR ID → callsign table from radioid.net, loaded nightly by `RefreshDmrIdsJob` (about 317,000 entries, roughly 20 MB). `dmr:ids:updated_at` holds the time of the last successful load. Only populated when a DMR bridge exists. |
 
 ## GeuReflector extensions
 
