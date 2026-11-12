@@ -45,8 +45,15 @@ Rails.application.configure do
   # config.assume_ssl = true
 
   # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
-  # Disabled: this is a local LAN dashboard without TLS.
-  config.force_ssl = false
+  # TLS is terminated by the reverse proxy, which also handles the HTTP->HTTPS
+  # redirect. Rails never redirects (plain-HTTP requests such as the container
+  # healthcheck pass through untouched); requests that arrived over HTTPS get
+  # Secure session cookies and an HSTS header.
+  config.force_ssl = true
+  config.ssl_options = {
+    redirect: { exclude: ->(request) { !request.ssl? } },
+    hsts: { subdomains: false }
+  }
 
   # Log to STDOUT by default
   config.logger = ActiveSupport::Logger.new(STDOUT)
